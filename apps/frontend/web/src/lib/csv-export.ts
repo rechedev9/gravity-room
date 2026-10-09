@@ -1,4 +1,5 @@
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
+import { type WeightUnit, kgToDisplay } from '@/lib/weight-unit';
 
 function escapeCsvField(value: string): string {
   // Spreadsheet applications interpret these leading characters as formulas.
@@ -16,10 +17,17 @@ function escapeCsvField(value: string): string {
   return safeValue;
 }
 
-export function generateProgramCsv(
-  rows: readonly GenericWorkoutRow[],
-  workoutsPerWeek: number
-): string {
+export interface ProgramCsvOptions {
+  readonly rows: readonly GenericWorkoutRow[];
+  readonly workoutsPerWeek: number;
+  readonly unit?: WeightUnit;
+}
+
+export function generateProgramCsv({
+  rows,
+  workoutsPerWeek,
+  unit = 'kg',
+}: ProgramCsvOptions): string {
   const headers = [
     'Week',
     'Workout',
@@ -28,7 +36,7 @@ export function generateProgramCsv(
     'Tier',
     'Sets',
     'Reps',
-    'Weight (kg)',
+    `Weight (${unit})`,
     'Result',
     'AMRAP Reps',
     'RPE',
@@ -56,7 +64,7 @@ export function generateProgramCsv(
         slot.tier.toUpperCase(),
         String(slot.sets),
         repsLabel,
-        String(slot.weight),
+        String(kgToDisplay(slot.weight, unit)),
         slot.result ?? '',
         slot.amrapReps !== undefined ? String(slot.amrapReps) : '',
         slot.rpe !== undefined ? String(slot.rpe) : '',

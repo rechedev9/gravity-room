@@ -20,6 +20,7 @@ import { EmptyState } from '@/components/empty-state';
 import { FrequencyCard } from './frequency-card';
 import { PlateauAlert } from './plateau-alert';
 import { LoadRecommendation } from './load-recommendation';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 // VolumeTrendCard pulls in recharts; keep it out of the insights preload chunk.
 const VolumeTrendCard = lazyWithRetry(() =>
@@ -44,6 +45,7 @@ function ChartFallback(): React.ReactNode {
 
 export function InsightsPage(): React.ReactNode {
   const { t, i18n } = useTranslation();
+  const { unit, toDisplay } = useUnitPreference();
   const { user } = useAuth();
   useDocumentTitle(t('insights.page.title'));
 
@@ -169,8 +171,10 @@ export function InsightsPage(): React.ReactNode {
             <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
               <StatBlock
                 label={t('insights.volume_trend.title')}
-                value={stats.latestVolume !== null ? stats.latestVolume.toLocaleString() : '—'}
-                sub={stats.latestVolume !== null ? `kg · ${directionLabel}` : undefined}
+                value={
+                  stats.latestVolume !== null ? toDisplay(stats.latestVolume).toLocaleString() : '—'
+                }
+                sub={stats.latestVolume !== null ? `${unit} · ${directionLabel}` : undefined}
                 gold
               />
               <StatBlock

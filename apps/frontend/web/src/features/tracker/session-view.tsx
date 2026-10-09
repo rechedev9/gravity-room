@@ -14,6 +14,7 @@ import { DayCompletedPanel } from './day-completed-panel';
 import { FailureExplainer } from './failure-explainer';
 import { SessionSidePanel } from './session-side-panel';
 import { daysBetween, findPreviousSameDay, isSlotResolved } from './session-history';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 export interface SessionViewProps {
   readonly definition: ProgramDefinition;
@@ -43,6 +44,7 @@ function SecondarySlotCard({
   readonly slotActions: SlotActions;
 }): ReactNode {
   const { t } = useTranslation();
+  const { format } = useUnitPreference();
   const { onMark, onUndo, onSetAmrapReps, onSetRpe, onSetTap, getSetLogs, isSlotLogging } =
     slotActions;
   const hasPrescriptions = slot.prescriptions !== undefined;
@@ -54,7 +56,7 @@ function SecondarySlotCard({
     <SlotCardShell slot={slot} isCurrent={false}>
       <div className="mb-3 flex items-baseline gap-3">
         <span className="font-mono text-[26px] font-semibold leading-none text-main tabular-nums">
-          {showWeight ? `${slot.weight} kg` : '—'}
+          {showWeight ? format(slot.weight) : '—'}
         </span>
         <span className="font-mono text-xs text-info tabular-nums">
           {slot.sets}
@@ -107,6 +109,7 @@ function CompletedSlotRow({
   readonly slotActions: SlotActions;
 }): ReactNode {
   const { t } = useTranslation();
+  const { format } = useUnitPreference();
   const label = localizedExerciseName(t, slot.exerciseId, slot.exerciseName);
   const reps =
     slot.setLogs !== undefined && slot.setLogs.length > 0
@@ -124,7 +127,7 @@ function CompletedSlotRow({
       </span>
       <span className="text-[13.5px] text-muted">{label}</span>
       <span className="font-mono text-[13px] text-muted tabular-nums">
-        {slot.weight > 0 ? `${slot.weight} kg · ` : ''}
+        {slot.weight > 0 ? `${format(slot.weight)} · ` : ''}
         {reps}
       </span>
       <span

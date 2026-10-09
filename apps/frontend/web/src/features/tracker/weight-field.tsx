@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 interface WeightFieldProps {
   readonly fieldKey: string;
@@ -30,6 +32,19 @@ export function WeightField({
   onSubmit,
 }: WeightFieldProps): React.ReactNode {
   const { t } = useTranslation();
+  const { toDisplay, fromDisplay, format } = useUnitPreference();
+  const toDisplayText = (kgText: string): string => {
+    const n = parseFloat(kgText);
+    return Number.isNaN(n) ? kgText : String(toDisplay(n));
+  };
+  // `value` is kg; the box shows the preferred unit and keeps what the user is typing.
+  const [draft, setDraft] = useState(() => toDisplayText(value));
+  const typed = parseFloat(draft);
+  const stored = parseFloat(value);
+  const inSync = Number.isNaN(typed)
+    ? Number.isNaN(stored)
+    : !Number.isNaN(stored) && fromDisplay(typed) === stored;
+  const shown = inSync ? draft : toDisplayText(value);
   const isValid = touched && !fieldError;
   const fieldId = `weight-${fieldKey}`;
   const errorId = `${fieldKey}-error`;
@@ -55,13 +70,17 @@ export function WeightField({
           id={fieldId}
           type="number"
           inputMode="decimal"
-          value={value}
-          onChange={(e) => onChange(fieldKey, e.target.value)}
+          value={shown}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            const n = parseFloat(e.target.value);
+            onChange(fieldKey, Number.isNaN(n) ? e.target.value : String(fromDisplay(n)));
+          }}
           onBlur={() => onBlur(fieldKey, value)}
           onKeyDown={(e) => e.key === 'Enter' && onSubmit()}
           step="any"
-          min={min}
-          max="500"
+          min={toDisplay(min)}
+          max={toDisplay(500)}
           aria-invalid={fieldError ? 'true' : undefined}
           aria-describedby={fieldError ? errorId : undefined}
           className={`flex-1 min-w-0 px-3 py-2.5 border-2 text-base font-semibold bg-card text-main text-center focus:outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
@@ -95,7 +114,7 @@ export function WeightField({
         </p>
       ) : (
         <p className="text-[10px] text-muted mt-1">
-          {hint ?? t('tracker.weight_field.min_hint', { min })}
+          {hint ?? t('tracker.weight_field.min_hint', { min: format(min) })}
         </p>
       )}
     </div>

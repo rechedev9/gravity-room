@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { KpiCard } from './kpi-card';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 interface KpiStripProps {
   readonly streakDays: number;
@@ -15,6 +16,7 @@ export function KpiStripBrutalist({
   weekPr,
 }: KpiStripProps): React.ReactNode {
   const { t } = useTranslation();
+  const { format } = useUnitPreference();
   const completed = Math.min(totalSessions, totalWorkouts);
 
   return (
@@ -37,7 +39,7 @@ export function KpiStripBrutalist({
       {weekPr ? (
         <KpiCard
           label={t('dashboard.kpi_strip.weekly_pr')}
-          value={`${weekPr.weight}kg`}
+          value={format(weekPr.weight)}
           sub={weekPr.lift}
           accent
         />

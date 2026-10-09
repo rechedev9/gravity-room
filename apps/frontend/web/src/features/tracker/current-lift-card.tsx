@@ -7,6 +7,7 @@ import { SlotResultFooter } from '@/features/program-view/slot-result-footer';
 import { tierColorClass } from '@/features/program-view/tier-color';
 import type { SlotActions } from '@/features/program-view/day-view';
 import { RestTimer } from './rest-timer';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 export interface CurrentLiftCardProps {
   readonly slot: GenericSlotRow;
@@ -45,6 +46,7 @@ export function CurrentLiftCard({
   onSetTap,
 }: CurrentLiftCardProps): ReactNode {
   const { t } = useTranslation();
+  const { unit, toDisplay } = useUnitPreference();
   const exerciseLabel = localizedExerciseName(t, slot.exerciseId, slot.exerciseName);
   const hasPrescriptions = slot.prescriptions !== undefined;
   const isGpp = slot.isGpp === true;
@@ -101,10 +103,10 @@ export function CurrentLiftCard({
         <div className="flex flex-wrap items-end gap-5">
           <p className="flex items-baseline gap-1.5">
             <span className="font-display text-[56px] leading-[0.8] tracking-[0.01em] text-accent tabular-nums sm:text-[72px]">
-              {slot.weight > 0 ? slot.weight : '—'}
+              {slot.weight > 0 ? toDisplay(slot.weight) : '—'}
             </span>
             {slot.weight > 0 && (
-              <span className="font-mono text-base font-semibold text-muted">kg</span>
+              <span className="font-mono text-base font-semibold text-muted">{unit}</span>
             )}
           </p>
 

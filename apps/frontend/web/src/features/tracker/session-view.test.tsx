@@ -332,6 +332,6 @@ describe('SessionView', () => {
     renderView();
 
     const panel = screen.getByTestId('session-side-panel');
-    expect(within(panel).getByText('100 · 5×3')).toBeInTheDocument();
+    expect(within(panel).getByText('100 kg · 5×3')).toBeInTheDocument();
   });
 });

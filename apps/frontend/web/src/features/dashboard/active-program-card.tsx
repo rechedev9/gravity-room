@@ -18,6 +18,7 @@ import { RecentActivity } from './recent-activity';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Button } from '@/components/button';
 import { ProgressBar } from '@/components/progress-bar';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 interface ActiveProgramCardProps {
   readonly program: ProgramSummary;
@@ -30,6 +31,7 @@ export function ActiveProgramCard({
 }: ActiveProgramCardProps): React.ReactNode {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { unit, toDisplay } = useUnitPreference();
   const { setTracker } = useTracker();
   const queryClient = useQueryClient();
   const [showOrphanConfirm, setShowOrphanConfirm] = useState(false);
@@ -222,7 +224,7 @@ export function ActiveProgramCard({
               {t('catalog.active_card.kpi_volume')}
             </p>
             <p className="font-display-data text-xl text-main">
-              {formatVolume(profileData.volume.totalVolume)} kg
+              {formatVolume(toDisplay(profileData.volume.totalVolume))} {unit}
             </p>
           </div>
         </div>

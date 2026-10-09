@@ -10,6 +10,9 @@ import { Button } from '@/components/button';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { SelectField } from '@/components/select-field';
 import { localizedProgramName } from '@/lib/catalog-display';
+import { DEFAULT_BAR_KG } from '@gzclp/domain/barbell';
+import { roundToNearest } from '@gzclp/domain/generic-engine';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 import { WeightField } from './weight-field';
 
 interface SetupFormProps {
@@ -44,7 +47,10 @@ function getFieldDefault(
   if (initialConfig?.[field.key] !== undefined) {
     return String(initialConfig[field.key]);
   }
-  if (isWeightField(field)) return String(field.min);
+  // Start from the empty bar like the guided flow's "I don't know", not the bare minimum.
+  if (isWeightField(field)) {
+    return String(roundToNearest(Math.max(field.min, DEFAULT_BAR_KG), field.step));
+  }
   // Select: default to first option's value
   return field.options[0]?.value ?? '';
 }
@@ -76,6 +82,7 @@ export function SetupForm({
   onClose,
 }: SetupFormProps): React.ReactNode {
   const { t } = useTranslation();
+  const { unit, format } = useUnitPreference();
   const fields = definition.configFields;
   const isEditMode = initialConfig !== null && initialConfig !== undefined;
   // Always start closed. isExpanded only controls the edit dialog (edit mode);
@@ -108,13 +115,13 @@ export function SetupForm({
             ctx.addIssue({
               code: 'custom',
               path: [f.key],
-              message: t('tracker.setup_form.min_weight', { min }),
+              message: t('tracker.setup_form.min_weight', { min: format(min) }),
             });
           } else if (n > 500) {
             ctx.addIssue({
               code: 'custom',
               path: [f.key],
-              message: t('tracker.setup_form.max_weight'),
+              message: t('tracker.setup_form.max_weight', { max: format(500) }),
             });
           }
         } else {
@@ -128,7 +135,7 @@ export function SetupForm({
         }
       }
     });
-  }, [fields, t]);
+  }, [fields, t, format]);
 
   const defaultValues = useMemo((): FormValues => {
     const init: FormValues = {};
@@ -287,8 +294,8 @@ export function SetupForm({
     <>
       <h2 className="font-display mb-1.5 leading-none text-title" style={{ fontSize: '28px' }}>
         {isEditMode
-          ? (definition.configEditTitle ?? t('tracker.setup_form.edit_title_default'))
-          : (definition.configTitle ?? t('tracker.setup_form.create_title_default'))}
+          ? (definition.configEditTitle ?? t('tracker.setup_form.edit_title_default', { unit }))
+          : (definition.configTitle ?? t('tracker.setup_form.create_title_default', { unit }))}
       </h2>
       <p className="text-[13px] text-muted mb-5 whitespace-pre-line">
         {isEditMode
@@ -467,7 +474,9 @@ export function SetupForm({
                   {fields.slice(0, 4).map((f) => (
                     <span key={f.key}>
                       {f.label}:{' '}
-                      {isWeightField(f) ? `${initialConfig?.[f.key]}kg` : initialConfig?.[f.key]}
+                      {isWeightField(f)
+                        ? format(Number(initialConfig?.[f.key]))
+                        : initialConfig?.[f.key]}
                     </span>
                   ))}
                   {fields.length > 4 && (

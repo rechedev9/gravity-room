@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/cn';
 import { CornerTicks } from '@/components/corner-ticks';
 import { buttonClassName } from '@/components/button';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 export interface NextSet {
   readonly weight: number;
@@ -87,6 +88,7 @@ interface FullHeroProps {
 
 function FullHero({ instance, nextWorkout: nw, nextSet: ns }: FullHeroProps): React.ReactNode {
   const { t } = useTranslation();
+  const { format, toDisplay } = useUnitPreference();
 
   return (
     <section
@@ -114,7 +116,7 @@ function FullHero({ instance, nextWorkout: nw, nextSet: ns }: FullHeroProps): Re
       </header>
       <p className="chalk-stamp mt-5 text-label">{t('dashboard.next_set.next_set')}</p>
       <h1 className="font-display-data text-5xl sm:text-6xl text-accent leading-none tabular-nums my-2">
-        {ns.weight} kg × {ns.reps}
+        {format(ns.weight)} × {ns.reps}
       </h1>
       <p className="text-sm text-muted">{ns.label}</p>
       <div className="flex flex-wrap gap-2 mt-5">
@@ -129,9 +131,9 @@ function FullHero({ instance, nextWorkout: nw, nextSet: ns }: FullHeroProps): Re
       {instance.lastSet && (
         <p className="mt-5 pt-4 border-t border-rule text-xs text-muted">
           {t('dashboard.next_set.last_set', {
-            weight: instance.lastSet.weight,
+            weight: toDisplay(instance.lastSet.weight),
             reps: instance.lastSet.reps,
-            delta: instance.lastSet.deltaFromStart,
+            delta: format(instance.lastSet.deltaFromStart),
           })}
         </p>
       )}

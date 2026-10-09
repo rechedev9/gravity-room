@@ -7,7 +7,7 @@ import { fetchPrograms, fetchCatalogList } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { useTracker } from '@/contexts/tracker-context';
-import { useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { ProgramCard } from './program-card';
 import { ActiveProgramBlock } from './active-program-block';
 import { useDashboardData } from '@/features/dashboard/use-dashboard-data';
@@ -77,6 +77,13 @@ export function ProgramsPage(): React.ReactNode {
             {t('programs.title')}
           </h1>
           <p className="text-xs text-muted mt-0.5">{t('programs.subtitle')}</p>
+          <Link
+            to="/app/start"
+            data-testid="programs-guided-start"
+            className="mt-2 inline-block font-mono text-[11px] font-semibold text-accent underline underline-offset-4 hover:text-accent-hover"
+          >
+            {t('programs.guided_start_cta')}
+          </Link>
         </header>
 
         <ZoneHint zone="programs" className="mb-6" />

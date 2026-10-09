@@ -4,6 +4,7 @@ import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import { isCycleDayName, localizedExerciseName } from '@/lib/catalog-display';
 import { tierColorClass } from '@/features/program-view/tier-color';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 export interface StepFirstDayProps {
   readonly definition: ProgramDefinition;
@@ -31,6 +32,7 @@ export function StepFirstDay({
   onBack,
 }: StepFirstDayProps): ReactNode {
   const { t } = useTranslation();
+  const { format } = useUnitPreference();
 
   return (
     <div
@@ -70,7 +72,7 @@ export function StepFirstDay({
                 {slot.isAmrap ? '+' : ''}
               </span>
               <span className="ml-auto font-mono text-[15px] font-bold text-title tabular-nums">
-                {slot.weight > 0 ? `${slot.weight} kg` : t('onboarding.first_day.your_choice')}
+                {slot.weight > 0 ? format(slot.weight) : t('onboarding.first_day.your_choice')}
               </span>
             </li>
           ))}

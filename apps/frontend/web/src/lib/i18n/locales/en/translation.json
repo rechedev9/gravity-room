@@ -671,7 +671,7 @@
       "today_day": "TODAY · DAY {{day}}",
       "program_progress": "DAY {{day}} / {{total}}",
       "next_set": "NEXT SET",
-      "last_set": "last: {{weight}}×{{reps}} · +{{delta}}kg since program start"
+      "last_set": "last: {{weight}}×{{reps}} · +{{delta}} since program start"
     },
     "heatmap": {
       "title": "LAST {{weeks}} WEEKS",
@@ -698,6 +698,7 @@
     "page_title": "Programs — Gravity Room",
     "title": "Programs",
     "subtitle": "Level-based training program catalog",
+    "guided_start_cta": "First time? Start with the guided setup",
     "retry": "Retry",
     "catalog_load_error": "Could not load catalog.",
     "other_programs": "Other Programs",
@@ -884,12 +885,12 @@
     },
     "setup_form": {
       "invalid_value": "Invalid value",
-      "min_weight": "Minimum {{min}} kg",
-      "max_weight": "Maximum 500 kg",
+      "min_weight": "Minimum {{min}}",
+      "max_weight": "Maximum {{max}}",
       "required": "Required",
       "generate_error": "Error generating program.",
-      "edit_title_default": "Edit Starting Weights (kg)",
-      "create_title_default": "Starting Weights (kg)",
+      "edit_title_default": "Edit Starting Weights ({{unit}})",
+      "create_title_default": "Starting Weights ({{unit}})",
       "edit_description_default": "Update your starting weights — the program will recalculate with new values",
       "create_description_default": "Enter your starting weights for {{name}}",
       "active_group_indicator": "← update here",
@@ -997,7 +998,7 @@
     "detailed_day_view": {
       "workout_aria": "Workout {{number}}",
       "col_set": "Set",
-      "col_weight": "Kg",
+      "col_weight": "{{unit}}",
       "col_reps": "Reps",
       "col_target": "Tgt.",
       "table_aria": "Sets of {{exercise}}",
@@ -1043,7 +1044,7 @@
       "decrease_label": "Decrease {{label}}",
       "increase_label": "Increase {{label}}",
       "valid": "Valid",
-      "min_hint": "Min {{min}} kg"
+      "min_hint": "Min {{min}}"
     },
     "result_cell": {
       "success": "Success",
@@ -1147,8 +1148,8 @@
       "previous_with_age": "Same session, {{age}}",
       "fail_title": "If you fail this set",
       "fail_stage_same_weight": "Stage {{stage}} ({{scheme}}) at the same weight next session. You keep the load.",
-      "fail_deload": "Next session recalculates the load to {{weight}} kg.",
-      "fail_hold": "The load stays at {{weight}} kg next session.",
+      "fail_deload": "Next session recalculates the load to {{weight}}.",
+      "fail_hold": "The load stays at {{weight}} next session.",
       "keyboard": "Keyboard",
       "shortcut_success": "mark success",
       "shortcut_fail": "mark fail",
@@ -1164,8 +1165,8 @@
       "next_stage_label": "Stage {{stage}} · next session",
       "weight_holds": "The weight holds",
       "weight_drops": "The weight is recalculated",
-      "body_deload": "With the stages spent, the program recalculates the load: down {{percent}} kg to {{weight}} kg, back to the first stage.",
-      "body_hold": "The load stays at {{weight}} kg next session.",
+      "body_deload": "With the stages spent, the program recalculates the load: down {{percent}} to {{weight}}, back to the first stage.",
+      "body_hold": "The load stays at {{weight}} next session.",
       "continue": "Continue the session",
       "undo": "Undo · my mistake",
       "body_stage_one": "Fewer reps per set at the same load: that is how the program keeps you moving forward without stepping back. {{count}} more stage before the weight moves.",
@@ -2041,7 +2042,7 @@
       "lift_counter": "Lift {{index}} of {{total}}",
       "decrease": "Lower the {{lift}} load",
       "increase": "Raise the {{lift}} load",
-      "range": "Valid {{min}} – {{max}} kg",
+      "range": "Valid from {{min}} to {{max}} {{unit}}",
       "bar": "Bar {{weight}}",
       "per_side": "per side",
       "below_bar": "Below the bar: just start with the bar.",

@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import { progressFillPercent } from '@/components/progress-bar';
 import { isCycleDayName, localizedConfigFieldLabel } from '@/lib/catalog-display';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 import { buildWeightsSummary } from './weights-summary';
 import { SessionMenu, type SessionMenuProps } from './session-menu';
 
@@ -49,14 +50,23 @@ export function SessionChrome({
   const localize = (key: string, fallback: string): string =>
     localizedConfigFieldLabel(t, key, fallback);
   const overflow = (n: number): string => t('tracker.setup_form.overflow_indicator', { n });
+  const { toDisplay } = useUnitPreference();
+  const weightKeys = new Set(
+    definition.configFields.filter((f) => f.type === 'weight').map((f) => f.key)
+  );
+  const displayConfig: Record<string, number | string> = {};
+  for (const [key, value] of Object.entries(config)) {
+    displayConfig[key] =
+      weightKeys.has(key) && typeof value === 'number' ? toDisplay(value) : value;
+  }
   const { summary, full } = buildWeightsSummary(
-    config,
+    displayConfig,
     definition.configFields,
     overflow,
     localize
   );
   const { summary: mobileSummary } = buildWeightsSummary(
-    config,
+    displayConfig,
     definition.configFields,
     overflow,
     localize,

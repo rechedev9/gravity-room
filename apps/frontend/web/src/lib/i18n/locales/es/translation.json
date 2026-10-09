@@ -671,7 +671,7 @@
       "today_day": "HOY · DÍA {{day}}",
       "program_progress": "DÍA {{day}} / {{total}}",
       "next_set": "PRÓXIMA SERIE",
-      "last_set": "última: {{weight}}×{{reps}} · +{{delta}}kg desde inicio del programa"
+      "last_set": "última: {{weight}}×{{reps}} · +{{delta}} desde inicio del programa"
     },
     "heatmap": {
       "title": "ÚLTIMAS {{weeks}} SEMANAS",
@@ -698,6 +698,7 @@
     "page_title": "Programas — Gravity Room",
     "title": "Programas",
     "subtitle": "Catálogo de programas de entrenamiento por nivel",
+    "guided_start_cta": "¿Primera vez? Empieza con el asistente",
     "retry": "Reintentar",
     "catalog_load_error": "No se pudo cargar el catálogo.",
     "other_programs": "Otros Programas",
@@ -884,12 +885,12 @@
     },
     "setup_form": {
       "invalid_value": "Valor inválido",
-      "min_weight": "Mínimo {{min}} kg",
-      "max_weight": "Máximo 500 kg",
+      "min_weight": "Mínimo {{min}}",
+      "max_weight": "Máximo {{max}}",
       "required": "Requerido",
       "generate_error": "Error al generar el programa.",
-      "edit_title_default": "Editar Pesos Iniciales (kg)",
-      "create_title_default": "Pesos Iniciales (kg)",
+      "edit_title_default": "Editar Pesos Iniciales ({{unit}})",
+      "create_title_default": "Pesos Iniciales ({{unit}})",
       "edit_description_default": "Actualiza tus pesos iniciales — el programa se recalculará con los nuevos valores",
       "create_description_default": "Ingresa tus pesos iniciales para {{name}}",
       "active_group_indicator": "← actualiza aquí",
@@ -997,7 +998,7 @@
     "detailed_day_view": {
       "workout_aria": "Entrenamiento {{number}}",
       "col_set": "Serie",
-      "col_weight": "Kg",
+      "col_weight": "{{unit}}",
       "col_reps": "Reps",
       "col_target": "Obj.",
       "table_aria": "Series de {{exercise}}",
@@ -1043,7 +1044,7 @@
       "decrease_label": "Disminuir {{label}}",
       "increase_label": "Aumentar {{label}}",
       "valid": "Válido",
-      "min_hint": "Mín {{min}} kg"
+      "min_hint": "Mín {{min}}"
     },
     "result_cell": {
       "success": "Éxito",
@@ -1147,8 +1148,8 @@
       "previous_with_age": "Misma sesión, {{age}}",
       "fail_title": "Si fallas esta serie",
       "fail_stage_same_weight": "Etapa {{stage}} ({{scheme}}) con el mismo peso en la próxima sesión. No pierdes carga.",
-      "fail_deload": "La próxima sesión recalcula la carga a {{weight}} kg.",
-      "fail_hold": "La carga se mantiene en {{weight}} kg la próxima sesión.",
+      "fail_deload": "La próxima sesión recalcula la carga a {{weight}}.",
+      "fail_hold": "La carga se mantiene en {{weight}} la próxima sesión.",
       "keyboard": "Teclado",
       "shortcut_success": "marcar éxito",
       "shortcut_fail": "marcar fallo",
@@ -1164,8 +1165,8 @@
       "next_stage_label": "Etapa {{stage}} · próxima sesión",
       "weight_holds": "El peso no baja",
       "weight_drops": "El peso se recalcula",
-      "body_deload": "Agotadas las etapas, el programa recalcula la carga: bajas {{percent}} kg hasta {{weight}} kg y vuelves a la primera etapa.",
-      "body_hold": "La carga se mantiene en {{weight}} kg la próxima sesión.",
+      "body_deload": "Agotadas las etapas, el programa recalcula la carga: bajas {{percent}} hasta {{weight}} y vuelves a la primera etapa.",
+      "body_hold": "La carga se mantiene en {{weight}} la próxima sesión.",
       "continue": "Seguir con la sesión",
       "undo": "Deshacer · me equivoqué",
       "body_stage_one": "Menos repeticiones por serie con la misma carga: así el programa te deja seguir progresando sin retroceder. Te queda {{count}} etapa más antes de tocar el peso.",
@@ -2042,7 +2043,7 @@
       "lift_counter": "Levantamiento {{index}} de {{total}}",
       "decrease": "Bajar carga de {{lift}}",
       "increase": "Subir carga de {{lift}}",
-      "range": "Válido {{min}} – {{max}} kg",
+      "range": "Válido de {{min}} a {{max}} {{unit}}",
       "bar": "Barra {{weight}}",
       "per_side": "por lado",
       "below_bar": "Por debajo de la barra: empieza solo con la barra.",

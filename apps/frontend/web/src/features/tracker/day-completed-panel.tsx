@@ -5,6 +5,7 @@ import { isCycleDayName, localizedExerciseName } from '@/lib/catalog-display';
 import { detectGenericPersonalRecord } from '@/lib/pr-detection';
 import { tierColorClass } from '@/features/program-view/tier-color';
 import { findNextScheduled, workoutVolume } from './session-history';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 export interface DayCompletedPanelProps {
   readonly rows: readonly GenericWorkoutRow[];
@@ -31,6 +32,7 @@ export function DayCompletedPanel({
   onReview,
 }: DayCompletedPanelProps): ReactNode {
   const { t } = useTranslation();
+  const { unit, toDisplay, format } = useUnitPreference();
   const panelRef = useRef<HTMLElement>(null);
 
   // The last set is usually confirmed far below the top of the page: bring the
@@ -79,7 +81,7 @@ export function DayCompletedPanel({
               {t('tracker.day_completed.volume')}
             </dt>
             <dd className="font-display m-0 text-[38px] leading-none tracking-[0.02em] text-title tabular-nums">
-              {workoutVolume(workout).toLocaleString()} kg
+              {toDisplay(workoutVolume(workout)).toLocaleString()} {unit}
             </dd>
           </div>
           <div>
@@ -109,7 +111,7 @@ export function DayCompletedPanel({
               {localizedExerciseName(t, slot.exerciseId, slot.exerciseName)}
             </span>
             <span className="whitespace-nowrap font-mono text-[13px] text-muted tabular-nums">
-              {slot.weight > 0 ? `${slot.weight} kg · ` : ''}
+              {slot.weight > 0 ? `${format(slot.weight)} · ` : ''}
               {reps}
             </span>
             {isRecord && (
@@ -123,7 +125,7 @@ export function DayCompletedPanel({
                   {t('tracker.day_completed.next')}
                 </span>
                 <span className="font-mono text-sm font-bold text-ok tabular-nums">
-                  {next.weight} kg
+                  {format(next.weight)}
                 </span>
               </span>
             )}
@@ -147,7 +149,7 @@ export function DayCompletedPanel({
                 {localizedExerciseName(t, slot.exerciseId, slot.exerciseName)}
                 {' · '}
                 {slot.weight > 0
-                  ? `${slot.weight} kg`
+                  ? format(slot.weight)
                   : `${slot.sets}×${slot.complexReps ?? slot.reps}`}
               </li>
             ))}

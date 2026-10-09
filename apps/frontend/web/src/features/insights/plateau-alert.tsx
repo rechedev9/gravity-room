@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { InsightItem } from '@/lib/api-functions';
 import { isPlateauPayload } from '@/lib/insight-payloads';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 interface PlateauAlertProps {
   readonly insight: InsightItem;
@@ -11,6 +12,7 @@ const CONFIDENCE_THRESHOLD = 0.6;
 
 export function PlateauAlert({ insight, exerciseName }: PlateauAlertProps): React.ReactNode {
   const { t } = useTranslation();
+  const { format } = useUnitPreference();
   const payload = insight.payload;
   if (!isPlateauPayload(payload)) return null;
   if (!payload.isPlateauing || payload.confidence <= CONFIDENCE_THRESHOLD) return null;
@@ -41,7 +43,7 @@ export function PlateauAlert({ insight, exerciseName }: PlateauAlertProps): Reac
               {t('insights.plateau.heading')}
             </h3>
             <p className="font-mono text-xs text-muted">
-              {name} — {payload.currentWeight} kg {t('insights.plateau.no_progress_in')}{' '}
+              {name} — {format(payload.currentWeight)} {t('insights.plateau.no_progress_in')}{' '}
               {payload.weeksAnalyzed} {t('insights.plateau.weeks_label')}
             </p>
           </div>

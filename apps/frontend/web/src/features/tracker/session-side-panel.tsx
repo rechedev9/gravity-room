@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { SlotOutcomeComparison } from '@gzclp/domain/progression-preview';
 import { localizedExerciseName } from '@/lib/catalog-display';
 import { formatDaysAgo } from '@/features/home/format-days-ago';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 import type { PreviousSession } from './session-history';
 
 export interface SessionSidePanelProps {
@@ -42,6 +43,7 @@ export function SessionSidePanel({
   onGoToProfile,
 }: SessionSidePanelProps): ReactNode {
   const { t } = useTranslation();
+  const { format } = useUnitPreference();
 
   const failNote =
     failPreview !== null
@@ -51,8 +53,8 @@ export function SessionSidePanel({
             scheme: `${failPreview.next.sets}×${failPreview.next.reps}`,
           })
         : failPreview.weightDelta < 0
-          ? t('tracker.session_panel.fail_deload', { weight: failPreview.next.weight })
-          : t('tracker.session_panel.fail_hold', { weight: failPreview.next.weight })
+          ? t('tracker.session_panel.fail_deload', { weight: format(failPreview.next.weight) })
+          : t('tracker.session_panel.fail_hold', { weight: format(failPreview.next.weight) })
       : null;
 
   return (
@@ -84,7 +86,7 @@ export function SessionSidePanel({
                     line.result === 'fail' ? 'text-fail' : 'text-ok'
                   }`}
                 >
-                  {line.weight > 0 ? `${line.weight} · ` : ''}
+                  {line.weight > 0 ? `${format(line.weight)} · ` : ''}
                   {line.repsSummary}
                 </span>
               </li>
