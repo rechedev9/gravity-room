@@ -18,6 +18,7 @@ import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
 import { Kicker } from '../../ui/kicker';
 import { Screen } from '../../ui/screen';
+import { ScreenHeader } from '../../ui/screen-header';
 import { SegmentedChoice } from '../../ui/segmented-choice';
 import { SettingsRow, SwitchRow } from '../../ui/settings-row';
 import { IdentityCard } from './identity-card';
@@ -116,10 +117,7 @@ export function ProfileScreen({ onSignOut, user }: ProfileScreenProps) {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <Kicker>{t('profile.eyebrow')}</Kicker>
-        <Text accessibilityRole="header" style={styles.title}>
-          {t('profile.title')}
-        </Text>
+        <ScreenHeader eyebrow={t('profile.eyebrow')} title={t('profile.title')} />
 
         <IdentityCard
           name={user.name ?? t('profile.default_name')}
@@ -244,7 +242,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.tabClearance,
     gap: spacing.stackLarge,
   },
-  title: { ...type.displaySm },
   section: { gap: spacing.stack },
   group: { padding: 0, gap: 0, overflow: 'hidden' },
   languageBlock: {

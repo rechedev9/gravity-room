@@ -8,6 +8,7 @@ import {
   buildProgramConfig,
   startingWeightFields,
   validateStartingWeights,
+  type StartingWeightField,
   type StartingWeightIssue,
 } from '../../lib/programs/starting-weights';
 import { colors, type } from '../../shell/design';
@@ -23,6 +24,23 @@ export type StartingWeightsSheetProps = {
   readonly onConfirm: (config: Record<string, number | string>) => void;
 };
 
+type Draft = {
+  readonly definitionId: string;
+  readonly fields: readonly StartingWeightField[];
+  readonly values: Readonly<Record<string, string>>;
+  readonly issues: Readonly<Record<string, StartingWeightIssue>>;
+};
+
+function freshDraft(definition: ProgramDefinition): Draft {
+  const fields = startingWeightFields(definition);
+  return {
+    definitionId: definition.id,
+    fields,
+    values: Object.fromEntries(fields.map((field) => [field.key, String(field.defaultValue)])),
+    issues: {},
+  };
+}
+
 /** Asks the lifter for today's working weights before a plan is created. */
 export function StartingWeightsSheet({
   definition,
@@ -32,6 +50,24 @@ export function StartingWeightsSheet({
   onConfirm,
 }: StartingWeightsSheetProps) {
   const { t } = useTranslation();
+  const [draft, setDraft] = useState<Draft | null>(null);
+  // Each program opens with its own fresh form; adjusting state while rendering avoids a stale frame.
+  if (definition && draft?.definitionId !== definition.id) {
+    setDraft(freshDraft(definition));
+  }
+  const current = definition && draft?.definitionId === definition.id ? draft : null;
+
+  function submit(): void {
+    if (!definition || !current) return;
+    const validation = validateStartingWeights(current.fields, current.values);
+    if (!validation.ok) {
+      setDraft({ ...current, issues: validation.issues });
+      return;
+    }
+    setDraft({ ...current, issues: {} });
+    onConfirm(buildProgramConfig(definition, validation.weights));
+  }
+
   return (
     <Sheet
       visible={definition !== null}
@@ -39,84 +75,54 @@ export function StartingWeightsSheet({
       onClose={() => {
         if (!busy) onClose();
       }}
+      footer={
+        <>
+          {error ? (
+            <Text accessibilityRole="alert" style={styles.error}>
+              {error}
+            </Text>
+          ) : null}
+          <Button variant="primary" isLoading={busy} onPress={submit}>
+            {t('starting_weights.confirm')}
+          </Button>
+        </>
+      }
     >
-      {definition ? (
-        <StartingWeightsForm
-          key={definition.id}
-          definition={definition}
-          busy={busy}
-          error={error}
-          onConfirm={onConfirm}
-        />
+      {current ? (
+        <View style={styles.form}>
+          <Text style={styles.intro}>{t('starting_weights.intro')}</Text>
+          {current.fields.map((field) => {
+            const issue = current.issues[field.key];
+            return (
+              <View key={field.key} style={styles.field}>
+                <TextInput
+                  label={field.label}
+                  value={current.values[field.key] ?? ''}
+                  onChangeText={(text) =>
+                    setDraft({ ...current, values: { ...current.values, [field.key]: text } })
+                  }
+                  keyboardType="decimal-pad"
+                  selectTextOnFocus
+                  editable={!busy}
+                  {...(issue
+                    ? {
+                        error: t(`starting_weights.errors.${issue}`, {
+                          min: Math.max(field.min, 0),
+                          max: MAX_STARTING_WEIGHT,
+                        }),
+                      }
+                    : {})}
+                />
+                <Text style={styles.hint}>
+                  {field.hint ??
+                    t('starting_weights.hint', { min: Math.max(field.min, 0), step: field.step })}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
       ) : null}
     </Sheet>
-  );
-}
-
-type FormProps = {
-  readonly definition: ProgramDefinition;
-  readonly busy: boolean;
-  readonly error: string | null;
-  readonly onConfirm: (config: Record<string, number | string>) => void;
-};
-
-function StartingWeightsForm({ definition, busy, error, onConfirm }: FormProps) {
-  const { t } = useTranslation();
-  const [fields] = useState(() => startingWeightFields(definition));
-  const [values, setValues] = useState<Readonly<Record<string, string>>>(() =>
-    Object.fromEntries(fields.map((field) => [field.key, String(field.defaultValue)]))
-  );
-  const [issues, setIssues] = useState<Readonly<Record<string, StartingWeightIssue>>>({});
-
-  function submit(): void {
-    const validation = validateStartingWeights(fields, values);
-    if (!validation.ok) {
-      setIssues(validation.issues);
-      return;
-    }
-    setIssues({});
-    onConfirm(buildProgramConfig(definition, validation.weights));
-  }
-
-  return (
-    <View style={styles.form}>
-      <Text style={styles.intro}>{t('starting_weights.intro')}</Text>
-      {fields.map((field) => {
-        const issue = issues[field.key];
-        return (
-          <View key={field.key} style={styles.field}>
-            <TextInput
-              label={field.label}
-              value={values[field.key] ?? ''}
-              onChangeText={(text) => setValues((prev) => ({ ...prev, [field.key]: text }))}
-              keyboardType="decimal-pad"
-              selectTextOnFocus
-              editable={!busy}
-              {...(issue
-                ? {
-                    error: t(`starting_weights.errors.${issue}`, {
-                      min: Math.max(field.min, 0),
-                      max: MAX_STARTING_WEIGHT,
-                    }),
-                  }
-                : {})}
-            />
-            <Text style={styles.hint}>
-              {field.hint ??
-                t('starting_weights.hint', { min: Math.max(field.min, 0), step: field.step })}
-            </Text>
-          </View>
-        );
-      })}
-      {error ? (
-        <Text accessibilityRole="alert" style={styles.error}>
-          {error}
-        </Text>
-      ) : null}
-      <Button variant="primary" isLoading={busy} onPress={submit}>
-        {t('starting_weights.confirm')}
-      </Button>
-    </View>
   );
 }
 

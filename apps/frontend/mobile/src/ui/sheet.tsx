@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { colors, type } from '../shell/design';
 import { Button } from './button';
@@ -19,10 +19,14 @@ type Props = PropsWithChildren<{
   readonly visible: boolean;
   readonly title: string;
   readonly onClose: () => void;
+  /** Pinned under the scrolling content, so a primary action stays reachable with the keyboard open. */
+  readonly footer?: ReactNode;
 }>;
 
-export function Sheet({ visible, title, onClose, children }: Props) {
+export function Sheet({ visible, title, onClose, footer, children }: Props) {
   const { t } = useTranslation();
+  // SafeAreaView cannot measure insets inside a Modal on Android, so pad the content instead.
+  const insets = useSafeAreaInsets();
   // Android delivers the IME's "hide keyboard" back press to the modal too.
   // A lifter filling a form must not lose it just by hiding the keyboard.
   const handleRequestClose = () => {
@@ -39,7 +43,7 @@ export function Sheet({ visible, title, onClose, children }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <Pressable accessible={false} style={StyleSheet.absoluteFill} onPress={onClose} />
-        <SafeAreaView edges={['bottom']} style={styles.sheet} accessibilityViewIsModal>
+        <View style={styles.sheet} accessibilityViewIsModal>
           <View style={styles.header}>
             <Text
               accessibilityRole="header"
@@ -52,10 +56,19 @@ export function Sheet({ visible, title, onClose, children }: Props) {
             </Text>
             <Button onPress={onClose}>{t('ui.close')}</Button>
           </View>
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: footer ? 16 : 16 + insets.bottom },
+            ]}
+          >
             {children}
           </ScrollView>
-        </SafeAreaView>
+          {footer ? (
+            <View style={[styles.footer, { paddingBottom: 12 + insets.bottom }]}>{footer}</View>
+          ) : null}
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -74,5 +87,13 @@ const styles = StyleSheet.create({
   },
   header: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
   title: { ...type.title, flex: 1, minWidth: 0, flexShrink: 1 },
-  content: { padding: 16, gap: 16 },
+  footer: {
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.ruleStrong,
+    backgroundColor: colors.card,
+  },
+  content: { paddingHorizontal: 16, paddingTop: 4, gap: 16 },
 });

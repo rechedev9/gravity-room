@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { AppState, Button } from 'react-native';
 import { restAlerts } from '../lib/rest/rest-alerts';
 import i18n from '../lib/i18n';
+import { setRestAlertsEnabled } from '../lib/rest/rest-alerts-preference';
 import { RestTimerBanner, RestTimerProvider, useRestTimer } from './rest-timer-provider';
 
 jest.mock('../lib/rest/rest-alerts', () => ({
@@ -86,6 +87,24 @@ it('shows the current alert failure while retaining a usable skip action', async
   expect(screen.queryByText('1:30')).toBeNull();
   view.unmount();
   expectProviderIntervalsReleased();
+});
+
+it('does not nag about unavailable alerts once the lifter turned them off', async () => {
+  const memory = { get: async () => null, set: async () => undefined };
+  await setRestAlertsEnabled(false, memory);
+  jest.mocked(restAlerts.schedule).mockResolvedValueOnce(null);
+  const view = render(
+    <RestTimerProvider>
+      <Controls />
+    </RestTimerProvider>
+  );
+  await act(async () => {
+    fireEvent.press(screen.getByText('Start rest'));
+  });
+  expect(screen.getByText('1:30')).toBeTruthy();
+  expect(screen.queryByText(i18n.t('rest.alert_unavailable'))).toBeNull();
+  view.unmount();
+  await setRestAlertsEnabled(true, memory);
 });
 
 function expectProviderIntervalsReleased() {

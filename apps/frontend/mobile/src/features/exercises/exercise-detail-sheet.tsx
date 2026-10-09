@@ -64,10 +64,10 @@ export function ExerciseDetailSheet({ exercise, muscleGroups, onClose }: Props) 
             <View style={styles.also}>
               <Text style={styles.label}>{t('exercises.detail.also_works')}</Text>
               <View style={styles.tags}>
-                {exercise.secondaryMuscles.map((id) => (
-                  <Text key={id} style={styles.tag}>
-                    {muscleName(id)}
-                  </Text>
+                {Array.from(new Set(exercise.secondaryMuscles)).map((id) => (
+                  <View key={id} style={styles.tag}>
+                    <Text style={styles.tagText}>{muscleName(id)}</Text>
+                  </View>
                 ))}
               </View>
             </View>
@@ -102,15 +102,12 @@ const styles = StyleSheet.create({
   value: { ...type.body, color: colors.textPrimary, flexShrink: 1, textAlign: 'right' },
   empty: { ...type.body, color: colors.textMuted, flexShrink: 1, textAlign: 'right' },
   also: { gap: 8 },
-  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 8 },
   tag: {
-    ...type.body,
-    fontSize: 13,
-    color: colors.textPrimary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     backgroundColor: colors.surface2,
-    overflow: 'hidden',
   },
+  tagText: { ...type.body, fontSize: 13, lineHeight: 18, color: colors.textPrimary },
 });

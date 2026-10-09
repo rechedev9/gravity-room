@@ -18,8 +18,8 @@ import { colors, spacing, type } from '../../shell/design';
 import { Button } from '../../ui/button';
 import { Chip } from '../../ui/chip';
 import { EdgeFade } from '../../ui/edge-fade';
-import { Kicker } from '../../ui/kicker';
 import { Screen } from '../../ui/screen';
+import { ScreenHeader } from '../../ui/screen-header';
 import { SearchField } from '../../ui/search-field';
 import { StateMessage } from '../../ui/state-message';
 import { ExerciseDetailSheet } from './exercise-detail-sheet';
@@ -66,17 +66,17 @@ export function ExercisesScreen() {
 
   const header = (
     <View style={styles.header}>
-      <Kicker>{t('exercises.eyebrow')}</Kicker>
-      <View style={styles.titleRow}>
-        <Text accessibilityRole="header" style={styles.title}>
-          {t('exercises.title')}
-        </Text>
-        {total > 0 ? (
-          <Text accessibilityLiveRegion="polite" style={styles.count}>
-            {t('exercises.count', { count: total })}
-          </Text>
-        ) : null}
-      </View>
+      <ScreenHeader
+        eyebrow={t('exercises.eyebrow')}
+        title={t('exercises.title')}
+        trailing={
+          total > 0 ? (
+            <Text accessibilityLiveRegion="polite" style={styles.count}>
+              {t('exercises.count', { count: total })}
+            </Text>
+          ) : null
+        }
+      />
       <SearchField
         value={search}
         onChangeText={setSearch}
@@ -265,8 +265,6 @@ function SkeletonRows({ label }: { readonly label: string }) {
 const styles = StyleSheet.create({
   top: { paddingHorizontal: spacing.screenX, paddingTop: 20, paddingBottom: 8 },
   header: { gap: spacing.stack },
-  titleRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  title: { ...type.displaySm },
   count: { ...type.meta },
   chips: { gap: 6, paddingRight: 28 },
   list: { paddingHorizontal: spacing.screenX, paddingBottom: spacing.tabClearance, gap: 8 },

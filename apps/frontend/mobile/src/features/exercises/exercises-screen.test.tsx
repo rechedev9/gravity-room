@@ -41,7 +41,9 @@ function page(items: readonly ExerciseEntry[], total = items.length): ExercisePa
 }
 
 function renderScreen(): void {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+  });
   render(
     <QueryClientProvider client={client}>
       <ExercisesScreen />
@@ -70,6 +72,15 @@ it('lists exercises with translated muscle and equipment and opens a detail shee
   expect(screen.getByText('Compound')).toBeTruthy();
   expect(screen.getByText('Also works')).toBeTruthy();
   expect(screen.getByText('Core')).toBeTruthy();
+});
+
+it('lists a repeated secondary muscle once', async () => {
+  pageMock.mockResolvedValue(page([exercise({ secondaryMuscles: ['core', 'core', 'arms'] })]));
+  renderScreen();
+
+  fireEvent.press(await screen.findByRole('button', { name: 'View Sentadilla' }));
+  expect(await screen.findByText('Arms')).toBeTruthy();
+  expect(screen.getAllByText('Core')).toHaveLength(1);
 });
 
 it('searches after a pause and filters by muscle group', async () => {

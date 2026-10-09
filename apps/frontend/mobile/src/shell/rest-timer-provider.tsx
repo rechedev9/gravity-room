@@ -53,11 +53,13 @@ export function RestTimerBanner() {
     <View style={styles.banner}>
       <Ionicons accessible={false} name="timer-outline" size={22} color={colors.accent} />
       <View style={styles.copy}>
-        <Text style={styles.label}>{t('rest.title')}</Text>
-        <Text accessibilityRole="timer" style={styles.time}>
-          {Math.floor(state.remainingSeconds / 60)}:
-          {String(state.remainingSeconds % 60).padStart(2, '0')}
-        </Text>
+        <View style={styles.headline}>
+          <Text style={styles.label}>{t('rest.title')}</Text>
+          <Text accessibilityRole="timer" style={styles.time}>
+            {Math.floor(state.remainingSeconds / 60)}:
+            {String(state.remainingSeconds % 60).padStart(2, '0')}
+          </Text>
+        </View>
         {state.alertUnavailable && alerts.enabled ? (
           <Text style={styles.notice}>{t('rest.alert_unavailable')}</Text>
         ) : null}
@@ -86,8 +88,9 @@ const styles = StyleSheet.create({
     borderColor: colors.ruleStrong,
     backgroundColor: colors.header,
   },
-  copy: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
-  label: { ...type.body, fontSize: 14 },
+  copy: { flex: 1, gap: 2, paddingVertical: 4 },
+  headline: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
+  label: { ...type.body, fontSize: 14, lineHeight: 20 },
   time: { ...type.title, color: colors.accent },
-  notice: { ...type.body, fontSize: 12, width: '100%' },
+  notice: { ...type.body, fontSize: 12, lineHeight: 16 },
 });

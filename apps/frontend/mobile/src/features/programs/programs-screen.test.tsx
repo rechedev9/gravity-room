@@ -397,8 +397,6 @@ describe('ProgramsScreen', () => {
   });
 
   it('warns before starting a program that already has a plan and only continues on confirm', async () => {
-    const { Alert } = jest.requireActual<typeof import('react-native')>('react-native');
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     mockedListProgramSummaries.mockResolvedValue([{ ...PROGRAM_A, programId: 'gzclp' }]);
     mockedFetchCatalogEntries.mockResolvedValue([CATALOG_ENTRY]);
     mockedFetchCatalogDefinition.mockResolvedValue(PROGRAM_DEFINITION);
@@ -408,22 +406,14 @@ describe('ProgramsScreen', () => {
     fireEvent.press(card);
     fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP' }));
 
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
-    expect(alertSpy.mock.calls[0]?.[0]).toBe('You already have GZCLP');
+    expect(await screen.findByText('You already have GZCLP')).toBeTruthy();
     expect(screen.queryByLabelText('Squat')).toBeNull();
 
-    const buttons = alertSpy.mock.calls[0]?.[2] ?? [];
-    const confirm = buttons.find((button) => button.style !== 'cancel');
-    await act(async () => {
-      confirm?.onPress?.();
-    });
+    fireEvent.press(screen.getByRole('button', { name: 'Start another' }));
     expect(await screen.findByLabelText('Squat')).toBeTruthy();
-    alertSpy.mockRestore();
   });
 
   it('deletes a plan after confirmation and drops it from My plans', async () => {
-    const { Alert } = jest.requireActual<typeof import('react-native')>('react-native');
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const { deleteProgramInstance } = jest.requireMock<
       typeof import('../../lib/programs/program-service')
     >('../../lib/programs/program-service');
@@ -439,21 +429,16 @@ describe('ProgramsScreen', () => {
     render(<ProgramsScreen mode="instances" />);
 
     fireEvent.press(await screen.findByRole('button', { name: 'Delete GZCLP A' }));
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText('Delete this plan?')).toBeTruthy();
     expect(deleteProgramInstance).not.toHaveBeenCalled();
 
-    const buttons = alertSpy.mock.calls[0]?.[2] ?? [];
-    const confirm = buttons.find((button) => button.style === 'destructive');
-    await act(async () => {
-      confirm?.onPress?.();
-    });
+    fireEvent.press(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(deleteProgramInstance).toHaveBeenCalledWith('prog-1'));
     expect(removeProgramSummary).toHaveBeenCalledWith('prog-1');
     expect(purgeProgramLocalData).toHaveBeenCalledWith('prog-1');
     await waitFor(() => expect(screen.queryByText('GZCLP A')).toBeNull());
     expect(screen.getByText('Stronglifts 5x5')).toBeTruthy();
-    alertSpy.mockRestore();
   });
 
   it('preserves cached plans when creating from an unopened catalog summary query', async () => {

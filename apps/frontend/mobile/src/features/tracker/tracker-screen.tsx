@@ -781,7 +781,7 @@ export function TrackerScreen({
               accessibilityRole="button"
               accessibilityLabel={t('tracker.back_programs')}
               onPress={onBack}
-              style={styles.programPicker}
+              style={({ pressed }) => [styles.programPicker, pressed && styles.pressedLight]}
             >
               <Text style={styles.programName}>{detail.name}</Text>
               <Ionicons accessible={false} name="chevron-down" size={18} color={colors.textMuted} />
@@ -865,7 +865,11 @@ export function TrackerScreen({
                   accessibilityLabel={t('tracker.day', { day: day + 1 })}
                   accessibilityState={{ selected: row.index === selectedWorkoutIndex }}
                   onPress={() => setSelectedWorkoutIndex(row.index)}
-                  style={[styles.day, row.index === selectedWorkoutIndex && styles.daySelected]}
+                  style={({ pressed }) => [
+                    styles.day,
+                    row.index === selectedWorkoutIndex && styles.daySelected,
+                    pressed && row.index !== selectedWorkoutIndex && styles.pressedLight,
+                  ]}
                 >
                   <Text
                     style={[
@@ -1040,6 +1044,7 @@ const styles = StyleSheet.create({
   previewName: { ...type.body, fontSize: 14, lineHeight: 20, flex: 1 },
   previewValue: { ...type.body, color: colors.textPrimary, fontSize: 14, lineHeight: 20 },
   eyebrow: { ...type.kicker, color: colors.textSecondary },
+  pressedLight: { opacity: 0.6 },
   programPicker: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 8 },
   programName: { ...type.displaySm, flexShrink: 1 },
   sessionMeta: {

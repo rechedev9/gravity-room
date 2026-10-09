@@ -91,23 +91,37 @@ export function SwitchRow({
   last,
   ...base
 }: SwitchRowProps) {
+  // The whole row is the touch target; the native switch alone is under 44dp tall.
   return (
-    <View style={[styles.row, last ? styles.last : null]}>
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityLabel={base.label}
+      accessibilityState={{ checked: value, disabled }}
+      disabled={disabled}
+      onPress={() => onValueChange(!value)}
+      style={({ pressed }) => [
+        styles.row,
+        last ? styles.last : null,
+        pressed && styles.pressed,
+        disabled && styles.disabled,
+      ]}
+    >
       <RowBody
         {...base}
         trailing={
-          <Switch
-            accessibilityLabel={base.label}
-            value={value}
-            disabled={disabled}
-            onValueChange={onValueChange}
-            trackColor={{ false: colors.surface2, true: colors.accentDim }}
-            thumbColor={value ? colors.accent : colors.textMuted}
-            ios_backgroundColor={colors.surface2}
-          />
+          <View pointerEvents="none" importantForAccessibility="no-hide-descendants">
+            <Switch
+              value={value}
+              disabled={disabled}
+              onValueChange={onValueChange}
+              trackColor={{ false: colors.surface2, true: colors.accentDim }}
+              thumbColor={value ? colors.accent : colors.textMuted}
+              ios_backgroundColor={colors.surface2}
+            />
+          </View>
         }
       />
-    </View>
+    </Pressable>
   );
 }
 
@@ -124,6 +138,7 @@ const styles = StyleSheet.create({
   },
   last: { borderBottomWidth: 0 },
   pressed: { backgroundColor: colors.surface2 },
+  disabled: { opacity: 0.5 },
   copy: { flex: 1, gap: 3 },
   label: { ...type.body, color: colors.textPrimary, fontSize: 16, lineHeight: 22 },
   description: { ...type.body, fontSize: 13, lineHeight: 18 },

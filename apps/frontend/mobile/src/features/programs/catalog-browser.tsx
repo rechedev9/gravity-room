@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import type { CatalogEntry } from '@gzclp/domain';
 import { colors, spacing, type } from '../../shell/design';
 import { Screen } from '../../ui/screen';
+import { ScreenHeader } from '../../ui/screen-header';
 import { Chip } from '../../ui/chip';
 import { Sheet } from '../../ui/sheet';
 import { Button } from '../../ui/button';
@@ -65,11 +66,11 @@ export function CatalogBrowser({ entries, loading, error, creatingId, onRetry, o
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        <Text style={styles.brand}>GRAVITY ROOM</Text>
-        <Text accessibilityRole="header" style={styles.title}>
-          {t('discovery.title')}
-        </Text>
-        <Text style={styles.subtitle}>{t('discovery.subtitle')}</Text>
+        <ScreenHeader
+          eyebrow="GRAVITY ROOM"
+          title={t('discovery.title')}
+          subtitle={t('discovery.subtitle')}
+        />
         <View style={styles.search}>
           <Ionicons accessible={false} name="search-outline" size={20} color={colors.textMuted} />
           <TextInput
@@ -115,7 +116,7 @@ export function CatalogBrowser({ entries, loading, error, creatingId, onRetry, o
             accessibilityRole="button"
             accessibilityLabel={label(featured)}
             onPress={() => setSelected(featured)}
-            style={styles.featured}
+            style={({ pressed }) => [styles.featured, pressed && styles.pressed]}
           >
             <ProgramArtwork
               programId={featured.id}
@@ -236,8 +237,6 @@ export function CatalogBrowser({ entries, loading, error, creatingId, onRetry, o
 
 const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: spacing.tabClearance, gap: 14 },
-  brand: { ...type.kicker, color: colors.accent, letterSpacing: 3, marginBottom: 6 },
-  title: { ...type.display, fontSize: 34, lineHeight: 38, maxWidth: 310 },
   subtitle: { ...type.body, fontSize: 14, lineHeight: 21 },
   search: {
     flexDirection: 'row',
