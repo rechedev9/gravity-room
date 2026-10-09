@@ -216,7 +216,8 @@
       "orphan_confirm_title": "Eliminar programa huérfano",
       "orphan_confirm_message": "Se eliminarán todos los resultados asociados. ¿Continuar?",
       "recent_activity_empty": "Completa tu primer entrenamiento para ver la actividad reciente.",
-      "next_workout": "Siguiente: Día {{index}} — {{name}}"
+      "next_workout": "Siguiente: Día {{index}} · {{name}}",
+      "next_workout_plain": "Siguiente: Día {{index}}"
     },
     "programs": {
       "gzclp": {
@@ -634,8 +635,8 @@
     },
     "kpi_strip": {
       "streak": "RACHA",
-      "day_one": "día",
-      "day_other": "días",
+      "session_one": "sesión",
+      "session_other": "sesiones",
       "sessions": "SESIONES",
       "completed": "completadas",
       "weekly_pr": "PR ESTA SEMANA",
@@ -700,6 +701,11 @@
     "retry": "Reintentar",
     "catalog_load_error": "No se pudo cargar el catálogo.",
     "other_programs": "Otros Programas",
+    "replace": {
+      "title": "¿Empezar {{next}}?",
+      "message": "Tu programa activo, {{current}}, se dará por finalizado. Tu historial se conserva.",
+      "confirm": "Finalizar y empezar"
+    },
     "active_heading": "Programa activo",
     "active_workout": "Entrenamiento {{completed}} de {{total}}",
     "active_progress_aria": "Progreso del programa",
@@ -1100,6 +1106,7 @@
     "day_status": {
       "today_prefix": "HOY · ",
       "day_label": "DÍA",
+      "day_name": "Día {{n}}",
       "complete_suffix": " · COMPLETO",
       "close": "cerrar ▴",
       "change_day": "cambiar día ▾"
@@ -1178,9 +1185,11 @@
       "record": "Récord",
       "next": "próxima",
       "next_day": "Siguiente · día {{day}} · {{name}}",
+      "next_day_plain": "Siguiente · día {{day}}",
       "review": "Corregir algo",
       "progress": "Día {{day}} de {{total}}",
-      "next_session": "Próxima sesión · día {{day}} · {{name}}"
+      "next_session": "Próxima sesión · día {{day}} · {{name}}",
+      "next_session_plain": "Próxima sesión · día {{day}}"
     }
   },
   "profile": {
@@ -2053,6 +2062,7 @@
     },
     "first_day": {
       "kicker": "Día 1 · {{name}}",
+      "kicker_plain": "Día 1",
       "title": "Esto es lo que harás hoy",
       "subtitle": "{{count}} levantamientos. La primera sesión va deliberadamente ligera: el programa necesita ver dónde estás antes de empujar.",
       "your_choice": "a elegir",

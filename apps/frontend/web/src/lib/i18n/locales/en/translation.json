@@ -216,7 +216,8 @@
       "orphan_confirm_title": "Delete orphaned program",
       "orphan_confirm_message": "All associated results will be deleted. Continue?",
       "recent_activity_empty": "Complete your first workout to see recent activity.",
-      "next_workout": "Next: Day {{index}} — {{name}}"
+      "next_workout": "Next: Day {{index}} · {{name}}",
+      "next_workout_plain": "Next: Day {{index}}"
     },
     "programs": {
       "gzclp": {
@@ -634,8 +635,8 @@
     },
     "kpi_strip": {
       "streak": "STREAK",
-      "day_one": "day",
-      "day_other": "days",
+      "session_one": "session",
+      "session_other": "sessions",
       "sessions": "SESSIONS",
       "completed": "completed",
       "weekly_pr": "PR THIS WEEK",
@@ -700,6 +701,11 @@
     "retry": "Retry",
     "catalog_load_error": "Could not load catalog.",
     "other_programs": "Other Programs",
+    "replace": {
+      "title": "Start {{next}}?",
+      "message": "Your active program, {{current}}, will be ended. Your history is kept.",
+      "confirm": "End it and start"
+    },
     "active_heading": "Active program",
     "active_workout": "Workout {{completed}} of {{total}}",
     "active_progress_aria": "Program progress",
@@ -1100,6 +1106,7 @@
     "day_status": {
       "today_prefix": "TODAY · ",
       "day_label": "DAY",
+      "day_name": "Day {{n}}",
       "complete_suffix": " · COMPLETE",
       "close": "close ▴",
       "change_day": "change day ▾"
@@ -1178,9 +1185,11 @@
       "record": "Record",
       "next": "next",
       "next_day": "Next · day {{day}} · {{name}}",
+      "next_day_plain": "Next · day {{day}}",
       "review": "Fix something",
       "progress": "Day {{day}} of {{total}}",
-      "next_session": "Next session · day {{day}} · {{name}}"
+      "next_session": "Next session · day {{day}} · {{name}}",
+      "next_session_plain": "Next session · day {{day}}"
     }
   },
   "profile": {
@@ -2052,6 +2061,7 @@
     },
     "first_day": {
       "kicker": "Day 1 · {{name}}",
+      "kicker_plain": "Day 1",
       "title": "This is what you will do today",
       "subtitle": "{{count}} lifts. The first session is deliberately light: the program needs to see where you are before it pushes.",
       "your_choice": "your choice",

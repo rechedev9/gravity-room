@@ -19,6 +19,8 @@ import { StartStepper, type StartStep } from './start-stepper';
 import { StepProgram } from './step-program';
 import { StepWeights } from './step-weights';
 import { StepFirstDay } from './step-first-day';
+import { useConfirmProgramReplacement } from '@/features/programs/use-confirm-program-replacement';
+import { localizedProgramName } from '@/lib/catalog-display';
 
 type WeightField = ProgramDefinition['configFields'][number] & { type: 'weight' };
 
@@ -101,9 +103,12 @@ export function StartPage(): ReactNode {
   }, [definition, previewConfig]);
 
   const [isStarting, setIsStarting] = useState(false);
+  const { confirmReplacement, dialog: replaceDialog } = useConfirmProgramReplacement();
 
   const generate = async (thenGoToTracker: boolean): Promise<void> => {
     if (definition === undefined || previewConfig === null || programId === null) return;
+    if (!(await confirmReplacement(localizedProgramName(t, definition.id, definition.name))))
+      return;
     setIsStarting(true);
     try {
       await target.generateProgram(previewConfig);
@@ -182,6 +187,8 @@ export function StartPage(): ReactNode {
             onBack={() => setStep('weights')}
           />
         ))}
+
+      {replaceDialog}
     </Shell>
   );
 }
