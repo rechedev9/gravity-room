@@ -9,7 +9,11 @@ import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import { computeGenericProgram } from '@gzclp/domain/generic-engine';
 import { computeProfileData, formatVolume } from '@/lib/profile-stats';
 import { useTracker } from '@/contexts/tracker-context';
-import { localizedProgramName, localizedProgramDescription } from '@/lib/catalog-display';
+import {
+  isCycleDayName,
+  localizedProgramName,
+  localizedProgramDescription,
+} from '@/lib/catalog-display';
 import { RecentActivity } from './recent-activity';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Button } from '@/components/button';
@@ -186,10 +190,12 @@ export function ActiveProgramCard({
         </Button>
         {nextPendingWorkout && (
           <p className="text-xs text-muted mt-2">
-            {t('catalog.active_card.next_workout', {
-              index: nextPendingWorkout.index,
-              name: nextPendingWorkout.dayName,
-            })}
+            {isCycleDayName(nextPendingWorkout.dayName)
+              ? t('catalog.active_card.next_workout_plain', { index: nextPendingWorkout.index })
+              : t('catalog.active_card.next_workout', {
+                  index: nextPendingWorkout.index,
+                  name: nextPendingWorkout.dayName,
+                })}
           </p>
         )}
       </div>

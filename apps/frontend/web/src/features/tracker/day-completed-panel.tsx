@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
-import { localizedExerciseName } from '@/lib/catalog-display';
+import { isCycleDayName, localizedExerciseName } from '@/lib/catalog-display';
 import { detectGenericPersonalRecord } from '@/lib/pr-detection';
 import { tierColorClass } from '@/features/program-view/tier-color';
 import { findNextScheduled, workoutVolume } from './session-history';
@@ -134,10 +134,12 @@ export function DayCompletedPanel({
       {nextWorkout !== null && nextWorkout.slots.length > 0 && (
         <div className="mb-6 border border-rule bg-header px-4 py-3.5" data-testid="next-session">
           <h3 className="mb-2.5 font-mono text-2xs font-bold uppercase tracking-[0.08em] text-info">
-            {t('tracker.day_completed.next_session', {
-              day: nextWorkout.index + 1,
-              name: nextWorkout.dayName,
-            })}
+            {isCycleDayName(nextWorkout.dayName)
+              ? t('tracker.day_completed.next_session_plain', { day: nextWorkout.index + 1 })
+              : t('tracker.day_completed.next_session', {
+                  day: nextWorkout.index + 1,
+                  name: nextWorkout.dayName,
+                })}
           </h3>
           <ul className="flex flex-wrap gap-x-5 gap-y-1">
             {nextWorkout.slots.map((slot) => (
@@ -162,10 +164,12 @@ export function DayCompletedPanel({
             style={{ boxShadow: 'var(--shadow-pressed-steel)' }}
             className="bg-accent px-7 py-3.5 font-mono text-xs font-bold uppercase tracking-[0.08em] text-on-accent transition-colors hover:bg-accent-hover cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
           >
-            {t('tracker.day_completed.next_day', {
-              day: nextWorkout.index + 1,
-              name: nextWorkout.dayName,
-            })}
+            {isCycleDayName(nextWorkout.dayName)
+              ? t('tracker.day_completed.next_day_plain', { day: nextWorkout.index + 1 })
+              : t('tracker.day_completed.next_day', {
+                  day: nextWorkout.index + 1,
+                  name: nextWorkout.dayName,
+                })}
           </button>
         )}
         {onReview !== undefined && (

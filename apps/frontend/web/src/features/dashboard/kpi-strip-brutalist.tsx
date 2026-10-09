@@ -23,7 +23,9 @@ export function KpiStripBrutalist({
         label={t('dashboard.kpi_strip.streak')}
         value={streakDays}
         sub={
-          streakDays === 1 ? t('dashboard.kpi_strip.day_one') : t('dashboard.kpi_strip.day_other')
+          streakDays === 1
+            ? t('dashboard.kpi_strip.session_one')
+            : t('dashboard.kpi_strip.session_other')
         }
         variant={streakDays >= 10 ? 'flame' : 'default'}
       />

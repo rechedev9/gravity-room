@@ -24,6 +24,23 @@ export function localizedExerciseName(t: TFunction, id: string, fallback: string
   return t(`catalog.exercises.${id}`, { defaultValue: fallback });
 }
 
+// Seeds label GZCLP-style days "Día N": the position inside the cycle, in Spanish.
+const CYCLE_DAY_NAME = /^D[ií]a\s+(\d+)$/i;
+
+/**
+ * A day name that only restates its position ("Día 3") adds nothing next to
+ * the program's own day counter, so callers drop it from templated labels.
+ */
+export function isCycleDayName(dayName: string): boolean {
+  return CYCLE_DAY_NAME.test(dayName.trim());
+}
+
+/** Resolves a day name to the current UI language: "Día 3" becomes "Day 3" in English. */
+export function localizedDayName(t: TFunction, dayName: string): string {
+  const match = CYCLE_DAY_NAME.exec(dayName.trim());
+  return match === null ? dayName : t('tracker.day_status.day_name', { n: match[1] });
+}
+
 /**
  * Resolves a weight-config field label (often an exercise name key like
  * `squat`) for the current UI language. Falls back to the seed label.

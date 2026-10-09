@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { isCycleDayName } from '@/lib/catalog-display';
 
 interface DayNavigatorProps {
   readonly selectedDayIndex: number;
@@ -56,9 +57,11 @@ export function DayNavigator({
           </div>
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-main uppercase tracking-wide">
-                {dayName}
-              </span>
+              {!isCycleDayName(dayName) && (
+                <span className="text-xs font-semibold text-main uppercase tracking-wide">
+                  {dayName}
+                </span>
+              )}
               <span
                 role="img"
                 aria-label={

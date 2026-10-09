@@ -50,6 +50,13 @@ function renderChrome(overrides: Partial<SessionChromeProps> = {}) {
 describe('SessionChrome', () => {
   afterEach(cleanup);
 
+  it('does not repeat the day counter as a day name', () => {
+    renderChrome({ dayIndex: 0, dayName: 'Día 1' });
+
+    const chrome = screen.getByTestId('session-chrome');
+    expect(chrome.textContent).not.toContain('Día 1');
+  });
+
   it('carries day identity, day progress and the weight summary in one band', () => {
     renderChrome();
 

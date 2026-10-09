@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { localizedDayName } from '@/lib/catalog-display';
 
 interface SessionRow {
   readonly dateLabel: string;
@@ -54,7 +55,9 @@ export function RecentSessionsList({ sessions }: RecentSessionsListProps): React
                   <span className="font-mono text-[11px] text-muted">{s.dateLabel}</span>
                 )}
               </div>
-              <p className="mt-1 truncate font-medium text-main">{s.dayName}</p>
+              <p className="mt-1 truncate font-medium text-main">
+                {localizedDayName(t, s.dayName)}
+              </p>
               {s.exerciseNames.length > 0 && (
                 <p className="mt-0.5 truncate text-xs text-muted">{s.exerciseNames.join(' + ')}</p>
               )}
