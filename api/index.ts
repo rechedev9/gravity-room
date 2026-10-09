@@ -4449,7 +4449,7 @@ function computeGenericProgram(definition, config, results, options) {
   }
   const rows = [];
   const cycleLength = definition.days.length;
-  const prevWeightByExerciseId = /* @__PURE__ */ new Map();
+  const prevWeightByLiftTier = /* @__PURE__ */ new Map();
   const rowLimit = Math.min(definition.totalWorkouts, options?.maxRows ?? definition.totalWorkouts);
   for (let i = 0; i < rowLimit; i++) {
     const day = requireValue(definition.days[i % cycleLength], `Missing day for workout ${i}`);
@@ -4542,10 +4542,11 @@ function computeGenericProgram(definition, config, results, options) {
         slot.trainingMaxKey !== void 0 && slot.tmPercent !== void 0
           ? roundToNearest((tmState[slot.trainingMaxKey] ?? 0) * slot.tmPercent, roundingStep)
           : state.weight;
-      const prevWeight = prevWeightByExerciseId.get(slot.exerciseId);
+      const liftTierKey = `${slot.exerciseId}:${slot.tier}`;
+      const prevWeight = prevWeightByLiftTier.get(liftTierKey);
       const isDeload = prevWeight !== void 0 && weight > 0 && weight < prevWeight;
       if (weight > 0) {
-        prevWeightByExerciseId.set(slot.exerciseId, weight);
+        prevWeightByLiftTier.set(liftTierKey, weight);
       }
       const derivedResult = deriveSlotResult(slot, slotResult, stageConfig.reps);
       derivedResultsBySlotId[slot.id] = derivedResult;
