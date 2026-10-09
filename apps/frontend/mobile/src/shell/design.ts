@@ -55,6 +55,8 @@ export const fonts = {
   monoBold: 'JetBrains Mono Bold',
 } as const;
 
+/** The weight is part of each face name. A fontWeight of 700 or more on a custom face makes
+ * Android look the face up as a bold variant, miss it and fall back to system Roboto Bold. */
 export const type = {
   kicker: {
     fontFamily: fonts.monoBold,
@@ -68,7 +70,6 @@ export const type = {
     fontFamily: fonts.bodyBold,
     color: colors.textPrimary,
     fontSize: 30,
-    fontWeight: '700',
     letterSpacing: -0.5,
     lineHeight: 36,
   } satisfies TextStyle,
@@ -76,7 +77,6 @@ export const type = {
     fontFamily: fonts.bodyBold,
     color: colors.textPrimary,
     fontSize: 26,
-    fontWeight: '700',
     letterSpacing: -0.3,
     lineHeight: 32,
   } satisfies TextStyle,
