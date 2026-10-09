@@ -48,6 +48,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { IconButton } from '../../ui/icon-button';
 import { Screen } from '../../ui/screen';
 import { EdgeFade } from '../../ui/edge-fade';
+import { distinctDayLabel } from './day-label';
+import { RestAlertsInvitation } from '../settings/rest-alerts-invitation';
 
 type TrackerScreenProps = {
   readonly isFocused?: boolean;
@@ -348,6 +350,7 @@ export function TrackerScreen({
   const weekIndex = Math.floor(selectedWorkoutIndex / workoutsPerWeek);
   const firstPendingIdx = firstPendingWorkout(rows);
   const completed = selectedRow !== undefined && isWorkoutComplete(selectedRow);
+  const dayLabel = selectedRow ? distinctDayLabel(selectedRow.dayName) : null;
   const previews = useMemo(() => {
     if (!completed || !selectedRow) return [];
     return selectedRow.slots.flatMap((slot) => {
@@ -804,7 +807,8 @@ export function TrackerScreen({
             })}
           </Text>
           <Text style={styles.date}>
-            <Text>{selectedRow.dayName}</Text> ·{' '}
+            {dayLabel === null ? null : <Text>{dayLabel}</Text>}
+            {dayLabel === null ? '' : ' · '}
             {new Date(
               detail.completedDates[String(selectedWorkoutIndex)] ?? Date.now()
             ).toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' })}
@@ -911,6 +915,7 @@ export function TrackerScreen({
         {syncNotice && (syncNotice !== 'cached' || !syncStatus?.visible) ? (
           <Text style={styles.syncNotice}>{t(`tracker.notices.${syncNotice}`)}</Text>
         ) : null}
+        <RestAlertsInvitation />
         {completed ? (
           <Card>
             <Text style={styles.title}>{t('tracker.day_complete')}</Text>
@@ -1034,7 +1039,7 @@ const styles = StyleSheet.create({
   },
   previewName: { ...type.body, fontSize: 14, lineHeight: 20, flex: 1 },
   previewValue: { ...type.body, color: colors.textPrimary, fontSize: 14, lineHeight: 20 },
-  eyebrow: { ...type.body, fontSize: 13, lineHeight: 18 },
+  eyebrow: { ...type.kicker, color: colors.textSecondary },
   programPicker: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 8 },
   programName: { ...type.displaySm, flexShrink: 1 },
   sessionMeta: {

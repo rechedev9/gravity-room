@@ -10,6 +10,7 @@ import { AppState, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { RestTimer } from '../lib/rest/rest-timer';
 import { restAlerts } from '../lib/rest/rest-alerts';
+import { useRestAlertsPreference } from '../lib/rest/rest-alerts-preference';
 import { Button } from '../ui/button';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, type } from './design';
@@ -46,6 +47,7 @@ export function RestTimerBanner() {
   const timer = useRestTimer();
   const state = useSyncExternalStore(timer.subscribe, timer.getSnapshot, timer.getSnapshot);
   const { t } = useTranslation();
+  const alerts = useRestAlertsPreference();
   if (state.endsAt === null) return null;
   return (
     <View style={styles.banner}>
@@ -56,7 +58,7 @@ export function RestTimerBanner() {
           {Math.floor(state.remainingSeconds / 60)}:
           {String(state.remainingSeconds % 60).padStart(2, '0')}
         </Text>
-        {state.alertUnavailable ? (
+        {state.alertUnavailable && alerts.enabled ? (
           <Text style={styles.notice}>{t('rest.alert_unavailable')}</Text>
         ) : null}
       </View>
