@@ -3,6 +3,7 @@ import {
   createRootRouteWithContext,
   createRoute,
   createRouter,
+  Navigate,
   redirect,
 } from '@tanstack/react-router';
 import { lazyWithRetry } from '@/lib/lazy-with-retry';
@@ -15,7 +16,7 @@ import { ProfileSkeleton } from '@/features/profile/profile-skeleton';
 import { RootLayout } from '@/components/root-layout';
 import { RouteErrorFallback } from '@/components/route-error-fallback';
 import { useAuth } from '@/contexts/auth-context';
-import { readStoredIsGuest } from '@/contexts/guest-context';
+import { readStoredIsGuest, useGuest } from '@/contexts/guest-context';
 import type { UserInfo } from '@gzclp/domain/schemas/user';
 
 // ---------------------------------------------------------------------------
@@ -168,11 +169,36 @@ const AppShell = lazyWithRetry(() =>
 // AppLayout wrapped with TrackerProvider
 // ---------------------------------------------------------------------------
 
+/**
+ * True once auth has resolved and there is neither a session nor guest mode.
+ * readStoredIsGuest() covers the same-tick race: the landing guest CTA writes
+ * the flag and navigates before the router context (and React state) update.
+ */
+function isUnauthenticated(auth: {
+  readonly user: UserInfo | null;
+  readonly loading: boolean;
+  readonly isGuest: boolean;
+}): boolean {
+  return !auth.loading && auth.user === null && !auth.isGuest && !readStoredIsGuest();
+}
+
 function AppLayoutWithTracker(): React.ReactNode {
-  const { loading } = useAuth();
+  const { user, loading } = useAuth();
+  const { isGuest } = useGuest();
   // Show skeleton while session restore is in progress so the app chrome
   // (sidebar, header) doesn't flash before authentication is confirmed.
   if (loading) return <AppSkeleton />;
+  // beforeLoad cannot see a session that resolves after the first load (it runs
+  // once, while loading is still true), so a cold load, an expired session and a
+  // mid-session invalidation are all redirected from here instead.
+  if (isUnauthenticated({ user, loading, isGuest })) {
+    return (
+      <>
+        <AppSkeleton />
+        <Navigate to="/login" replace />
+      </>
+    );
+  }
   // AppShell is lazy-loaded (keeps motion off the public path); Suspense shows
   // the same skeleton during the brief chunk fetch.
   return (
@@ -363,14 +389,7 @@ const appLayoutRoute = createRoute({
   id: 'app-layout',
   component: AppLayoutWithTracker,
   beforeLoad: ({ context }) => {
-    // readStoredIsGuest() covers the same-tick race: the landing guest CTA
-    // writes the flag and navigates here before the router context updates.
-    if (
-      !context.auth.loading &&
-      context.auth.user === null &&
-      !context.auth.isGuest &&
-      !readStoredIsGuest()
-    ) {
+    if (isUnauthenticated(context.auth)) {
       throw redirect({ to: '/login', replace: true });
     }
   },

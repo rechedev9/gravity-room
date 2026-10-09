@@ -85,13 +85,12 @@ test.describe('Guest banner (REQ-GUI-002)', () => {
     await expect(banner.getByRole('button', { name: /crear cuenta/i })).toBeVisible();
   });
 
-  test('banner not visible for unauthenticated non-guest', async ({ page }) => {
+  test('banner not visible for a signed-in user', async ({ page }) => {
+    await authenticateOnly(page);
     await page.goto('/app');
-    // Wait for page to settle
     await expect(page.getByRole('heading', { name: /sin programa activo/i })).toBeVisible({
       timeout: 10_000,
     });
-    // No guest banner
     await expect(page.getByRole('status').filter({ hasText: 'Modo invitado' })).not.toBeVisible();
   });
 });
@@ -165,16 +164,16 @@ test.describe('Guest sidebar CTA (REQ-GUI-003, REQ-GUI-008)', () => {
     await expect(page.getByText('GZCLP').first()).toBeVisible({ timeout: 10_000 });
   });
 
-  test('sidebar shows "Iniciar Sesión" for non-guest unauthenticated', async ({ page }) => {
+  test('sidebar offers no "Crear Cuenta" to a signed-in user', async ({ page }) => {
+    await authenticateOnly(page);
     await page.goto('/app');
     await expect(page.getByRole('heading', { name: /sin programa activo/i })).toBeVisible({
       timeout: 10_000,
     });
 
     const nav = page.getByRole('navigation').first();
-    await expect(nav.getByRole('link', { name: /iniciar sesión/i })).toBeVisible();
-    // No "Crear Cuenta" button
     await expect(nav.getByRole('button', { name: /crear cuenta/i })).not.toBeVisible();
+    await expect(nav.getByRole('link', { name: /iniciar sesión/i })).not.toBeVisible();
   });
 });
 
@@ -205,21 +204,9 @@ test.describe('Guest routing (REQ-GROUT-001, REQ-GROUT-006)', () => {
     // enterGuestMode already gates on guest mode status — page is loaded
   });
 
-  test('non-guest unauthenticated at /app sees dashboard with "Iniciar Sesión"', async ({
-    page,
-  }) => {
+  test('non-guest unauthenticated at /app is redirected to /login', async ({ page }) => {
     await page.goto('/app');
-    // App renders dashboard (no auth required for dashboard)
-    await expect(page.getByRole('heading', { name: /sin programa activo/i })).toBeVisible({
-      timeout: 10_000,
-    });
-    // Sidebar shows "Iniciar Sesión", not "Crear Cuenta"
-    await expect(
-      page
-        .getByRole('navigation')
-        .first()
-        .getByRole('link', { name: /iniciar sesión/i })
-    ).toBeVisible();
+    await page.waitForURL('**/login', { timeout: 10_000 });
   });
 });
 
