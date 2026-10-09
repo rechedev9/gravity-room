@@ -1,3 +1,4 @@
+import { isWorkoutComplete } from '@gzclp/domain/generic-stats';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import type { GenericResults, ProgramDefinition } from '@gzclp/domain/types/program';
 import type { ViewMode } from '@/lib/view-preference';
@@ -71,8 +72,7 @@ export function ProgramTabContent({
   const { t } = useTranslation();
 
   const completedDayIndices = useMemo<ReadonlySet<number>>(
-    () =>
-      new Set(rows.filter((r) => r.slots.every((s) => s.result !== undefined)).map((r) => r.index)),
+    () => new Set(rows.filter(isWorkoutComplete).map((r) => r.index)),
     [rows]
   );
 

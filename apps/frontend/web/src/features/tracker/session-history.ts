@@ -1,3 +1,4 @@
+import { isWorkoutComplete } from '@gzclp/domain/generic-stats';
 import type { GenericSlotRow, GenericWorkoutRow } from '@gzclp/domain/types';
 
 /** A slot is finished only once its AMRAP follow-up (if any) has been answered. */
@@ -71,7 +72,7 @@ export function findPreviousSameDay(
   for (let i = index - 1; i >= 0; i--) {
     const row = rows[i];
     if (row === undefined || row.dayName !== current.dayName) continue;
-    if (row.slots.length === 0 || !row.slots.every((s) => s.result !== undefined)) continue;
+    if (!isWorkoutComplete(row)) continue;
 
     return {
       index: i,

@@ -7,7 +7,6 @@ import {
   buildRecentSessions,
   buildLiftHistory,
   buildWorkoutDates,
-  findFirstPendingIndex,
 } from './dashboard-view-models';
 
 // Two-day program: Squat (T1) on Day A, Bench (T1) on Day B. T1 slots resolve to
@@ -75,16 +74,6 @@ const RESULTS: GenericResults = {
 };
 
 const rows = computeGenericProgram(DEFINITION, CONFIG, RESULTS);
-
-describe('findFirstPendingIndex', () => {
-  it('returns the first workout with an unmarked slot', () => {
-    expect(findFirstPendingIndex(rows)).toBe(2);
-  });
-
-  it('returns -1 when everything is empty', () => {
-    expect(findFirstPendingIndex([])).toBe(-1);
-  });
-});
 
 describe('buildHeroExtras', () => {
   it('returns empty extras when nothing has been logged (pristine state)', () => {

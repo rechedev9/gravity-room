@@ -4,6 +4,7 @@
  * network concerns so the mapping is unit-testable in isolation.
  */
 import type { GenericWorkoutRow, GenericSlotRow } from '@gzclp/domain/types';
+import { findFirstPendingIndex, isWorkoutComplete } from '@gzclp/domain/generic-stats';
 import { formatChartDate } from '@/components/charts/chart-theme';
 import type { NextSet, NextWorkout } from './next-set-hero';
 import type { LiftHistoryRow } from './use-pr-road';
@@ -32,16 +33,6 @@ export interface HeroExtras {
 
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
-}
-
-/** Index of the first workout that still has at least one unmarked slot, or -1. */
-export function findFirstPendingIndex(rows: readonly GenericWorkoutRow[]): number {
-  const pending = rows.find((r) => r.slots.some((s) => s.result === undefined));
-  return pending ? pending.index : -1;
-}
-
-function isCompleted(row: GenericWorkoutRow): boolean {
-  return row.slots.length > 0 && row.slots.every((s) => s.result !== undefined);
 }
 
 /** Unique primary-lift names for a workout row, in slot order. */
@@ -164,7 +155,7 @@ export function buildRecentSessions(
   const out: RecentSessionRow[] = [];
   for (let i = rows.length - 1; i >= 0 && out.length < limit; i -= 1) {
     const row = rows[i];
-    if (!row || !isCompleted(row)) continue;
+    if (!row || !isWorkoutComplete(row)) continue;
     const ts = resultTimestamps[String(row.index)];
     const successCount = row.slots.filter((s) => s.result === 'success').length;
     out.push({
@@ -191,7 +182,7 @@ export function buildWorkoutDates(
 ): readonly string[] {
   const dates: string[] = [];
   for (const row of rows) {
-    if (!isCompleted(row)) continue;
+    if (!isWorkoutComplete(row)) continue;
     const ts = resultTimestamps[String(row.index)];
     if (ts) dates.push(ts);
   }

@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { requireLiveQuery } from '../../lib/programs/program-queries';
 import {
   computeGenericProgram,
+  findFirstPendingIndex,
+  isWorkoutComplete,
   ProgramDefinitionSchema,
   type GenericProgramDetail,
   type ProgramDefinition,
@@ -37,12 +39,7 @@ import { useRestTimer } from '../../shell/rest-timer-provider';
 import { restSecondsForRole } from '../../lib/rest/rest-timer';
 import { Chip } from '../../ui/chip';
 import { Card } from '../../ui/card';
-import {
-  firstPendingWorkout,
-  isWorkoutComplete,
-  recordedWorkoutVolume,
-  workoutScrollTarget,
-} from './workout-navigation';
+import { recordedWorkoutVolume, workoutScrollTarget } from './workout-navigation';
 import { Button } from '../../ui/button';
 import { classifyTrackerLoadFailure, type TrackerLoadFailure } from './tracker-load-error';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -233,7 +230,7 @@ export function TrackerScreen({
             cachedDetail.config,
             cachedDetail.results
           );
-          const pending = firstPendingWorkout(cachedRows);
+          const pending = findFirstPendingIndex(cachedRows);
           if (initialLoad)
             setSelectedWorkoutIndex(pending >= 0 ? pending : Math.max(0, cachedRows.length - 1));
         }
@@ -299,7 +296,7 @@ export function TrackerScreen({
               freshDetail.config,
               freshDetail.results
             );
-            const pending = firstPendingWorkout(freshRows);
+            const pending = findFirstPendingIndex(freshRows);
             setSelectedWorkoutIndex(pending >= 0 ? pending : Math.max(0, freshRows.length - 1));
           }
 
@@ -349,7 +346,7 @@ export function TrackerScreen({
   const selectedRow = rows[selectedWorkoutIndex];
   const workoutsPerWeek = definition?.workoutsPerWeek ?? 3;
   const weekIndex = Math.floor(selectedWorkoutIndex / workoutsPerWeek);
-  const firstPendingIdx = firstPendingWorkout(rows);
+  const firstPendingIdx = findFirstPendingIndex(rows);
   const completed = selectedRow !== undefined && isWorkoutComplete(selectedRow);
   const dayLabel = selectedRow ? distinctDayLabel(selectedRow.dayName) : null;
   const previews = useMemo(() => {
