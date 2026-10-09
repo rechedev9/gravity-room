@@ -19,6 +19,11 @@ overrides:
   picomatch: '>=4.0.4'
   postcss: '>=8.5.18'
   brace-expansion: '>=5.0.8'
+  # brace-expansion 5 exports { expand }; minimatch 3, 5 and 9 call the module as
+  # a function, which breaks the React Native codegen on a fresh install.
+  'minimatch@3>brace-expansion': ^1.1.21
+  'minimatch@5>brace-expansion': ^2.1.7
+  'minimatch@9>brace-expansion': ^2.1.7
   ws: '>=8.21.0'
   uuid: '>=11.1.1'
   '@babel/plugin-transform-modules-systemjs': '>=7.29.7'
