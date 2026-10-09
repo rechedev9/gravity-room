@@ -1,4 +1,5 @@
 import { encodeApiPathIdentifier } from '@gzclp/api-client/path-identifier';
+import { readApiError } from '@gzclp/api-client/response-error';
 import {
   CatalogEntrySchema,
   GenericProgramDetailSchema,
@@ -76,7 +77,10 @@ export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
     const { response } = await fetchWithAccessToken(`${requestUrl.pathname}${requestUrl.search}`);
 
     if (!response.ok) {
-      throw new Error(`Program summary fetch failed with status ${response.status}`);
+      throw await readApiError(
+        response,
+        `Program summary fetch failed with status ${response.status}`
+      );
     }
 
     const payload = readRemoteProgramsPage(await response.json());
@@ -104,7 +108,10 @@ export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
 export async function fetchCatalogEntries(): Promise<CatalogEntry[]> {
   const response = await fetchWithAccessToken('/catalog');
   if (!response.response.ok) {
-    throw new Error(`Catalog fetch failed with status ${response.response.status}`);
+    throw await readApiError(
+      response.response,
+      `Catalog fetch failed with status ${response.response.status}`
+    );
   }
 
   const payload = await response.response.json();
@@ -118,7 +125,10 @@ export async function fetchCatalogEntries(): Promise<CatalogEntry[]> {
 export async function fetchCatalogDefinition(programId: string): Promise<ProgramDefinition> {
   const response = await fetchWithAccessToken(`/catalog/${encodeApiPathIdentifier(programId)}`);
   if (!response.response.ok) {
-    throw new Error(`Catalog definition fetch failed with status ${response.response.status}`);
+    throw await readApiError(
+      response.response,
+      `Catalog definition fetch failed with status ${response.response.status}`
+    );
   }
 
   return ProgramDefinitionSchema.parse(await response.response.json());
@@ -142,7 +152,7 @@ export async function createProgramInstance(input: {
   });
 
   if (!response.ok) {
-    throw new Error(`Program creation failed with status ${response.status}`);
+    throw await readApiError(response, `Program creation failed with status ${response.status}`);
   }
 
   return GenericProgramDetailSchema.parse(await response.json());
@@ -155,7 +165,7 @@ export async function deleteProgramInstance(programInstanceId: string): Promise<
     { method: 'DELETE' }
   );
   if (response.ok || response.status === 404) return;
-  throw new Error(`Program deletion failed with status ${response.status}`);
+  throw await readApiError(response, `Program deletion failed with status ${response.status}`);
 }
 
 /** Existing plans started from the same catalog program. */

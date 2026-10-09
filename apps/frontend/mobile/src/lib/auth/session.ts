@@ -10,8 +10,8 @@ import {
 } from './session-response';
 import { parseRetryAfter } from '../network/retry-after';
 import { RequestTimeoutError, fetchApiResponse } from '../network/api-fetch';
+import { parseApiErrorBody } from '@gzclp/api-client/api-error';
 import { createSingleFlight } from '@gzclp/api-client/single-flight';
-import { isRecord } from '@gzclp/domain/type-guards';
 import { Platform } from 'react-native';
 import {
   canPersistRefreshToken,
@@ -340,16 +340,8 @@ async function revokeCookieSession(): Promise<void> {
 
 /** Reads the machine-readable error `code` from an API error body, if present. */
 async function readResponseErrorCode(response: Response): Promise<string | undefined> {
-  try {
-    const body = await response.json();
-    if (isRecord(body) && typeof body.code === 'string') {
-      return body.code;
-    }
-  } catch {
-    // A non-JSON error body just means we fall back to the status-derived code.
-  }
-
-  return undefined;
+  const body: unknown = await response.json().catch(() => ({}));
+  return parseApiErrorBody(body).code;
 }
 
 /** Maps an auth failure to a stable code the UI localizes (`login.errors.*`). */

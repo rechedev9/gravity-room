@@ -49,6 +49,18 @@ describe('deleteProgramInstance', () => {
     await expect(deleteProgramInstance('plan-1')).rejects.toThrow('status 500');
   });
 
+  it('carries the server status and code on the thrown error', async () => {
+    mockFetchWithAccessToken.mockResolvedValue({
+      accessToken: 'token',
+      response: new Response(JSON.stringify({ error: 'Boom', code: 'INTERNAL' }), { status: 500 }),
+    });
+    await expect(deleteProgramInstance('plan-1')).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 500,
+      code: 'INTERNAL',
+    });
+  });
+
   it('encodes the plan id in the path', async () => {
     mockFetchWithAccessToken.mockResolvedValue({
       accessToken: 'token',

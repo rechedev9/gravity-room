@@ -22,16 +22,10 @@ import type {
 } from '@gzclp/domain/schemas/exercises';
 import type { InsightItem } from '@gzclp/domain/schemas/insights';
 import { isRecord } from '@gzclp/domain/type-guards';
+import { readApiError } from '@gzclp/api-client/response-error';
 import { z } from 'zod/v4';
 import { API_URL } from './api';
-import {
-  apiFetch,
-  deleteAccount,
-  extractApiError,
-  fetchMe,
-  updateProfile,
-  type ApiFetchOptions,
-} from './api-core';
+import { apiFetch, deleteAccount, fetchMe, updateProfile, type ApiFetchOptions } from './api-core';
 
 // Re-export types derived from schemas
 export type { UserInfo } from '@gzclp/domain/schemas/user';
@@ -164,7 +158,7 @@ export async function fetchAuthProviders(): Promise<AuthProviders> {
   const res = await fetch(`${API_URL}/api/auth/providers`, {
     signal: AbortSignal.timeout(30_000),
   });
-  if (!res.ok) throw await extractApiError(res, `API error: ${res.status}`);
+  if (!res.ok) throw await readApiError(res, `API error: ${res.status}`);
   return AuthProvidersResponseSchema.parse(await res.json());
 }
 

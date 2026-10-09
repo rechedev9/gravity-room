@@ -1,4 +1,5 @@
 import { encodeApiPathIdentifier } from '@gzclp/api-client/path-identifier';
+import { readApiError } from '@gzclp/api-client/response-error';
 import { fetchApiResponse } from '../network/api-fetch';
 import {
   GenericProgramDetailSchema,
@@ -8,6 +9,7 @@ import {
 } from '@gzclp/domain';
 
 import { buildApiUrl, fetchWithAccessToken, getAccessToken } from '../auth/session';
+import { ProgramDefinitionFetchError } from './program-definition-error';
 
 export async function fetchProgramDetail(programInstanceId: string): Promise<GenericProgramDetail> {
   if (!getAccessToken()) {
@@ -18,7 +20,10 @@ export async function fetchProgramDetail(programInstanceId: string): Promise<Gen
     `/programs/${encodeApiPathIdentifier(programInstanceId)}`
   );
   if (!response.ok) {
-    throw new Error(`Program detail fetch failed with status ${response.status}`);
+    throw await readApiError(
+      response,
+      `Program detail fetch failed with status ${response.status}`
+    );
   }
 
   return GenericProgramDetailSchema.parse(await response.json());
@@ -29,7 +34,9 @@ export async function fetchProgramDefinition(programId: string): Promise<Program
     buildApiUrl(`/catalog/${encodeApiPathIdentifier(programId)}`)
   );
   if (!response.ok) {
-    throw new Error(`Program definition fetch failed with status ${response.status}`);
+    throw new ProgramDefinitionFetchError(
+      await readApiError(response, `Program definition fetch failed with status ${response.status}`)
+    );
   }
 
   return ProgramDefinitionSchema.parse(await response.json());

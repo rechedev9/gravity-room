@@ -16,18 +16,11 @@ import { API_URL, getAccessToken, refreshAccessToken } from './api';
 import { parseUser } from '@gzclp/domain/schemas/user';
 import type { UserInfo } from '@gzclp/domain/schemas/user';
 import { mergeHeaders } from '@gzclp/api-client/merge-headers';
-import { ApiError, parseApiErrorBody } from '@gzclp/api-client/api-error';
+import { readApiError } from '@gzclp/api-client/response-error';
 
 // ---------------------------------------------------------------------------
 // Auth-aware fetch wrapper with automatic retry on 401
 // ---------------------------------------------------------------------------
-
-export async function extractApiError(res: Response, fallback: string): Promise<ApiError> {
-  const body: unknown = await res.json().catch(() => ({}));
-  const { message, code } = parseApiErrorBody(body);
-  const msg = message === 'Unknown error' ? fallback : message;
-  return new ApiError(msg, res.status, code);
-}
 
 export interface ApiFetchOptions extends RequestInit {
   /**
@@ -61,16 +54,16 @@ export async function apiFetch(path: string, options: ApiFetchOptions = {}): Pro
 
   if (res.status === 401) {
     const refreshed = retryAuth ? await refreshAccessToken() : null;
-    if (!refreshed) throw await extractApiError(res, 'Authentication failed');
+    if (!refreshed) throw await readApiError(res, 'Authentication failed');
 
     headers['Authorization'] = `Bearer ${refreshed.accessToken}`;
     const retry = await doFetch();
-    if (!retry.ok) throw await extractApiError(retry, `API error: ${retry.status}`);
+    if (!retry.ok) throw await readApiError(retry, `API error: ${retry.status}`);
     if (retry.status === 204) return null;
     return retry.json();
   }
 
-  if (!res.ok) throw await extractApiError(res, `API error: ${res.status}`);
+  if (!res.ok) throw await readApiError(res, `API error: ${res.status}`);
   if (res.status === 204) return null;
   return res.json();
 }
