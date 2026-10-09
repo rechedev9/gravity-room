@@ -12,6 +12,7 @@ import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import { PROGRAM_LEVELS } from '@gzclp/domain/catalog';
 import type { ProgramLevel } from '@gzclp/domain/catalog';
+import type { CatalogEntry } from '@gzclp/domain/schemas/catalog';
 import { isRecord } from '@gzclp/domain/type-guards';
 import {
   getCachedCatalogList,
@@ -36,19 +37,6 @@ export type GetProgramDefinitionResult =
   | { readonly status: 'found'; readonly definition: ProgramDefinition }
   | { readonly status: 'not_found' }
   | { readonly status: 'hydration_failed'; readonly error: unknown };
-
-export interface CatalogEntry {
-  readonly id: string;
-  readonly name: string;
-  readonly description: string;
-  readonly author: string;
-  readonly category: string;
-  readonly level: ProgramLevel;
-  readonly source: string;
-  readonly totalWorkouts: number;
-  readonly workoutsPerWeek: number;
-  readonly cycleLength: number;
-}
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -18,7 +18,8 @@ import {
   ProgramInstanceSchema,
   SetLogEntryInputSchema,
 } from '@gzclp/domain/schemas/instance';
-import { MAX_SET_LOG_ITEMS } from '@gzclp/domain/schemas/instance';
+import type { z } from 'zod/v4';
+import { MAX_SET_LOG_ITEMS, type GenericProgramDetailSchema } from '@gzclp/domain/schemas/instance';
 import type { GenericResults, GenericUndoHistory } from '@gzclp/domain/types/program';
 import { ApiError } from '../middleware/error-handler';
 import {
@@ -57,22 +58,17 @@ interface UndoProjection {
   readonly previousSetLogs: unknown;
 }
 
-export interface ProgramInstanceResponse {
-  readonly id: string;
-  readonly programId: string;
-  readonly name: string;
-  readonly config: unknown;
-  readonly metadata: unknown;
-  readonly status: string;
-  readonly results: GenericResults;
-  readonly undoHistory: GenericUndoHistory;
-  readonly resultTimestamps: Readonly<Record<string, string>>;
-  readonly completedDates: Readonly<Record<string, string>>;
-  readonly definitionId: string | null;
-  readonly customDefinition: unknown | null;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-}
+/**
+ * Wire shape of a program instance, derived from the client schema so a field renamed there
+ * fails typecheck here. Config, metadata and the custom definition stay `unknown` on purpose.
+ */
+export type ProgramInstanceResponse = Readonly<
+  Omit<z.input<typeof GenericProgramDetailSchema>, 'config' | 'metadata' | 'customDefinition'> & {
+    config: unknown;
+    metadata: unknown;
+    customDefinition: unknown;
+  }
+>;
 
 // ---------------------------------------------------------------------------
 // Helpers

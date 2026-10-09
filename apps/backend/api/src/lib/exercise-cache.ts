@@ -7,7 +7,10 @@ import { getRedis } from './redis';
 import { logger } from './logger';
 import { isRecord } from '@gzclp/domain/type-guards';
 import { createHash } from 'node:crypto';
-import type { ExerciseEntry, PaginatedExercises } from '../services/exercises';
+import type {
+  ExerciseEntry,
+  PaginatedExercisesResponse as PaginatedExercises,
+} from '@gzclp/domain/schemas/exercises';
 
 // ---------------------------------------------------------------------------
 // Constants
