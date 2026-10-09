@@ -291,7 +291,8 @@ export function computeGenericProgram(
 
   const rows: GenericWorkoutRow[] = [];
   const cycleLength = definition.days.length;
-  const prevWeightByExerciseId = new Map<string, number>();
+  // Keyed by lift and tier: the same lift is often lighter as T2 than as T1.
+  const prevWeightByLiftTier = new Map<string, number>();
 
   const rowLimit = Math.min(definition.totalWorkouts, options?.maxRows ?? definition.totalWorkouts);
 
@@ -395,10 +396,11 @@ export function computeGenericProgram(
           ? roundToNearest((tmState[slot.trainingMaxKey] ?? 0) * slot.tmPercent, roundingStep)
           : state.weight;
 
-      const prevWeight = prevWeightByExerciseId.get(slot.exerciseId);
+      const liftTierKey = `${slot.exerciseId}:${slot.tier}`;
+      const prevWeight = prevWeightByLiftTier.get(liftTierKey);
       const isDeload = prevWeight !== undefined && weight > 0 && weight < prevWeight;
       if (weight > 0) {
-        prevWeightByExerciseId.set(slot.exerciseId, weight);
+        prevWeightByLiftTier.set(liftTierKey, weight);
       }
 
       const derivedResult = deriveSlotResult(slot, slotResult, stageConfig.reps);

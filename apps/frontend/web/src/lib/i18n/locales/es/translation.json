@@ -197,7 +197,7 @@
       "error_not_found": "Programa no encontrado",
       "error_details": "El programa solicitado no existe o no se pudo cargar.",
       "cta_signup_prompt": "Crea una cuenta para registrar tu progreso",
-      "cta_view_dashboard": "Ver Dashboard",
+      "cta_go_home": "Ir a Inicio",
       "cta_active_warning": "Finaliza tu programa actual antes de iniciar uno nuevo.",
       "sample_workout": "Ejemplo de entrenamiento"
     },
@@ -916,7 +916,7 @@
       "import_backup": "Importar copia JSON",
       "import_backup_file_aria": "Seleccionar archivo de copia JSON",
       "reset_all": "Reiniciar Todo",
-      "finish_confirm_message": "Tu progreso y estadísticas se guardarán. Podrás consultarlos en cualquier momento desde el dashboard.",
+      "finish_confirm_message": "Tu progreso y estadísticas se guardarán. Podrás consultarlos en cualquier momento desde tu perfil.",
       "finish_confirm_label": "Finalizar",
       "reset_confirm_title": "Reiniciar Todo el Progreso",
       "reset_confirm_message": "¿Estás seguro de que quieres reiniciar TODO el progreso? Esto no se puede deshacer.",

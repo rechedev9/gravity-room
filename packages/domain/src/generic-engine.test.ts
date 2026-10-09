@@ -532,6 +532,34 @@ describe('GZCLP progression rules', () => {
     expect(squat.stage).toBe(0);
   });
 
+  it('does not flag a lighter T2 as a deload just because the same lift was heavier as T1', () => {
+    const results: GenericResults = {
+      '0': daySuccess(0, { t2: 'fail' }),
+      '1': daySuccess(1),
+      '2': daySuccess(2),
+      '3': daySuccess(3),
+    };
+    const rows = computeGenericProgram(GZCLP_MINI, GZCLP_CONFIG, results);
+
+    // Bench is T1 on day 3 (40 kg) and T2 on day 5 (stage change, 25 kg): no weight cut.
+    const benchT2 = slotAt(rows, 4, 'd1-t2');
+    expect(benchT2.stage).toBe(1);
+    expect(benchT2.weight).toBeLessThan(slotAt(rows, 2, 'd3-t1').weight);
+    expect(rows.flatMap((r) => r.slots).filter((s) => s.isDeload)).toEqual([]);
+  });
+
+  it('still flags a real weight cut on the same lift and tier as a deload', () => {
+    const results: GenericResults = {
+      '0': daySuccess(0, { t1: 'fail' }),
+      '4': daySuccess(0, { t1: 'fail' }),
+      '8': daySuccess(0, { t1: 'fail' }),
+    };
+    const rows = computeGenericProgram(GZCLP_MINI, GZCLP_CONFIG, results);
+
+    expect(slotAt(rows, 12, 'd1-t1').isDeload).toBe(true);
+    expect(slotAt(rows, 8, 'd1-t1').isDeload).toBe(false);
+  });
+
   it('advances T1 stage on mid-stage fail without changing weight', () => {
     const results: GenericResults = {
       '0': daySuccess(0, { t1: 'fail' }),

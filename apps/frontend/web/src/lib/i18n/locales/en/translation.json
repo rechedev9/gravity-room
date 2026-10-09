@@ -197,7 +197,7 @@
       "error_not_found": "Program not found",
       "error_details": "The requested program does not exist or could not be loaded.",
       "cta_signup_prompt": "Create an account to log your progress",
-      "cta_view_dashboard": "View Dashboard",
+      "cta_go_home": "Go to Home",
       "cta_active_warning": "Finish your current program before starting a new one.",
       "sample_workout": "Sample workout"
     },
@@ -916,7 +916,7 @@
       "import_backup": "Import JSON backup",
       "import_backup_file_aria": "Select JSON backup file",
       "reset_all": "Reset All",
-      "finish_confirm_message": "Your progress and statistics will be saved. You can review them anytime from the dashboard.",
+      "finish_confirm_message": "Your progress and statistics will be saved. You can review them anytime from your profile.",
       "finish_confirm_label": "Finish",
       "reset_confirm_title": "Reset All Progress",
       "reset_confirm_message": "Are you sure you want to reset ALL progress? This cannot be undone.",
