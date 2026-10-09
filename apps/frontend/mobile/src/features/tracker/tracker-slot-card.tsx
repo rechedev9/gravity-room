@@ -327,10 +327,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   metricLabel: {
+    ...type.button,
     flex: 1,
     color: colors.textSecondary,
     fontSize: 13,
-    fontWeight: '600',
   },
   metricActions: {
     flexDirection: 'row',
@@ -348,9 +348,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   metricButtonLabel: {
+    ...type.title,
     color: colors.textPrimary,
     fontSize: 16,
-    fontWeight: '700',
   },
   metricClearButton: {
     minHeight: 44,

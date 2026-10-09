@@ -398,6 +398,7 @@ const styles = StyleSheet.create({
     ...type.kicker,
   },
   input: {
+    ...type.body,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.rule,
@@ -426,6 +427,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   errorBannerText: {
+    ...type.body,
     color: colors.textError,
     fontSize: 13,
   },
@@ -444,10 +446,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.header,
   },
   formMessageErrorText: {
+    ...type.body,
     color: colors.textError,
     fontSize: 13,
   },
   formMessageSuccessText: {
+    ...type.body,
     color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 20,
