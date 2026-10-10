@@ -3,7 +3,7 @@
  * Set counts, total volume, success rate, average RPE. One payload per slot.
  */
 
-import type { WorkoutRecord } from '../record';
+import { seriesKeyResolver, type WorkoutRecord } from '../record';
 import { pyRound } from './round';
 
 const DEFAULT_REPS = 5;
@@ -19,11 +19,12 @@ export interface ExerciseSummaryPayload {
 export function computeSummaryPerExercise(
   records: readonly WorkoutRecord[]
 ): Map<string, ExerciseSummaryPayload> {
+  const keyOf = seriesKeyResolver(records);
   const bySlot = new Map<string, WorkoutRecord[]>();
   for (const r of records) {
-    const slot = bySlot.get(r.exerciseId) ?? [];
+    const slot = bySlot.get(keyOf(r)) ?? [];
     slot.push(r);
-    bySlot.set(r.exerciseId, slot);
+    bySlot.set(keyOf(r), slot);
   }
 
   const result = new Map<string, ExerciseSummaryPayload>();

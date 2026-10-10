@@ -29,6 +29,24 @@ const {
 } = await import('./queries');
 const { MAX_ANALYTICS_RECORDS_PER_USER } = await import('../lib/data-limits');
 
+function hydratedGzclp() {
+  const gzclp = hydrateProgramDefinition(
+    {
+      id: 'gzclp',
+      name: 'GZCLP',
+      description: '',
+      author: '',
+      version: 1,
+      category: 'strength',
+      source: 'preset',
+      definition: PROGRAM_TEMPLATE_DEFINITIONS['gzclp'],
+    },
+    CANONICAL_EXERCISES.map((exercise) => ({ id: exercise.id, name: exercise.name }))
+  );
+  if (!gzclp.ok) throw new Error('GZCLP seed must hydrate');
+  return gzclp.value;
+}
+
 function sqlText(condition: unknown): string {
   if (
     condition === null ||
@@ -98,10 +116,20 @@ describe('analytics user selection', () => {
     const where = vi.fn<(condition: unknown) => { orderBy: typeof orderBy }>(() => ({ orderBy }));
     const innerJoin = vi.fn(() => ({ where }));
     const from = vi.fn(() => ({ innerJoin }));
-    activeDb = { select: vi.fn(() => ({ from })) };
+    const instancesChain = {
+      from: () => ({
+        where: () => [{ id: 'i1', templateId: 'gzclp', config: {}, customDefinition: null }],
+      }),
+    };
+    mockGetHistoricalProgramDefinition.mockImplementation(() =>
+      Promise.resolve({ status: 'found', definition: hydratedGzclp() })
+    );
+    activeDb = {
+      select: vi.fn().mockReturnValueOnce({ from }).mockReturnValueOnce(instancesChain),
+    };
 
     await expect(fetchWorkoutRecords('u1')).resolves.toMatchObject([
-      { exerciseId: 'squat', definitionVersion: 1, weight: 80 },
+      { exerciseId: 'squat', definitionVersion: 1, weight: 80, tier: 't1' },
     ]);
     expect(limit).toHaveBeenCalledWith(MAX_ANALYTICS_RECORDS_PER_USER);
     expect(sqlText(where.mock.calls[0]?.[0])).toContain(
@@ -113,20 +141,7 @@ describe('analytics user selection', () => {
   });
 
   it('gives an unlogged result its prescribed weight, read through the same executor', async () => {
-    const gzclp = hydrateProgramDefinition(
-      {
-        id: 'gzclp',
-        name: 'GZCLP',
-        description: '',
-        author: '',
-        version: 1,
-        category: 'strength',
-        source: 'preset',
-        definition: PROGRAM_TEMPLATE_DEFINITIONS['gzclp'],
-      },
-      CANONICAL_EXERCISES.map((exercise) => ({ id: exercise.id, name: exercise.name }))
-    );
-    if (!gzclp.ok) throw new Error('GZCLP seed must hydrate');
+    const gzclp = { ok: true as const, value: hydratedGzclp() };
     mockGetHistoricalProgramDefinition.mockImplementation((programId) =>
       Promise.resolve(
         programId === 'gzclp'
@@ -193,5 +208,48 @@ describe('analytics user selection', () => {
     expect(innerJoin.mock.calls[0]?.[0]).toBe(users);
     expect(sqlText(where.mock.calls[0]?.[0])).toContain('"users"."deleted_at" is null');
     expect(limit).toHaveBeenCalledWith(4);
+  });
+
+  it('tells the tiers of one lift apart and drops a slot its definition does not know', async () => {
+    mockGetHistoricalProgramDefinition.mockImplementation(() =>
+      Promise.resolve({ status: 'found', definition: hydratedGzclp() })
+    );
+    const base = {
+      userId: 'u1',
+      instanceId: 'i1',
+      programId: 'gzclp',
+      exerciseId: 'squat',
+      definitionVersion: 1,
+      setLogs: null,
+      result: 'success',
+      rpe: null,
+      amrapReps: null,
+      recordedAt: '2026-01-01T00:00:00Z',
+    };
+    // Newest first, as the query returns them.
+    const resultRows = [
+      { ...base, workoutIndex: 2, slotId: 'd3-t2', loggedWeight: 60 },
+      { ...base, workoutIndex: 0, slotId: 'd1-t1', loggedWeight: 80 },
+      { ...base, workoutIndex: 1, slotId: 'not-a-slot', loggedWeight: 70 },
+    ];
+    const resultsChain = {
+      from: () => ({
+        innerJoin: () => ({ where: () => ({ orderBy: () => ({ limit: () => resultRows }) }) }),
+      }),
+    };
+    const instancesChain = {
+      from: () => ({
+        where: () => [{ id: 'i1', templateId: 'gzclp', config: {}, customDefinition: null }],
+      }),
+    };
+    activeDb = {
+      select: vi.fn().mockReturnValueOnce(resultsChain).mockReturnValueOnce(instancesChain),
+    };
+
+    const records = await fetchWorkoutRecords('u1');
+    expect(records.map((r) => [r.workoutIndex, r.tier, r.weight])).toEqual([
+      [0, 't1', 80],
+      [2, 't2', 60],
+    ]);
   });
 });

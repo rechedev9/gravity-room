@@ -7252,11 +7252,13 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
       desc4(workoutResults.id)
     )
     .limit(MAX_ANALYTICS_RECORDS_PER_USER);
+  const resultInstances = new Set(rows.map((row) => row.instanceId));
   const unweighted = new Set(
     rows.filter((row) => row.loggedWeight === null).map((row) => row.instanceId)
   );
   const prescribed = /* @__PURE__ */ new Map();
-  if (unweighted.size > 0) {
+  const tiers = /* @__PURE__ */ new Map();
+  if (resultInstances.size > 0) {
     const instances = await executor
       .select({
         id: sql8`${programInstances.id}::text`,
@@ -7267,9 +7269,11 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
       .from(programInstances)
       .where(eq7(programInstances.userId, userId));
     for (const instance of instances) {
-      if (!unweighted.has(instance.id)) continue;
+      if (!resultInstances.has(instance.id)) continue;
       const definition = await resolveInstanceDefinition(instance, executor);
       if (definition === null) continue;
+      tiers.set(instance.id, slotTiers(definition));
+      if (!unweighted.has(instance.id)) continue;
       prescribed.set(
         instance.id,
         prescribedWeights(
@@ -7281,6 +7285,8 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
   }
   const records = [];
   for (const row of rows.reverse()) {
+    const tier = tiers.get(row.instanceId)?.get(row.slotId);
+    if (tier === void 0) continue;
     const weight = row.loggedWeight ?? prescribed.get(row.instanceId)?.get(weightKey(row));
     if (weight === void 0) continue;
     records.push({
@@ -7290,6 +7296,7 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
       workoutIndex: row.workoutIndex,
       exerciseId: row.exerciseId,
       definitionVersion: Number(row.definitionVersion),
+      tier,
       weight: Number(weight),
       result: row.result,
       rpe: row.rpe === null ? null : Number(row.rpe),
@@ -7298,6 +7305,13 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
     });
   }
   return records;
+}
+function slotTiers(definition) {
+  const tiers = /* @__PURE__ */ new Map();
+  for (const day of definition.days) {
+    for (const slot of day.slots) tiers.set(slot.id, slot.tier);
+  }
+  return tiers;
 }
 async function upsertInsight(userId, insightType, exerciseId, payload, executor = getDb()) {
   await executor
@@ -7513,6 +7527,29 @@ function consistencyPercentage(sortedDateKeys, first, last) {
   return pyRound(Math.min(100, (weeksWithSession.size / totalWeeks) * 100), 1);
 }
 
+// packages/domain/src/insight-series.ts
+var SEPARATOR = ':';
+var MAX_KEY_LENGTH = 100;
+function buildInsightSeriesKey({ exerciseId, tier }) {
+  if (tier === null) return exerciseId;
+  return `${exerciseId}${SEPARATOR}${tier.replaceAll(SEPARATOR, '-')}`.slice(0, MAX_KEY_LENGTH);
+}
+
+// apps/backend/api/src/analytics/record.ts
+function seriesKeyResolver(records) {
+  const tiers = /* @__PURE__ */ new Map();
+  for (const r of records) {
+    const seen = tiers.get(r.exerciseId) ?? /* @__PURE__ */ new Set();
+    seen.add(r.tier);
+    tiers.set(r.exerciseId, seen);
+  }
+  return (r) =>
+    buildInsightSeriesKey({
+      exerciseId: r.exerciseId,
+      tier: (tiers.get(r.exerciseId)?.size ?? 0) > 1 ? r.tier : null,
+    });
+}
+
 // apps/backend/api/src/analytics/epley.ts
 function epley(weight, reps) {
   if (reps === 1) return weight;
@@ -7532,12 +7569,13 @@ function compareByRecordedAtThenIndex(a, b) {
 var MIN_POINTS = 4;
 var DEFAULT_REPS2 = 5;
 function computeE1rmPerExercise(records) {
+  const keyOf = seriesKeyResolver(records);
   const bySlot = /* @__PURE__ */ new Map();
   for (const r of records) {
     if (r.result !== 'success') continue;
-    const slot = bySlot.get(r.exerciseId) ?? [];
+    const slot = bySlot.get(keyOf(r)) ?? [];
     slot.push(r);
-    bySlot.set(r.exerciseId, slot);
+    bySlot.set(keyOf(r), slot);
   }
   const result = /* @__PURE__ */ new Map();
   for (const [exerciseId, exerciseRecords] of bySlot) {
@@ -7573,11 +7611,12 @@ function formatDate(timestamp2, workoutIndex) {
 // apps/backend/api/src/analytics/pipelines/summary.ts
 var DEFAULT_REPS3 = 5;
 function computeSummaryPerExercise(records) {
+  const keyOf = seriesKeyResolver(records);
   const bySlot = /* @__PURE__ */ new Map();
   for (const r of records) {
-    const slot = bySlot.get(r.exerciseId) ?? [];
+    const slot = bySlot.get(keyOf(r)) ?? [];
     slot.push(r);
-    bySlot.set(r.exerciseId, slot);
+    bySlot.set(keyOf(r), slot);
   }
   const result = /* @__PURE__ */ new Map();
   for (const [exerciseId, exerciseRecords] of bySlot) {
@@ -7767,14 +7806,15 @@ var MAX_CONFIDENCE = 0.95;
 var MS_PER_WEEK = 7 * 864e5;
 function computePlateauPerExercise(records) {
   const cutoff = Date.now() - WEEKS_BACK * MS_PER_WEEK;
+  const keyOf = seriesKeyResolver(records);
   const bySlot = /* @__PURE__ */ new Map();
   for (const r of records) {
     if (r.result !== 'success' || r.recordedAt === null) continue;
     const instant = parseInstant(r.recordedAt);
     if (instant === null || instant.getTime() < cutoff) continue;
-    const slot = bySlot.get(r.exerciseId) ?? [];
+    const slot = bySlot.get(keyOf(r)) ?? [];
     slot.push(r);
-    bySlot.set(r.exerciseId, slot);
+    bySlot.set(keyOf(r), slot);
   }
   const result = /* @__PURE__ */ new Map();
   for (const [exerciseId, exerciseRecords] of bySlot) {
@@ -7842,12 +7882,13 @@ var R2_THRESHOLD = 0.5;
 var DEFAULT_REPS4 = 5;
 var FALLBACK_T_CRIT = 1.96;
 function computeForecastPerExercise(records) {
+  const keyOf = seriesKeyResolver(records);
   const bySlot = /* @__PURE__ */ new Map();
   for (const r of records) {
     if (r.result !== 'success') continue;
-    const slot = bySlot.get(r.exerciseId) ?? [];
+    const slot = bySlot.get(keyOf(r)) ?? [];
     slot.push(r);
-    bySlot.set(r.exerciseId, slot);
+    bySlot.set(keyOf(r), slot);
   }
   const result = /* @__PURE__ */ new Map();
   for (const [exerciseId, exerciseRecords] of bySlot) {
@@ -8094,11 +8135,12 @@ var DEFAULT_REPS5 = 5;
 var MS_PER_WEEK2 = 7 * 864e5;
 var MS_PER_DAY2 = 864e5;
 function computeRecommendationPerExercise(records) {
+  const keyOf = seriesKeyResolver(records);
   const bySlot = /* @__PURE__ */ new Map();
   for (const r of records) {
-    const slot = bySlot.get(r.exerciseId) ?? [];
+    const slot = bySlot.get(keyOf(r)) ?? [];
     slot.push(r);
-    bySlot.set(r.exerciseId, slot);
+    bySlot.set(keyOf(r), slot);
   }
   const result = /* @__PURE__ */ new Map();
   for (const [exerciseId, exerciseRecords] of bySlot) {

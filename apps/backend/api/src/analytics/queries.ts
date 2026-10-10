@@ -173,12 +173,15 @@ export async function fetchWorkoutRecords(
     )
     .limit(MAX_ANALYTICS_RECORDS_PER_USER);
 
-  // Replay only the instances that hold a result without a logged weight.
+  // Each result's tier and, for unlogged ones, its prescribed weight both come
+  // from replaying the instance's own definition.
+  const resultInstances = new Set(rows.map((row) => row.instanceId));
   const unweighted = new Set(
     rows.filter((row) => row.loggedWeight === null).map((row) => row.instanceId)
   );
   const prescribed = new Map<string, ReadonlyMap<string, number>>();
-  if (unweighted.size > 0) {
+  const tiers = new Map<string, ReadonlyMap<string, string>>();
+  if (resultInstances.size > 0) {
     const instances = await executor
       .select({
         id: sql<string>`${programInstances.id}::text`,
@@ -189,9 +192,11 @@ export async function fetchWorkoutRecords(
       .from(programInstances)
       .where(eq(programInstances.userId, userId));
     for (const instance of instances) {
-      if (!unweighted.has(instance.id)) continue;
+      if (!resultInstances.has(instance.id)) continue;
       const definition = await resolveInstanceDefinition(instance, executor);
       if (definition === null) continue;
+      tiers.set(instance.id, slotTiers(definition));
+      if (!unweighted.has(instance.id)) continue;
       prescribed.set(
         instance.id,
         prescribedWeights(
@@ -206,6 +211,10 @@ export async function fetchWorkoutRecords(
   // pipelines whose stable tie behavior relies on input order.
   const records: WorkoutRecord[] = [];
   for (const row of rows.reverse()) {
+    // A slot whose tier cannot be resolved cannot be told apart from the other
+    // tiers of its lift, so it is omitted like any other unresolved identity.
+    const tier = tiers.get(row.instanceId)?.get(row.slotId);
+    if (tier === undefined) continue;
     const weight = row.loggedWeight ?? prescribed.get(row.instanceId)?.get(weightKey(row));
     if (weight === undefined) continue;
     records.push({
@@ -215,6 +224,7 @@ export async function fetchWorkoutRecords(
       workoutIndex: row.workoutIndex,
       exerciseId: row.exerciseId,
       definitionVersion: Number(row.definitionVersion),
+      tier,
       weight: Number(weight),
       result: row.result,
       rpe: row.rpe === null ? null : Number(row.rpe),
@@ -223,6 +233,14 @@ export async function fetchWorkoutRecords(
     });
   }
   return records;
+}
+
+function slotTiers(definition: ProgramDefinition): ReadonlyMap<string, string> {
+  const tiers = new Map<string, string>();
+  for (const day of definition.days) {
+    for (const slot of day.slots) tiers.set(slot.id, slot.tier);
+  }
+  return tiers;
 }
 
 /**

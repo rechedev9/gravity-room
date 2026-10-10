@@ -7,7 +7,7 @@
  * (`distinctClassCount < 2`) and use the heuristic.
  */
 
-import type { WorkoutRecord } from '../record';
+import { seriesKeyResolver, type WorkoutRecord } from '../record';
 import { distinctClassCount, standardizeTrainPredict } from '../logistic';
 import { parseInstant } from './time';
 import { compareByRecordedAtThenIndex } from './sort';
@@ -31,11 +31,12 @@ export interface LoadRecommendationPayload {
 export function computeRecommendationPerExercise(
   records: readonly WorkoutRecord[]
 ): Map<string, LoadRecommendationPayload> {
+  const keyOf = seriesKeyResolver(records);
   const bySlot = new Map<string, WorkoutRecord[]>();
   for (const r of records) {
-    const slot = bySlot.get(r.exerciseId) ?? [];
+    const slot = bySlot.get(keyOf(r)) ?? [];
     slot.push(r);
-    bySlot.set(r.exerciseId, slot);
+    bySlot.set(keyOf(r), slot);
   }
 
   const result = new Map<string, LoadRecommendationPayload>();

@@ -20,6 +20,7 @@
     "./generic-engine": "./src/generic-engine.ts",
     "./generic-stats": "./src/generic-stats.ts",
     "./graduation": "./src/graduation.ts",
+    "./insight-series": "./src/insight-series.ts",
     "./slot-results": "./src/slot-results.ts",
     "./program-config": "./src/program-config.ts",
     "./progression-preview": "./src/progression-preview.ts",
