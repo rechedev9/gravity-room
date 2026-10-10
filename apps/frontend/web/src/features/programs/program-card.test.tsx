@@ -50,7 +50,7 @@ describe('ProgramCard', () => {
     const previewLink = screen.getByRole('link', { name: /ver programa gzclp/i });
     expect(previewLink).toBeInTheDocument();
     expect(previewLink.getAttribute('href')).toBe('/programs/gzclp');
-    expect(previewLink.textContent).toContain('Vista Previa');
+    expect(previewLink.textContent).toContain('Vista previa');
 
     const startBtn = screen.getByRole('button', { name: 'Iniciar programa GZCLP' });
     expect(startBtn).toBeInTheDocument();
@@ -139,6 +139,6 @@ describe('ProgramCard', () => {
 
     expect(screen.getByRole('link', { name: /view gzclp/i })).toBeInTheDocument();
     expect(screen.getByText('Preview')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Start Program: GZCLP' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start program: GZCLP' })).toBeInTheDocument();
   });
 });

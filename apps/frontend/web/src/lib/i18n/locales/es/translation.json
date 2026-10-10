@@ -591,13 +591,13 @@
     }
   },
   "auth": {
-    "sign_in": "Iniciar Sesión",
-    "sign_out": "Cerrar Sesión",
-    "create_account": "Crear Cuenta",
+    "sign_in": "Iniciar sesión",
+    "sign_out": "Cerrar sesión",
+    "create_account": "Crear cuenta",
     "dev_login": "⚗ Dev Login",
     "try_without_account": "Probar sin cuenta",
     "authenticate": "Autenticar",
-    "enter_the_chamber": "Entra a la Cámara",
+    "enter_the_chamber": "Entra a la cámara",
     "train_better_progress_faster": "Entrena mejor · Progresa más rápido",
     "errors": {
       "google_failed": "Error al iniciar sesión con Google. Inténtalo de nuevo.",
@@ -622,14 +622,14 @@
     "title": "Dashboard",
     "subtitle": "Rendimiento y progreso de entrenamiento",
     "data_updated_6h": "Datos actualizados cada 6h",
-    "active_program": "Programa Activo",
+    "active_program": "Programa activo",
     "performance": "Rendimiento",
     "alerts": "Alertas",
-    "load_recommendation": "Recomendación de Carga",
+    "load_recommendation": "Recomendación de carga",
     "complete_workouts_message": "Completa entrenamientos para ver tus analíticas aquí.",
     "no_programs_message": "Elige un programa para ver tus métricas aquí.",
-    "view_programs": "Ver Programas",
-    "load_recommendation_section": "Recomendación de Carga",
+    "view_programs": "Ver programas",
+    "load_recommendation_section": "Recomendación de carga",
     "kpi_card": {
       "loading_label": "Cargando KPI"
     },
@@ -701,7 +701,7 @@
     "guided_start_cta": "¿Primera vez? Empieza con el asistente",
     "retry": "Reintentar",
     "catalog_load_error": "No se pudo cargar el catálogo.",
-    "other_programs": "Otros Programas",
+    "other_programs": "Otros programas",
     "replace": {
       "title": "¿Empezar {{next}}?",
       "message": "Tu programa activo, {{current}}, se dará por finalizado. Tu historial se conserva.",
@@ -711,8 +711,8 @@
     "active_workout": "Entrenamiento {{completed}} de {{total}}",
     "active_progress_aria": "Progreso del programa",
     "active_cta": "Continuar entrenamiento",
-    "choose_program": "Elegir un Programa",
-    "my_custom_programs": "Mis Programas Personalizados",
+    "choose_program": "Elegir un programa",
+    "my_custom_programs": "Mis programas personalizados",
     "card": {
       "level_beginner": "Principiante",
       "level_intermediate": "Intermedio",
@@ -721,10 +721,10 @@
       "workouts_count": "{{count}} entrenamientos",
       "frequency": "{{count}}x / semana",
       "author": "Por {{author}}",
-      "view_program": "Ver Programa",
-      "preview": "Vista Previa",
-      "continue_training": "Continuar Entrenamiento",
-      "start_program": "Iniciar Programa",
+      "view_program": "Ver programa",
+      "preview": "Vista previa",
+      "continue_training": "Continuar entrenamiento",
+      "start_program": "Iniciar programa",
       "start_program_aria": "Iniciar programa {{name}}",
       "continue_training_aria": "Continuar entrenamiento de {{name}}",
       "customizing": "Personalizando...",
@@ -889,8 +889,8 @@
       "max_weight": "Máximo {{max}}",
       "required": "Requerido",
       "generate_error": "Error al generar el programa.",
-      "edit_title_default": "Editar Pesos Iniciales ({{unit}})",
-      "create_title_default": "Pesos Iniciales ({{unit}})",
+      "edit_title_default": "Editar pesos iniciales ({{unit}})",
+      "create_title_default": "Pesos iniciales ({{unit}})",
       "edit_description_default": "Actualiza tus pesos iniciales — el programa se recalculará con los nuevos valores",
       "create_description_default": "Ingresa tus pesos iniciales para {{name}}",
       "active_group_indicator": "← actualiza aquí",
@@ -898,14 +898,14 @@
       "cancel_button": "Cancelar",
       "generating_loading": "Generando...",
       "update_button_short": "Actualizar",
-      "update_button": "Actualizar Pesos",
-      "generate_button": "Generar Programa",
-      "collapsed_title": "Pesos Iniciales",
+      "update_button": "Actualizar pesos",
+      "generate_button": "Generar programa",
+      "collapsed_title": "Pesos iniciales",
       "overflow_indicator": "+{{n}} más",
       "edit_button_short": "Editar",
-      "edit_button": "Editar Pesos",
+      "edit_button": "Editar pesos",
       "close_aria": "Cerrar",
-      "confirm_title": "Actualizar Pesos Iniciales",
+      "confirm_title": "Actualizar pesos iniciales",
       "confirm_message": "Tu historial de éxitos/fallos se conservará, pero los pesos proyectados cambiarán. ¿Continuar?",
       "confirm_label": "Actualizar",
       "recalc_callout_title": "Recálculo",
@@ -917,17 +917,17 @@
       "undo_button": "Deshacer",
       "more_actions_aria": "Más acciones",
       "finishing_loading": "Finalizando...",
-      "finish_program": "Finalizar Programa",
+      "finish_program": "Finalizar programa",
       "export_csv": "Exportar CSV",
       "export_backup": "Exportar copia JSON",
       "import_backup": "Importar copia JSON",
       "import_backup_file_aria": "Seleccionar archivo de copia JSON",
-      "reset_all": "Reiniciar Todo",
+      "reset_all": "Reiniciar todo",
       "finish_confirm_message": "Tu progreso y estadísticas se guardarán. Podrás consultarlos en cualquier momento desde tu perfil.",
       "finish_confirm_label": "Finalizar",
-      "reset_confirm_title": "Reiniciar Todo el Progreso",
+      "reset_confirm_title": "Reiniciar todo el progreso",
       "reset_confirm_message": "¿Estás seguro de que quieres reiniciar TODO el progreso? Esto no se puede deshacer.",
-      "reset_confirm_label": "Reiniciar Todo",
+      "reset_confirm_label": "Reiniciar todo",
       "webmcp_enable": "Activar asistente de IA",
       "webmcp_disable": "Desactivar asistente de IA",
       "webmcp_confirm_title": "¿Permitir acceso de IA durante esta sesión?",
@@ -946,8 +946,8 @@
       "card_success_rate": "éxito",
       "progression_suffix": "Progresión",
       "amrap_chart_suffix": "AMRAP (reps)",
-      "volume_section_label": "Volumen Total",
-      "volume_chart_label": "Volumen por Sesión (kg)",
+      "volume_section_label": "Volumen total",
+      "volume_chart_label": "Volumen por sesión (kg)",
       "start": "Inicio",
       "gained": "kg ganados",
       "stage": "Etapa",
@@ -961,8 +961,8 @@
       "exercises": "Ejercicios",
       "progression": "Progresión",
       "amrap_reps": "AMRAP (reps)",
-      "total_volume": "Volumen Total",
-      "volume_per_session": "Volumen por Sesión (kg)"
+      "total_volume": "Volumen total",
+      "volume_per_session": "Volumen por sesión (kg)"
     },
     "graduation": {
       "exercise_squat": "Sentadilla",
@@ -971,13 +971,13 @@
       "criteria_squat": "3 reps (tempo 5-3-5)",
       "criteria_bench": "1 rep (técnica perfecta)",
       "criteria_deadlift": "10 reps (controlado)",
-      "completed_title": "Graduación Completada",
-      "pending_title": "Objetivos de Graduación",
+      "completed_title": "Graduación completada",
+      "pending_title": "Objetivos de graduación",
       "completed_description": "Has alcanzado todos los objetivos. Estás listo para el Protocolo JAW.",
       "pending_description": "Completa estos objetivos para graduarte al siguiente programa.",
       "how_to_unlock": "Cumple cada criterio bajo carga con buena técnica. El progreso se comprueba con los objetivos de abajo a medida que entrenas.",
       "estimated_1rm_header": "Tus 1RM estimados (Epley):",
-      "start_jaw": "Empezar Protocolo JAW",
+      "start_jaw": "Empezar protocolo JAW",
       "keep_training": "Seguir entrenando"
     },
     "test_weight": {
@@ -1032,13 +1032,13 @@
       "header": "¡COMPLETADO!",
       "workouts_label": "Entrenamientos",
       "workouts_of": "de",
-      "total_volume": "Volumen Total",
-      "weight_gained": "Peso Ganado",
-      "personal_records": "Récords Personales",
-      "estimated_1rm": "1RM Estimado (Epley)",
+      "total_volume": "Volumen total",
+      "weight_gained": "Peso ganado",
+      "personal_records": "Récords personales",
+      "estimated_1rm": "1RM estimado (Epley)",
       "epley_note": "Estimación basada en la fórmula de Epley",
-      "view_profile": "Ver Perfil de Entrenamiento",
-      "back_to_dashboard": "Volver al Inicio"
+      "view_profile": "Ver perfil de entrenamiento",
+      "back_to_dashboard": "Volver al inicio"
     },
     "weight_field": {
       "decrease_label": "Disminuir {{label}}",
@@ -1202,7 +1202,7 @@
     "empty": {
       "heading": "SIN PROGRAMA",
       "description": "Inicia un programa para ver tu perfil de entrenamiento.",
-      "cta": "Ir al Inicio"
+      "cta": "Ir al inicio"
     },
     "history": {
       "title": "Historial",
@@ -1231,7 +1231,7 @@
       "unlocked_count": "{{unlocked}} de {{total}} desbloqueados",
       "next_milestone": "Siguiente hito",
       "first_workout": {
-        "label": "Primer Entrenamiento",
+        "label": "Primer entrenamiento",
         "description": "Completa 1 entrenamiento"
       },
       "streak_5": {
@@ -1243,7 +1243,7 @@
         "description": "Cualquier T1 llega a 100 kg"
       },
       "complete_program": {
-        "label": "Programa Completo",
+        "label": "Programa completo",
         "description": "Termina un programa completo"
       },
       "volume_10k": {
@@ -1253,7 +1253,7 @@
       "zero_state": "Completa entrenamientos para desbloquear logros"
     },
     "charts": {
-      "weight_progression_title": "Progresión de Peso",
+      "weight_progression_title": "Progresión de peso",
       "description": "Compara tus cargas registradas con las próximas 6 sesiones planificadas.",
       "current_load": "Carga actual",
       "logged_sessions_one": "{{count}} sesión registrada",
@@ -1267,32 +1267,32 @@
       "workouts_label": "Entrenamientos",
       "workouts_of": "de",
       "workouts_label_plural": "entrenamientos",
-      "success_rate_label": "Tasa de Éxito",
-      "total_volume_label": "Volumen Total",
+      "success_rate_label": "Tasa de éxito",
+      "total_volume_label": "Volumen total",
       "sets_label": "series",
       "reps_label": "reps",
       "completed_label": "Completado",
       "streak_title": "Racha",
-      "current_streak_label": "Racha Actual",
+      "current_streak_label": "Racha actual",
       "consecutive_label": "consecutivos",
       "longest_streak_label": "Récord",
       "this_month_label": "este mes",
       "new_prs_label": "Nuevos PRs",
       "volume_label": "Volumen",
-      "initial_weights_title": "Pesos Iniciales (T1)",
-      "personal_records_title": "Récords Personales (T1)",
+      "initial_weights_title": "Pesos iniciales (T1)",
+      "personal_records_title": "Récords personales (T1)",
       "workout_number_label": "Entrenamiento #",
       "initial_weight_label": "Peso inicial",
-      "e1rm_title": "1RM Estimado (Epley)",
+      "e1rm_title": "1RM estimado (Epley)",
       "epley_note": "Estimación basada en la fórmula de Epley",
-      "lifetime_volume_title": "Volumen Total Global",
-      "all_programs_label": "Todos los Programas",
+      "lifetime_volume_title": "Volumen total global",
+      "all_programs_label": "Todos los programas",
       "programs_label_plural": "programas",
       "rolling_30_days_title": "Últimos 30 días"
     },
     "account": {
       "title": "Cuenta",
-      "section_title": "Ajustes de Cuenta",
+      "section_title": "Ajustes de cuenta",
       "change_avatar_label": "Cambiar avatar",
       "change_avatar_text": "Cambiar",
       "username_input_label": "Nombre de usuario",
@@ -1346,14 +1346,14 @@
       "direction_up": "↑ subiendo",
       "direction_down": "↓ bajando",
       "direction_stable": "→ estable",
-      "title": "Tendencia de Volumen",
+      "title": "Tendencia de volumen",
       "no_data": "Sin datos de volumen",
       "chart_sr_only": "Tendencia de volumen semanal",
       "avg_label": "prom"
     },
     "frequency": {
       "day_labels": ["L", "M", "X", "J", "V", "S", "D"],
-      "title": "Actividad Semanal",
+      "title": "Actividad semanal",
       "days_label": "días",
       "total_sessions_label": "sesiones totales"
     },
@@ -1382,7 +1382,7 @@
       "title": "Iniciar Sesión — Gravity Room"
     },
     "tagline": "Entrena mejor · Progresa más rápido",
-    "auth_separator": "Entra a la Cámara",
+    "auth_separator": "Entra a la cámara",
     "form": {
       "title": "Autenticar"
     },
@@ -1463,13 +1463,13 @@
   "not_found": {
     "logo_alt": "Gravity Room logo",
     "message": "Esta página no existe. Puede que haya sido movida, o escribiste la URL incorrectamente.",
-    "go_home": "Ir al Inicio"
+    "go_home": "Ir al inicio"
   },
   "guest_banner": {
     "mode": "Modo invitado",
     "prompt": "Crea una cuenta para guardar tu progreso.",
     "preserve_hint": "Tu programa actual se transferirá tras iniciar sesión.",
-    "create_account": "Crear Cuenta",
+    "create_account": "Crear cuenta",
     "create_account_aria": "Crear cuenta para guardar tu progreso"
   },
   "guest_migration": {
@@ -1587,7 +1587,7 @@
   "avatar_dropdown": {
     "user_menu": "Menú de usuario",
     "profile": "Perfil",
-    "sign_out": "Cerrar Sesión"
+    "sign_out": "Cerrar sesión"
   },
   "delete_account": {
     "confirm_word": "ELIMINAR",
@@ -1595,12 +1595,12 @@
     "validation": {
       "incorrect": "Incorrecto"
     },
-    "title": "Eliminar Cuenta",
+    "title": "Eliminar cuenta",
     "description": "Esta acción marcará tu cuenta para eliminación. Tus datos serán eliminados permanentemente tras 30 días.",
     "confirm_instruction": "Escribe {{word}} para confirmar.",
     "cancel": "Cancelar",
     "loading": "Eliminando...",
-    "confirm_button": "Eliminar Cuenta"
+    "confirm_button": "Eliminar cuenta"
   },
   "confirm_dialog": {
     "confirm": "Confirmar",
@@ -1663,7 +1663,7 @@
       "no_program_stamp": "SIN PROGRAMA",
       "no_program_title": "Sin programa activo",
       "no_program_body": "Elige un programa para empezar a registrar tu entrenamiento.",
-      "no_program_cta": "Ver Programas"
+      "no_program_cta": "Ver programas"
     },
     "guest_resume": {
       "stamp": "EN PROGRESO",

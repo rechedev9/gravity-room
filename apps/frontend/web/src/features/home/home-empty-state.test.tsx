@@ -54,7 +54,7 @@ describe('HomeEmptyState i18n', () => {
     render(createElement(HomeEmptyState, { variant: 'no-program' }));
     expect(screen.getByText('SIN PROGRAMA')).toBeInTheDocument();
     expect(screen.getByText('Sin programa activo')).toBeInTheDocument();
-    expect(screen.getByText('Ver Programas')).toBeInTheDocument();
+    expect(screen.getByText('Ver programas')).toBeInTheDocument();
   });
 
   it('no-program variant renders English copy', async () => {
@@ -62,6 +62,6 @@ describe('HomeEmptyState i18n', () => {
     render(createElement(HomeEmptyState, { variant: 'no-program' }));
     expect(screen.getByText('NO PROGRAM')).toBeInTheDocument();
     expect(screen.getByText('No active program')).toBeInTheDocument();
-    expect(screen.getByText('View Programs')).toBeInTheDocument();
+    expect(screen.getByText('View programs')).toBeInTheDocument();
   });
 });
