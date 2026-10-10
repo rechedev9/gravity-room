@@ -1,7 +1,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { resolvePlaywrightApiUrl } from '../playwright-ports';
 import { createAndAuthUser, createVerifiedPasswordUser, skipFirstRunOverlays } from './helpers/api';
-import { enterGuestMode } from './helpers/seed';
+import { enterGuestMode, openEmailForm } from './helpers/seed';
 
 const API_URL = resolvePlaywrightApiUrl(process.env);
 
@@ -24,7 +24,7 @@ const APP_ROUTES = [
 async function expectRedirectedToLogin(page: Page, route: string): Promise<void> {
   await page.goto(route);
   await page.waitForURL('**/login', { timeout: 10_000 });
-  await expect(page.getByRole('heading', { name: 'Gravity Room' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Entrena con intención.' })).toBeVisible();
 }
 
 /** Revokes the refresh token server side but keeps the now-dead cookie in the browser. */
@@ -102,7 +102,7 @@ test.describe('App route guard on a cold load', () => {
     // Anonymous views first, so the signed-out hint is already stored.
     await page.goto('/privacy');
     await page.goto('/login');
-    await page.getByRole('button', { name: /correo|email/i }).click();
+    await openEmailForm(page);
     await page.getByLabel(/correo|email/i).fill(email);
     await page.getByLabel(/contraseña|password/i).fill(password);
     await page.getByRole('button', { name: /entrar|sign in/i }).click();

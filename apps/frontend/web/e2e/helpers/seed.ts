@@ -227,6 +227,17 @@ export async function guestWithProgram(page: Page, name: string): Promise<void> 
   await expect(page.getByTestId('session-chrome')).toBeVisible({ timeout: 10_000 });
 }
 
+/**
+ * Reveals the email/password form on /login. With email as the only method it is open
+ * from the start; next to a social provider it sits behind a disclosure button.
+ */
+export async function openEmailForm(page: Page): Promise<void> {
+  const field = page.getByLabel(/correo|email/i);
+  const toggle = page.getByRole('button', { name: /continuar con email|continue with email/i });
+  await expect(field.or(toggle).first()).toBeVisible({ timeout: 10_000 });
+  if (await toggle.isVisible()) await toggle.click();
+}
+
 /** Dismiss cookie consent banner if present — call before clicking buttons near the bottom of long pages. */
 export async function dismissCookieBannerIfPresent(page: Page): Promise<void> {
   // Try to click the dismiss button; ignore failures if banner is not present.

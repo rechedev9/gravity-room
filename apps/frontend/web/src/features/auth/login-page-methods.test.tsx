@@ -169,6 +169,23 @@ describe('LoginPage — Mockup B (social-first + email)', () => {
     expect(screen.queryByRole('button', { name: /Continuar con email/i })).toBeNull();
   });
 
+  it('opens the email form straight away when it is the only way to sign in', async () => {
+    mockFetchAuthProviders.mockImplementation(() =>
+      Promise.resolve({
+        emailPassword: true,
+        google: false,
+        apple: false,
+        github: false,
+        microsoft: false,
+      })
+    );
+
+    render(createElement(createWrapper(), null, createElement(LoginPage)));
+
+    expect(await screen.findByPlaceholderText('tu@ejemplo.com')).toBeDefined();
+    expect(screen.queryByRole('button', { name: /Continuar con email/i })).toBeNull();
+  });
+
   it('exposes a visible focus treatment around the real Google control', async () => {
     render(createElement(createWrapper(), null, createElement(LoginPage)));
 
