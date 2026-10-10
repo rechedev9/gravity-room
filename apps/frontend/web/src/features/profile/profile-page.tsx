@@ -10,6 +10,8 @@ import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import { useProgram } from '@/hooks/use-program';
 import { useInViewport } from '@/hooks/use-in-viewport';
 import { useAuth } from '@/contexts/auth-context';
+import { useGuest } from '@/contexts/guest-context';
+import { useSignOut } from '@/hooks/use-sign-out';
 import type { UserInfo } from '@gzclp/domain/schemas/user';
 import { useToast } from '@/contexts/toast-context';
 import { computeProfileData, computeVolume, lastResultWorkoutIndex } from '@/lib/profile-stats';
@@ -25,9 +27,13 @@ import { resizeImageToDataUrl } from '@/lib/resize-image';
 import { captureError } from '@/lib/sentry';
 import { lazyWithRetry } from '@/lib/lazy-with-retry';
 import { Button } from '@/components/button';
+import { GuestBanner } from '@/components/guest-banner';
+import { Kicker } from '@/components/kicker';
+import { ScreenHeader } from '@/components/screen-header';
 import { DeleteAccountDialog } from '@/components/delete-account-dialog';
 import { ProfileBanner } from './profile-banner';
-import { ProfileAccountCard } from './profile-account-card';
+import { ProfileDangerZone, ProfileIdentityCard, ProfilePreferences } from './profile-account-card';
+import { ProfileShortcuts } from './profile-shortcuts';
 import { ProfileBadges } from './profile-badges';
 import { ProfileStatsGrid } from './profile-stats-grid';
 import { ProfileHistory } from './profile-history';
@@ -61,6 +67,8 @@ function computeInitials(user: UserInfo): string {
 export function ProfilePage(): React.ReactNode {
   const { t } = useTranslation();
   const { user, updateUser, deleteAccount } = useAuth();
+  const { isGuest, exitGuestModeKeepingData } = useGuest();
+  const { signOut, pending: signingOut, failed: signOutFailed } = useSignOut();
 
   useDocumentTitle(t('profile.page.title'));
   const { toast } = useToast();
@@ -69,7 +77,7 @@ export function ProfilePage(): React.ReactNode {
   const { data: allPrograms = [] } = useQuery({
     queryKey: queryKeys.programs.all,
     queryFn: fetchPrograms,
-    enabled: user !== null,
+    enabled: user !== null && !isGuest,
   });
 
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>(undefined);
@@ -266,109 +274,161 @@ export function ProfilePage(): React.ReactNode {
 
   const handleBack = (): void => void navigate({ to: '/app' });
 
+  const handleCreateAccount = (): void => {
+    // Keep the guest data - it is migrated to the account after sign-in.
+    exitGuestModeKeepingData();
+    void navigate({ to: '/login' });
+  };
+
+  const hasProgress = user !== null && !isGuest;
+
   return (
     <div className="min-h-dvh bg-body">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <div className="mb-8">
-          <h1 className="type-display-sm sm:type-display text-title">
-            {t('profile.page.heading')}
-          </h1>
-          {user && <p className="text-sm text-muted mt-1">{displayName}</p>}
-        </div>
+      <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <ScreenHeader
+          className="mb-6"
+          eyebrow={t('profile.page.eyebrow')}
+          title={t('profile.page.heading')}
+        />
 
         <ZoneHint zone="profile" className="mb-6" />
 
-        {profileData && activeProgramName && (
-          <ProfileBanner
-            profileData={profileData}
-            activeProgramName={activeProgramName}
-            isActive={isActive}
-            activeProgram={activeProgram}
-            allPrograms={allPrograms}
-            effectiveInstanceId={effectiveInstanceId}
-            onSelectInstance={setSelectedInstanceId}
-          />
-        )}
+        {isGuest && <GuestBanner className="mb-4" />}
 
-        {!profileData && (
-          <div className="bg-card rounded-card border border-rule p-8 sm:p-12 text-center card">
-            <img
-              src="/empty-profile.webp"
-              alt=""
-              className="w-full max-w-xs mx-auto mb-6 opacity-80"
-              loading="lazy"
-            />
-            <p className="type-display-sm sm:type-display text-muted mb-4">
-              {t('profile.empty.heading')}
-            </p>
-            <p className="text-sm text-muted">{t('profile.empty.description')}</p>
-            <div className="mt-5 flex justify-center">
-              <Button variant="primary" onClick={handleBack}>
-                {t('profile.empty.cta')}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {profileData && (
-          <>
-            <ProfileBadges
-              profileData={profileData}
-              allPrograms={allPrograms}
-              lifetimeVolume={lifetimeVolume}
-            />
-
-            <div className="mt-4">
-              <ProfileStatsGrid
-                profileData={profileData}
-                names={names}
-                allPrograms={allPrograms}
-                lifetimeVolume={lifetimeVolume}
-                volumeSectionRef={volumeSectionRef}
-                toDisplay={toDisplay}
-                unitLabel={unit}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start lg:gap-x-6">
+          {user && !isGuest && (
+            <div className="lg:col-start-1 lg:row-start-1">
+              <ProfileIdentityCard
+                user={user}
+                displayName={displayName}
+                userInitials={userInitials}
+                avatarUploading={avatarUploading}
+                fileInputRef={fileInputRef}
+                onAvatarClick={handleAvatarClick}
+                onFileChange={(e) => void handleFileChange(e)}
+                onRemoveAvatar={() => void handleRemoveAvatar()}
+                onUpdateName={handleUpdateName}
               />
             </div>
+          )}
 
-            {chartData &&
-              profileData.completion.workoutsCompleted > 0 &&
-              primaryExercises.length > 0 && (
-                <Suspense fallback={<ChartsFallback />}>
-                  <ProfileChartsSection
-                    chartData={chartData}
-                    primaryExercises={primaryExercises}
+          <div className="flex flex-col gap-3 lg:col-start-2 lg:row-span-3 lg:row-start-1">
+            <Kicker>{t('profile.more.preferences')}</Kicker>
+            <ProfilePreferences unit={unit} onToggleUnit={toggleUnit} />
+          </div>
+
+          <div className="flex flex-col gap-3 lg:hidden">
+            <Kicker>{t('profile.more.shortcuts')}</Kicker>
+            <ProfileShortcuts isGuest={isGuest} />
+          </div>
+
+          <div className="flex flex-col gap-2 lg:col-start-1 lg:row-start-2">
+            {signOutFailed && (
+              <p role="alert" className="text-sm text-error">
+                {t('auth.errors.sign_out_failed')}
+              </p>
+            )}
+            {isGuest ? (
+              <Button variant="primary" size="lg" onClick={handleCreateAccount}>
+                {t('auth.create_account')}
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="lg"
+                className="border-rule"
+                disabled={signingOut}
+                onClick={() => void signOut()}
+              >
+                {t('avatar_dropdown.sign_out')}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {hasProgress && (
+          <section className="mt-10">
+            <Kicker className="mb-4">{t('profile.more.progress')}</Kicker>
+
+            {profileData && activeProgramName && (
+              <ProfileBanner
+                profileData={profileData}
+                activeProgramName={activeProgramName}
+                isActive={isActive}
+                activeProgram={activeProgram}
+                allPrograms={allPrograms}
+                effectiveInstanceId={effectiveInstanceId}
+                onSelectInstance={setSelectedInstanceId}
+              />
+            )}
+
+            {!profileData && (
+              <div className="bg-card rounded-card border border-rule p-8 sm:p-12 text-center card">
+                <img
+                  src="/empty-profile.webp"
+                  alt=""
+                  className="w-full max-w-xs mx-auto mb-6 opacity-80"
+                  loading="lazy"
+                />
+                <p className="type-display-sm sm:type-display text-muted mb-4">
+                  {t('profile.empty.heading')}
+                </p>
+                <p className="text-sm text-muted">{t('profile.empty.description')}</p>
+                <div className="mt-5 flex justify-center">
+                  <Button variant="primary" onClick={handleBack}>
+                    {t('profile.empty.cta')}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {profileData && (
+              <>
+                <ProfileBadges
+                  profileData={profileData}
+                  allPrograms={allPrograms}
+                  lifetimeVolume={lifetimeVolume}
+                />
+
+                <div className="mt-4">
+                  <ProfileStatsGrid
+                    profileData={profileData}
                     names={names}
+                    allPrograms={allPrograms}
+                    lifetimeVolume={lifetimeVolume}
+                    volumeSectionRef={volumeSectionRef}
                     toDisplay={toDisplay}
                     unitLabel={unit}
                   />
-                </Suspense>
-              )}
-          </>
+                </div>
+
+                {chartData &&
+                  profileData.completion.workoutsCompleted > 0 &&
+                  primaryExercises.length > 0 && (
+                    <Suspense fallback={<ChartsFallback />}>
+                      <ProfileChartsSection
+                        chartData={chartData}
+                        primaryExercises={primaryExercises}
+                        names={names}
+                        toDisplay={toDisplay}
+                        unitLabel={unit}
+                      />
+                    </Suspense>
+                  )}
+              </>
+            )}
+
+            <ProfileHistory
+              completedPrograms={completedPrograms}
+              effectiveInstanceId={effectiveInstanceId}
+              onSelectInstance={setSelectedInstanceId}
+            />
+          </section>
         )}
 
-        <ProfileHistory
-          completedPrograms={completedPrograms}
-          effectiveInstanceId={effectiveInstanceId}
-          onSelectInstance={setSelectedInstanceId}
-        />
-
-        {user && (
-          <div className="mt-10">
-            <h2 className="section-label mb-4">{t('profile.account.section_title')}</h2>
-            <ProfileAccountCard
-              user={user}
-              displayName={displayName}
-              userInitials={userInitials}
-              avatarUploading={avatarUploading}
-              fileInputRef={fileInputRef}
-              unit={unit}
-              onAvatarClick={handleAvatarClick}
-              onFileChange={(e) => void handleFileChange(e)}
-              onRemoveAvatar={() => void handleRemoveAvatar()}
-              onDeleteRequest={() => setDeleteDialogOpen(true)}
-              onUpdateName={handleUpdateName}
-              onToggleUnit={toggleUnit}
-            />
+        {hasProgress && (
+          <div className="mt-8 border-t border-rule pt-2">
+            <ProfileDangerZone onDeleteRequest={() => setDeleteDialogOpen(true)} />
           </div>
         )}
       </div>

@@ -33,16 +33,16 @@ test.describe('Weight unit preference', () => {
 test.describe('Phone navigation and guided start', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('insights, exercises and profile are one tap from the bottom bar', async ({ page }) => {
+  test('exercises and More are one tap from the bottom bar and insights two', async ({ page }) => {
     await seedProgram(page);
     await page.goto('/app');
     const nav = page.getByTestId('mobile-bottom-nav');
-    await nav.getByRole('link', { name: /análisis|insights/i }).click();
-    await expect(page).toHaveURL(/\/app\/insights$/);
     await nav.getByRole('link', { name: /ejercicios|exercises/i }).click();
     await expect(page).toHaveURL(/\/app\/exercises$/);
-    await nav.getByRole('link', { name: /perfil|profile/i }).click();
+    await nav.getByRole('link', { name: /^(más|more)$/i }).click();
     await expect(page).toHaveURL(/\/app\/profile$/);
+    await page.getByRole('link', { name: /análisis|insights/i }).click();
+    await expect(page).toHaveURL(/\/app\/insights$/);
   });
 
   test('moving to the next guided step returns to the top of the page', async ({ page }) => {
