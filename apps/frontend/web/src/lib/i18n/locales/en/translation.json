@@ -616,7 +616,12 @@
     "profile": "Profile",
     "main_nav_label": "Main navigation",
     "view_profile": "View profile",
-    "mobile_nav_label": "Mobile navigation"
+    "mobile_nav_label": "Mobile navigation",
+    "tab_train": "Train",
+    "tab_plans": "My plans",
+    "tab_explore": "Explore",
+    "tab_exercises": "Exercises",
+    "tab_more": "More"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -697,7 +702,7 @@
   "programs": {
     "page_title": "Programs — Gravity Room",
     "title": "Programs",
-    "subtitle": "Level-based training program catalog",
+    "subtitle": "Your active program and where to start another.",
     "guided_start_cta": "First time? Start with the guided setup",
     "retry": "Retry",
     "catalog_load_error": "Could not load catalog.",
@@ -853,6 +858,13 @@
           "weight": "Weight"
         }
       }
+    },
+    "explore": {
+      "page_title": "Explore plans | Gravity Room",
+      "eyebrow": "Catalog",
+      "title": "Explore",
+      "subtitle": "Pick a program by level and start training.",
+      "link": "Explore more plans"
     }
   },
   "tracker": {
@@ -1197,7 +1209,8 @@
     "page": {
       "title": "Profile — Gravity Room",
       "heading": "Profile",
-      "subtitle": "Your training progress"
+      "subtitle": "Your training progress",
+      "eyebrow": "Account"
     },
     "empty": {
       "heading": "NO PROGRAM",
@@ -1318,6 +1331,13 @@
     },
     "account_errors": {
       "delete_error": "Error deleting account"
+    },
+    "more": {
+      "preferences": "Preferences",
+      "shortcuts": "Go to",
+      "progress": "Your progress",
+      "home_hint": "Next set, streak and recent sessions",
+      "insights_hint": "Charts and trends from your training"
     }
   },
   "insights": {
@@ -1381,8 +1401,6 @@
     "page": {
       "title": "Sign In — Gravity Room"
     },
-    "tagline": "Train better · Progress faster",
-    "auth_separator": "Enter the chamber",
     "form": {
       "title": "Authenticate"
     },
@@ -1458,6 +1476,10 @@
       "success": "Password updated. You can now sign in.",
       "error": "This reset link is invalid or has expired.",
       "back_to_login": "Back to sign in"
+    },
+    "card": {
+      "title": "Train with intent.",
+      "body": "Your plan. Every set. All your progress in one place."
     }
   },
   "not_found": {
@@ -1644,7 +1666,8 @@
       "last_today": "today",
       "last_yesterday": "yesterday",
       "last_days_ago_one": "{{count}} day ago",
-      "last_days_ago_other": "{{count}} days ago"
+      "last_days_ago_other": "{{count}} days ago",
+      "eyebrow": "Today"
     },
     "kpi": {
       "streak_label": "Streak",
@@ -1784,10 +1807,6 @@
       "t2": "T2",
       "t3": "T3"
     }
-  },
-  "sidebar": {
-    "open_menu": "Open menu",
-    "close_menu": "Close menu"
   },
   "route_error": {
     "image_alt": "Error state, damaged gravity chamber",

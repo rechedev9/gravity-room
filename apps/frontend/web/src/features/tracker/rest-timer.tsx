@@ -108,7 +108,7 @@ export function RestTimer({
       role="status"
       aria-live="off"
       aria-label={statusLabel}
-      className="fixed left-1/2 z-[60] -translate-x-1/2 bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.5rem)] lg:bottom-6 flex items-center gap-3 bg-ink border-2 border-accent rounded-card px-4 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.55)] max-w-[calc(100vw-2rem)]"
+      className="fixed left-1/2 z-[60] -translate-x-1/2 bottom-[calc(var(--bottom-chrome)+0.5rem)] lg:bottom-6 flex items-center gap-3 bg-ink border-2 border-accent rounded-card px-4 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.55)] max-w-[calc(100vw-2rem)]"
       data-testid="rest-timer"
     >
       <div className="flex flex-col min-w-0">

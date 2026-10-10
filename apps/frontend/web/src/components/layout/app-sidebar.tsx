@@ -1,15 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
+import { useSignOut } from '@/hooks/use-sign-out';
 import { AvatarDropdown } from '@/components/layout/avatar-dropdown';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { OnlineIndicator } from '@/components/online-indicator';
 import { ThemeSelector } from '@/components/theme-selector';
 import { cn } from '@/lib/cn';
-import { EASE_OUT_EXPO } from '@/lib/motion-easing';
 import {
   HomeIcon,
   TrackerIcon,
@@ -24,9 +23,6 @@ const SIDEBAR_FOCUS_RING =
 
 interface NavItem {
   readonly to: string;
-  // Language-specific target for public localized routes (e.g. the exercise
-  // wiki lives at /ejercicios in es and /en/exercises in en).
-  readonly toEn?: string;
   readonly labelKey: string;
   readonly end?: boolean;
   readonly Icon: React.ComponentType<{ readonly className?: string }>;
@@ -38,22 +34,13 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: '/app/tracker', labelKey: 'navigation.tracker', Icon: TrackerIcon },
   { to: '/app/insights', labelKey: 'navigation.insights', Icon: InsightsIcon, guestHidden: true },
   { to: '/app/programs', labelKey: 'navigation.programs', Icon: ProgramsIcon },
-  {
-    to: '/app/exercises',
-    labelKey: 'navigation.exercises',
-    Icon: ExercisesIcon,
-  },
+  { to: '/app/exercises', labelKey: 'navigation.exercises', Icon: ExercisesIcon },
   { to: '/app/profile', labelKey: 'navigation.profile', Icon: ProfileIcon, guestHidden: true },
 ];
 
-interface AppSidebarProps {
-  readonly isOpen: boolean;
-  readonly onClose: () => void;
-}
-
 function navItemClass(isActive: boolean): string {
   return cn(
-    'relative flex items-center gap-3 px-3 py-3 rounded-[var(--radius-base)] transition-[color,background-color] duration-[var(--duration-instant)] cursor-pointer',
+    'relative flex min-h-11 items-center gap-3 px-3 py-2.5 rounded-control transition-[color,background-color] duration-[var(--duration-instant)] cursor-pointer',
     SIDEBAR_FOCUS_RING,
     isActive
       ? 'text-main bg-[var(--color-sidebar-active)]'
@@ -61,144 +48,49 @@ function navItemClass(isActive: boolean): string {
   );
 }
 
-interface SidebarNavLinkProps {
-  readonly item: NavItem;
-  readonly onItemClick: () => void;
-}
-
-function SidebarNavLink({ item, onItemClick }: SidebarNavLinkProps): React.ReactNode {
-  const { t, i18n } = useTranslation();
+function SidebarNavLink({ item }: { readonly item: NavItem }): React.ReactNode {
+  const { t } = useTranslation();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const to = item.toEn !== undefined && i18n.language.startsWith('en') ? item.toEn : item.to;
-  const isActive = item.end ? pathname === to : pathname.startsWith(to);
-  const label = t(item.labelKey);
+  const isActive = item.end ? pathname === item.to : pathname.startsWith(item.to);
 
   return (
-    <Link to={to} onClick={onItemClick} className={navItemClass(isActive)}>
+    <Link to={item.to} className={navItemClass(isActive)}>
       {isActive && (
         <span
-          className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[var(--color-accent)]"
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-full bg-[var(--color-accent)]"
           aria-hidden="true"
         />
       )}
-      <item.Icon className={cn('shrink-0', isActive && 'text-accent')} />
-      <span className="font-mono text-[11px] font-bold tracking-[0.06em] uppercase">{label}</span>
+      <item.Icon className={cn('shrink-0 size-6', isActive && 'text-accent')} />
+      <span className="type-button">{t(item.labelKey)}</span>
     </Link>
   );
 }
 
-export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNode {
+/** Desktop navigation (lg and up). Phones use the five-tab bar in MobileBottomNav. */
+export function AppSidebar(): React.ReactNode {
   const { t } = useTranslation();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { isGuest, exitGuestModeKeepingData } = useGuest();
   const navigate = useNavigate();
-  const reduced = useReducedMotion();
-  const drawerDuration = reduced ? 0 : 0.22;
-  const [signOutError, setSignOutError] = useState(false);
-  const mobileDrawerRef = useRef<HTMLElement>(null);
-  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  const { signOut, failed: signOutError } = useSignOut();
 
-  useEffect(() => {
-    if (!isOpen) return;
-    previouslyFocusedRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const frameId = requestAnimationFrame(() => {
-      mobileDrawerRef.current?.querySelector<HTMLButtonElement>('[data-sidebar-close]')?.focus();
-    });
-    const handler = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handler);
-    return (): void => {
-      cancelAnimationFrame(frameId);
-      document.removeEventListener('keydown', handler);
-      const previouslyFocused = previouslyFocusedRef.current;
-      if (previouslyFocused?.isConnected && previouslyFocused.getClientRects().length > 0) {
-        previouslyFocused.focus();
-      } else {
-        document.querySelector<HTMLElement>('main')?.focus();
-      }
-    };
-  }, [isOpen, onClose]);
+  const handleGuestExit = useCallback((): void => {
+    // Keep the guest data - it is migrated to the account after sign-in.
+    exitGuestModeKeepingData();
+    void navigate({ to: '/login' });
+  }, [exitGuestModeKeepingData, navigate]);
 
-  // Lock body scroll while the mobile drawer is open so the page behind it
-  // (incl. any sticky tracker toolbar) can't scroll or bleed through.
-  useEffect(() => {
-    if (!isOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return (): void => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [isOpen]);
-
-  const handleGuestExit = useCallback(
-    (onItemClick: () => void): void => {
-      // Keep the guest data - it is migrated to the account after sign-in.
-      exitGuestModeKeepingData();
-      onItemClick();
-      void navigate({ to: '/login' });
-    },
-    [exitGuestModeKeepingData, navigate]
-  );
-
-  const handleSignOut = useCallback(
-    async (onItemClick: () => void): Promise<void> => {
-      setSignOutError(false);
-      const result = await signOut();
-      if (!result.ok) {
-        setSignOutError(true);
-        return;
-      }
-      onItemClick();
-      // A full replacement guarantees the protected tree is torn down and the
-      // next boot re-checks the now-cleared refresh cookie. A same-tick SPA
-      // navigation can still see the router's previous auth context and bounce
-      // straight back to /app.
-      window.location.replace('/login');
-    },
-    [signOut]
-  );
-
-  const handleMobileDrawerKeyDown = (event: React.KeyboardEvent<HTMLElement>): void => {
-    if (event.key !== 'Tab') return;
-
-    const focusable = Array.from(
-      mobileDrawerRef.current?.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      ) ?? []
-    );
-    if (focusable.length === 0) return;
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (first === undefined || last === undefined) return;
-
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  };
-
-  function renderNavItems(onItemClick: () => void): React.ReactNode {
-    return NAV_ITEMS.map((item) => {
-      if (item.guestHidden && isGuest) return null;
-      return <SidebarNavLink key={item.to} item={item} onItemClick={onItemClick} />;
-    });
-  }
-
-  function renderContent(onItemClick: () => void, showClose = false): React.ReactNode {
-    return (
+  return (
+    <aside
+      className="hidden lg:flex flex-col h-screen sticky top-0 bg-[var(--color-sidebar)] border-r border-[var(--color-sidebar-border)] shrink-0 overflow-hidden"
+      style={{ width: 'var(--sidebar-width)' }}
+    >
       <TooltipProvider>
         <nav aria-label={t('navigation.main_nav_label')} className="flex flex-col h-full min-h-0">
-          {/* Logo */}
-          <div className="border-b border-[var(--color-sidebar-border)] flex items-center justify-between px-5 py-4 gap-3 shrink-0">
+          <div className="border-b border-[var(--color-sidebar-border)] flex items-center px-5 py-4 gap-3 shrink-0">
             <Link
               to="/app"
-              onClick={onItemClick}
               className={cn(
                 'flex items-center gap-3 min-w-0 rounded-md hover:opacity-80 transition-opacity duration-150',
                 SIDEBAR_FOCUS_RING
@@ -215,49 +107,21 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                 Gravity Room
               </span>
             </Link>
-            {showClose && (
-              <button
-                type="button"
-                data-sidebar-close
-                onClick={onClose}
-                aria-label={t('sidebar.close_menu')}
-                className={cn(
-                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-base)] text-muted hover:text-main hover:bg-[var(--color-sidebar-active)]/40 transition-colors cursor-pointer',
-                  SIDEBAR_FOCUS_RING
-                )}
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  aria-hidden="true"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M5 5L15 15M15 5L5 15"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-1.5">
+            {NAV_ITEMS.map((item) =>
+              item.guestHidden && isGuest ? null : <SidebarNavLink key={item.to} item={item} />
             )}
           </div>
 
-          {/* Nav links */}
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-3">
-            {renderNavItems(onItemClick)}
-          </div>
-
-          {/* User section */}
           <div className="border-t border-[var(--color-sidebar-border)] p-3 shrink-0">
             {isGuest ? (
               <button
                 type="button"
-                onClick={() => handleGuestExit(onItemClick)}
+                onClick={handleGuestExit}
                 className={cn(
-                  'type-button w-full min-h-11 px-3 py-2 text-left text-muted hover:text-main transition-colors cursor-pointer rounded-[var(--radius-base)]',
+                  'type-button w-full min-h-11 px-3 py-2 text-left text-muted hover:text-main transition-colors cursor-pointer rounded-control',
                   SIDEBAR_FOCUS_RING
                 )}
               >
@@ -265,17 +129,15 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
               </button>
             ) : user ? (
               <div className="space-y-2">
-                <div className="flex min-w-0 items-center gap-3 rounded-[var(--radius-base)] px-1 py-1">
+                <div className="flex min-w-0 items-center gap-3 rounded-control px-1 py-1">
                   <AvatarDropdown
                     user={user}
                     syncStatus="idle"
-                    onSignOut={() => void handleSignOut(onItemClick)}
+                    onSignOut={() => void signOut()}
                     dropdownPlacement="top"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-label">
-                      {t('navigation.profile')}
-                    </p>
+                    <p className="type-kicker text-label">{t('navigation.profile')}</p>
                     <p className="mt-0.5 truncate text-xs text-main" title={user.email}>
                       {user.email}
                     </p>
@@ -291,13 +153,13 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
               <AvatarDropdown
                 user={null}
                 syncStatus="idle"
-                onSignOut={() => void handleSignOut(onItemClick)}
+                onSignOut={() => void signOut()}
                 dropdownPlacement="top"
               />
             )}
             <div className="mt-3 border-t border-[var(--color-sidebar-border)] pt-3">
               <div className="mb-2 flex min-h-6 items-center justify-between gap-2">
-                <p className="chalk-stamp">{t('theme_selector.label')}</p>
+                <p className="type-kicker text-label">{t('theme_selector.label')}</p>
                 <OnlineIndicator inline />
               </div>
               <ThemeSelector compact className="w-full" />
@@ -305,52 +167,6 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
           </div>
         </nav>
       </TooltipProvider>
-    );
-  }
-
-  return (
-    <>
-      {/* Desktop sidebar — fixed 224px wide, always expanded */}
-      <aside
-        className="hidden lg:flex flex-col h-screen sticky top-0 bg-[var(--color-sidebar)] border-r border-[var(--color-sidebar-border)] shrink-0 overflow-hidden"
-        style={{ width: 'var(--sidebar-width)' }}
-      >
-        {renderContent(() => {})}
-      </aside>
-
-      {/* Mobile overlay + drawer — always expanded.
-          z-[70] sits above any page-level sticky toolbar (the tracker toolbar is
-          sticky z-50) so the page chrome can't bleed through or steal clicks. */}
-      <AnimatePresence>
-        {isOpen && (
-          <div className="lg:hidden fixed inset-0 z-[70] flex">
-            <motion.div
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-              onClick={onClose}
-              aria-hidden="true"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: drawerDuration, ease: EASE_OUT_EXPO }}
-            />
-            <motion.aside
-              ref={mobileDrawerRef}
-              role="dialog"
-              aria-modal="true"
-              aria-label={t('navigation.main_nav_label')}
-              className="relative z-10 bg-[var(--color-sidebar)] border-r border-[var(--color-sidebar-border)] h-full flex flex-col"
-              style={{ width: 'var(--sidebar-width)', willChange: 'transform' }}
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ duration: drawerDuration, ease: EASE_OUT_EXPO }}
-              onKeyDown={handleMobileDrawerKeyDown}
-            >
-              {renderContent(onClose, true)}
-            </motion.aside>
-          </div>
-        )}
-      </AnimatePresence>
-    </>
+    </aside>
   );
 }

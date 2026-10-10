@@ -19,7 +19,7 @@ export function SwUpdatePrompt(): React.ReactNode {
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-0 left-0 right-0 z-[150] flex items-center justify-between gap-3 px-4 py-3 bg-header border-t border-rule text-xs font-bold text-main sm:bottom-6 sm:left-1/2 sm:-translate-x-1/2 sm:w-auto sm:border sm:border-rule sm:rounded-none"
+      className="fixed bottom-[var(--bottom-chrome)] left-0 right-0 z-[150] flex items-center justify-between gap-3 px-4 py-3 bg-header border-t border-rule text-xs font-bold text-main sm:bottom-[calc(var(--bottom-chrome)+1.5rem)] sm:left-1/2 sm:-translate-x-1/2 sm:w-auto sm:border sm:border-rule sm:rounded-none"
     >
       <span>{t('sw_update.available')}</span>
       <div className="flex items-center gap-2">

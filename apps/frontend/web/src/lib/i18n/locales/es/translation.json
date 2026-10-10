@@ -616,7 +616,12 @@
     "profile": "Perfil",
     "main_nav_label": "Navegación principal",
     "view_profile": "Ver perfil",
-    "mobile_nav_label": "Navegación móvil"
+    "mobile_nav_label": "Navegación móvil",
+    "tab_train": "Entrenar",
+    "tab_plans": "Mis planes",
+    "tab_explore": "Explorar",
+    "tab_exercises": "Ejercicios",
+    "tab_more": "Más"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -697,7 +702,7 @@
   "programs": {
     "page_title": "Programas — Gravity Room",
     "title": "Programas",
-    "subtitle": "Catálogo de programas de entrenamiento por nivel",
+    "subtitle": "Tu programa activo y dónde empezar otro.",
     "guided_start_cta": "¿Primera vez? Empieza con el asistente",
     "retry": "Reintentar",
     "catalog_load_error": "No se pudo cargar el catálogo.",
@@ -853,6 +858,13 @@
           "weight": "Peso"
         }
       }
+    },
+    "explore": {
+      "page_title": "Explorar planes | Gravity Room",
+      "eyebrow": "Catálogo",
+      "title": "Explorar",
+      "subtitle": "Elige un programa por nivel y empieza a entrenar.",
+      "link": "Explorar más planes"
     }
   },
   "tracker": {
@@ -1197,7 +1209,8 @@
     "page": {
       "title": "Perfil — Gravity Room",
       "heading": "Perfil",
-      "subtitle": "Tu progreso de entrenamiento"
+      "subtitle": "Tu progreso de entrenamiento",
+      "eyebrow": "Cuenta"
     },
     "empty": {
       "heading": "SIN PROGRAMA",
@@ -1318,6 +1331,13 @@
     },
     "account_errors": {
       "delete_error": "Error al eliminar la cuenta"
+    },
+    "more": {
+      "preferences": "Preferencias",
+      "shortcuts": "Ir a",
+      "progress": "Tu progreso",
+      "home_hint": "Próxima serie, racha y sesiones recientes",
+      "insights_hint": "Gráficas y tendencias de tu entrenamiento"
     }
   },
   "insights": {
@@ -1381,8 +1401,6 @@
     "page": {
       "title": "Iniciar Sesión — Gravity Room"
     },
-    "tagline": "Entrena mejor · Progresa más rápido",
-    "auth_separator": "Entra a la cámara",
     "form": {
       "title": "Autenticar"
     },
@@ -1458,6 +1476,10 @@
       "success": "Contraseña actualizada. Ya puedes iniciar sesión.",
       "error": "Este enlace de restablecimiento no es válido o ha caducado.",
       "back_to_login": "Volver a iniciar sesión"
+    },
+    "card": {
+      "title": "Entrena con intención.",
+      "body": "Tu plan. Cada serie. Todo tu progreso en un solo lugar."
     }
   },
   "not_found": {
@@ -1644,7 +1666,8 @@
       "last_today": "hoy",
       "last_yesterday": "ayer",
       "last_days_ago_one": "hace {{count}} día",
-      "last_days_ago_other": "hace {{count}} días"
+      "last_days_ago_other": "hace {{count}} días",
+      "eyebrow": "Hoy"
     },
     "kpi": {
       "streak_label": "Racha",
@@ -1784,10 +1807,6 @@
       "t2": "T2",
       "t3": "T3"
     }
-  },
-  "sidebar": {
-    "open_menu": "Abrir menú",
-    "close_menu": "Cerrar menú"
   },
   "route_error": {
     "image_alt": "Estado de error, cámara de gravedad dañada",

@@ -107,6 +107,9 @@ const StartPage = lazyWithRetry(() =>
 const ProgramsPage = lazyWithRetry(() =>
   import('@/features/programs/programs-page').then((m) => ({ default: m.ProgramsPage }))
 );
+const ExplorePage = lazyWithRetry(() =>
+  import('@/features/programs/explore-page').then((m) => ({ default: m.ExplorePage }))
+);
 const TrackerPage = lazyWithRetry(() =>
   import('@/features/tracker/tracker-page').then((m) => ({ default: m.TrackerPage }))
 );
@@ -449,6 +452,13 @@ const programsRoute = createRoute({
   component: ProgramsPage,
 });
 
+const exploreRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/app/explore',
+  pendingComponent: DashboardSkeleton,
+  component: ExplorePage,
+});
+
 const trackerIndexRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/app/tracker',
@@ -533,6 +543,7 @@ const routeTree = rootRoute.addChildren([
     dashboardRedirectRoute,
     startRoute,
     programsRoute,
+    exploreRoute,
     trackerIndexRoute,
     trackerProgramRoute,
     insightsRoute,

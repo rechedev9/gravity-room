@@ -111,6 +111,11 @@
   --sidebar-width-collapsed: 224px; /* kept for back-compat; same value to prevent JS-driven width swap */
   --sidebar-transition: 250ms cubic-bezier(0.4, 0, 0.2, 1);
 
+  /* Phone tab bar: 60px, matching the mobile app. Floating chrome sits above it. */
+  --bottom-nav-height: 3.75rem;
+  /* Space taken at the bottom by the phone tab bar; 0 when it is not mounted or on lg+. */
+  --bottom-chrome: 0px;
+
   /* RADII — control 10 / card 16 / chip 24 come from tokens.css (shared with mobile). */
   --radius-base: var(--radius-control);
   --radius-pill: 9999px;
@@ -142,6 +147,12 @@
   --duration-slow: 320ms;
   --duration-press: 80ms;
   --press-translate-y: 1px;
+}
+
+@media (max-width: 1023.98px) {
+  html[data-tab-bar] {
+    --bottom-chrome: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+  }
 }
 
 /* ── Theme skins ────────────────────────────────────────────────────────────
