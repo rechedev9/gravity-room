@@ -41,6 +41,7 @@ interface ProgramAppProps {
   readonly onBackToDashboard?: () => void;
   readonly onProgramReset?: () => void;
   readonly onGoToProfile?: () => void;
+  readonly onSwitchProgram?: () => void;
 }
 
 export function ProgramApp({
@@ -50,6 +51,7 @@ export function ProgramApp({
   onBackToDashboard,
   onProgramReset,
   onGoToProfile,
+  onSwitchProgram,
 }: ProgramAppProps): React.ReactNode {
   const { t } = useTranslation();
   const { unit, format } = useUnitPreference();
@@ -122,19 +124,20 @@ export function ProgramApp({
   const [rest, setRest] = useState<{ readonly seconds: number; readonly id: number } | null>(null);
   const workoutsPerWeek = definition?.workoutsPerWeek ?? 4;
   const totalWorkouts = definition?.totalWorkouts ?? 0;
-  const { completedCount, firstPendingIdx } = useMemo(() => {
-    let completed = 0;
+  const { completedDayIndices, firstPendingIdx } = useMemo(() => {
+    const completed = new Set<number>();
     let firstPending = -1;
     for (const row of rows) {
       const allDone = row.slots.every((s) => s.result !== undefined);
       if (allDone) {
-        completed += 1;
+        completed.add(row.index);
       } else if (firstPending < 0) {
         firstPending = row.index;
       }
     }
-    return { completedCount: completed, firstPendingIdx: firstPending };
+    return { completedDayIndices: completed, firstPendingIdx: firstPending };
   }, [rows]);
+  const completedCount = completedDayIndices.size;
 
   const dayNav = useDayNavigation({ totalWorkouts, firstPendingIdx, config });
   const graduation = useGraduation({
@@ -171,10 +174,6 @@ export function ProgramApp({
   };
 
   const selectedWorkout = rows[dayNav.selectedDayIndex];
-  const isDayComplete = selectedWorkout
-    ? selectedWorkout.slots.every((s) => s.result !== undefined)
-    : false;
-
   const mutenroshiBlocksCompletion =
     graduation.isMutenroshi && !graduation.graduationState.allPassed;
 
@@ -378,36 +377,44 @@ export function ProgramApp({
   return (
     <>
       {config && rows.length > 0 && (
-        <div className="sticky top-0 z-50">
-          <SessionChrome
-            definition={definition}
-            config={config}
-            dayIndex={dayNav.selectedDayIndex}
-            totalDays={totalWorkouts}
-            dayName={selectedWorkout?.dayName ?? ''}
-            isCurrentDay={dayNav.selectedDayIndex === firstPendingIdx}
-            doneSlots={doneSlots}
-            totalSlots={selectedWorkout?.slots.length ?? 0}
-            completedDays={completedCount}
-            navExpanded={navExpanded}
-            onToggleNav={() => setNavExpanded((x) => !x)}
-            onEditWeights={() => setEditingWeights(true)}
-            isFinishing={isFinishing}
-            onFinish={handleFinishProgram}
-            onReset={handleResetAll}
-            onExportCsv={handleExportCsv}
-            canUseBackup={!isGuest}
-            onExportBackup={exportData}
-            onImportBackup={handleImportBackup}
-            webMcpSupported={webMcpSupported}
-            webMcpEnabled={webMcpEnabled}
-            onEnableWebMcp={() => setWebMcpEnabled(true)}
-            onDisableWebMcp={() => setWebMcpEnabled(false)}
-          />
-        </div>
+        <SessionChrome
+          definition={definition}
+          config={config}
+          dayIndex={dayNav.selectedDayIndex}
+          totalDays={totalWorkouts}
+          dayName={selectedWorkout?.dayName ?? ''}
+          isCurrentDay={dayNav.selectedDayIndex === firstPendingIdx}
+          currentDayIndex={firstPendingIdx}
+          workoutsPerWeek={workoutsPerWeek}
+          completedDayIndices={completedDayIndices}
+          doneSlots={doneSlots}
+          totalSlots={selectedWorkout?.slots.length ?? 0}
+          completedDays={completedCount}
+          navExpanded={navExpanded}
+          canUndo={undoHistory.length > 0}
+          onUndo={undoLast}
+          onSelectDay={dayNav.handleSelectDay}
+          onPrevDay={dayNav.handlePrevDay}
+          onNextDay={dayNav.handleNextDay}
+          onGoToCurrent={dayNav.handleGoToCurrent}
+          onToggleNav={() => setNavExpanded((x) => !x)}
+          onEditWeights={() => setEditingWeights(true)}
+          onSwitchProgram={onSwitchProgram}
+          isFinishing={isFinishing}
+          onFinish={handleFinishProgram}
+          onReset={handleResetAll}
+          onExportCsv={handleExportCsv}
+          canUseBackup={!isGuest}
+          onExportBackup={exportData}
+          onImportBackup={handleImportBackup}
+          webMcpSupported={webMcpSupported}
+          webMcpEnabled={webMcpEnabled}
+          onEnableWebMcp={() => setWebMcpEnabled(true)}
+          onDisableWebMcp={() => setWebMcpEnabled(false)}
+        />
       )}
 
-      <div className="max-w-[1300px] mx-auto px-3 sm:px-5 pb-24">
+      <div className="max-w-[1300px] mx-auto px-5 sm:px-6 pb-24">
         {config && rows.length > 0 ? (
           editingWeights && (
             <SetupForm
@@ -459,8 +466,7 @@ export function ProgramApp({
             selectedWorkout={selectedWorkout}
             selectedDayIndex={dayNav.selectedDayIndex}
             currentDayIndex={firstPendingIdx}
-            totalWorkouts={totalWorkouts}
-            isDayComplete={isDayComplete}
+            completedDayIndices={completedDayIndices}
             viewMode={dayNav.viewMode}
             workoutsPerWeek={workoutsPerWeek}
             resultTimestamps={resultTimestamps}
@@ -468,9 +474,7 @@ export function ProgramApp({
             rest={rest}
             onSkipRest={dismissRest}
             onCloseNav={() => setNavExpanded(false)}
-            onPrevDay={dayNav.handlePrevDay}
             onNextDay={dayNav.handleNextDay}
-            onGoToCurrent={dayNav.handleGoToCurrent}
             onSelectDay={dayNav.handleSelectDay}
             onToggleView={dayNav.handleToggleView}
             onGoToProfile={onGoToProfile}

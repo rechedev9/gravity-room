@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/button';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { DropdownMenu, DropdownItem } from '@/components/dropdown-menu';
+import { IconButton } from './icon-button';
+import { MoreVerticalIcon } from './tracker-icons';
 
 export interface SessionMenuProps {
   /** Surface the finish-program CTA next to the `⋮` (program fully recorded). */
@@ -54,25 +56,29 @@ export function SessionMenu({
   };
 
   return (
-    <div className="relative flex shrink-0 items-center gap-2">
+    <div className="relative flex shrink-0 items-center">
       {showFinishCta && (
-        <Button size="sm" onClick={() => setFinishConfirmOpen(true)} disabled={isFinishing}>
+        <Button
+          size="sm"
+          variant="primary"
+          className="order-first mr-1"
+          onClick={() => setFinishConfirmOpen(true)}
+          disabled={isFinishing}
+        >
           {isFinishing
             ? t('tracker.toolbar.finishing_loading')
             : t('tracker.toolbar.finish_program')}
         </Button>
       )}
-      <button
-        type="button"
+      <IconButton
+        label={t('tracker.toolbar.more_actions_aria')}
         onClick={() => setMenuOpen((prev) => !prev)}
-        aria-label={t('tracker.toolbar.more_actions_aria')}
         aria-haspopup="true"
         aria-expanded={menuOpen}
         data-testid="session-menu-trigger"
-        className="min-h-[36px] min-w-[36px] px-2 text-lg leading-none text-info transition-colors hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
       >
-        &#8942;
-      </button>
+        <MoreVerticalIcon />
+      </IconButton>
       <DropdownMenu open={menuOpen} onClose={closeMenu} align="right">
         <DropdownItem
           onClick={() => {

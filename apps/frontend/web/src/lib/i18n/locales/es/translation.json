@@ -1133,8 +1133,8 @@
       "day_label": "DÍA",
       "day_name": "Día {{n}}",
       "complete_suffix": " · COMPLETO",
-      "close": "cerrar ▴",
-      "change_day": "cambiar día ▾"
+      "close": "Cerrar",
+      "change_day": "Cambiar día"
     },
     "shortcuts": {
       "title": "ATAJOS DE TECLADO",
@@ -1152,7 +1152,16 @@
     },
     "session_chrome": {
       "day_progress_aria": "Progreso del día",
-      "edit_weights_aria": "Editar cargas de partida"
+      "edit_weights_aria": "Editar cargas de partida",
+      "label": "Entrenamiento",
+      "switch_program_aria": "{{name}}: cambiar de programa",
+      "undo_aria": "Deshacer el último resultado",
+      "week_label": "SEMANA {{n}}",
+      "week_chip": "Semana {{n}}",
+      "weeks_aria": "Semanas del programa",
+      "days_aria": "Días de la semana",
+      "day_done_aria": "{{day}}, completado",
+      "exercises_progress": "{{done}} de {{total}} ejercicios"
     },
     "current_lift": {
       "aria": "Levantamiento en curso: {{exercise}}",

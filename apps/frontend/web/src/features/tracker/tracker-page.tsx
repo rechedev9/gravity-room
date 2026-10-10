@@ -98,6 +98,7 @@ export function TrackerPage(): React.ReactNode {
       onBackToDashboard={handleBack}
       onProgramReset={handleReset}
       onGoToProfile={handleGoToProfile}
+      onSwitchProgram={() => void navigate({ to: '/app/programs' })}
     />
   );
 }

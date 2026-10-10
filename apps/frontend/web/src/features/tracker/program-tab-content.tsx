@@ -1,10 +1,8 @@
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import type { GenericResults, ProgramDefinition } from '@gzclp/domain/types/program';
 import type { ViewMode } from '@/lib/view-preference';
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GuestBanner } from '@/components/guest-banner';
-import { DayNavigator } from '@/features/program-view/day-navigator';
 import { CalendarNavigator } from '@/features/program-view/calendar-navigator';
 import { DetailedDayView } from '@/features/program-view/detailed-day-view';
 import type { SlotActions } from '@/features/program-view/day-view';
@@ -21,8 +19,7 @@ interface ProgramTabContentProps {
   readonly selectedWorkout: GenericWorkoutRow | undefined;
   readonly selectedDayIndex: number;
   readonly currentDayIndex: number;
-  readonly totalWorkouts: number;
-  readonly isDayComplete: boolean;
+  readonly completedDayIndices: ReadonlySet<number>;
   readonly viewMode: ViewMode;
   readonly workoutsPerWeek: number;
   readonly resultTimestamps?: Readonly<Record<string, string>>;
@@ -31,9 +28,7 @@ interface ProgramTabContentProps {
   readonly rest: { readonly seconds: number; readonly id: number } | null;
   readonly onSkipRest: () => void;
   readonly onCloseNav: () => void;
-  readonly onPrevDay: () => void;
   readonly onNextDay: () => void;
-  readonly onGoToCurrent: () => void;
   readonly onSelectDay: (index: number) => void;
   readonly onToggleView: () => void;
   readonly onGoToProfile?: () => void;
@@ -49,8 +44,7 @@ export function ProgramTabContent({
   selectedWorkout,
   selectedDayIndex,
   currentDayIndex,
-  totalWorkouts,
-  isDayComplete,
+  completedDayIndices,
   viewMode,
   workoutsPerWeek,
   resultTimestamps,
@@ -58,9 +52,7 @@ export function ProgramTabContent({
   rest,
   onSkipRest,
   onCloseNav,
-  onPrevDay,
   onNextDay,
-  onGoToCurrent,
   onSelectDay,
   onToggleView,
   onGoToProfile,
@@ -69,12 +61,6 @@ export function ProgramTabContent({
   const { onMark, onUndo, onSetAmrapReps, onSetRpe, onSetTap, getSetLogs, isSlotLogging } =
     slotActions;
   const { t } = useTranslation();
-
-  const completedDayIndices = useMemo<ReadonlySet<number>>(
-    () =>
-      new Set(rows.filter((r) => r.slots.every((s) => s.result !== undefined)).map((r) => r.index)),
-    [rows]
-  );
 
   const handleSelectDay = (idx: number): void => {
     onSelectDay(idx);
@@ -92,21 +78,10 @@ export function ProgramTabContent({
       {navExpanded && (
         <div
           data-testid="tracker-day-navigation-panel"
-          className="mb-4 border border-rule bg-card rounded-card p-3 shadow-[var(--shadow-card)] sm:p-4"
+          className="mb-4 rounded-card border border-rule bg-card p-3 sm:p-4"
         >
-          <DayNavigator
-            selectedDayIndex={selectedDayIndex}
-            totalDays={totalWorkouts}
-            currentDayIndex={currentDayIndex}
-            dayName={selectedWorkout?.dayName ?? ''}
-            isDayComplete={isDayComplete}
-            compact
-            onPrev={onPrevDay}
-            onNext={onNextDay}
-            onGoToCurrent={onGoToCurrent}
-          />
           {rows.length > 0 && (
-            <div className="mt-3 border-t border-rule pt-3">
+            <div>
               <CalendarNavigator
                 rows={rows}
                 selectedDayIndex={selectedDayIndex}

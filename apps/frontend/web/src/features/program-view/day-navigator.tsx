@@ -9,7 +9,6 @@ interface DayNavigatorProps {
   readonly dayName: string;
   readonly isDayComplete: boolean;
   readonly showKeyboardHints?: boolean;
-  readonly compact?: boolean;
   readonly onPrev: () => void;
   readonly onNext: () => void;
   readonly onGoToCurrent: () => void;
@@ -22,7 +21,6 @@ export function DayNavigator({
   dayName,
   isDayComplete,
   showKeyboardHints = false,
-  compact = false,
   onPrev,
   onNext,
   onGoToCurrent,
@@ -31,8 +29,8 @@ export function DayNavigator({
   const showGoToCurrent = selectedDayIndex !== currentDayIndex && currentDayIndex !== -1;
 
   return (
-    <div className={compact ? 'flex flex-col gap-2' : 'flex flex-col gap-2 mb-6'}>
-      <div className={compact ? 'flex flex-wrap items-center gap-2' : 'flex items-center gap-4'}>
+    <div className="mb-6 flex flex-col gap-2">
+      <div className="flex items-center gap-4">
         <button
           type="button"
           onClick={onPrev}
@@ -43,7 +41,7 @@ export function DayNavigator({
           &larr;<span className="hidden sm:inline"> {t('tracker.day_navigator.prev_button')}</span>
         </button>
 
-        <div className={compact ? 'hidden' : 'flex-1 flex flex-col items-center gap-2'}>
+        <div className="flex flex-1 flex-col items-center gap-2">
           <div className="flex items-center gap-2">
             <span
               className="font-display text-main"
@@ -99,16 +97,6 @@ export function DayNavigator({
         >
           <span className="hidden sm:inline">{t('tracker.day_navigator.next_button')} </span>&rarr;
         </button>
-
-        {compact && showGoToCurrent && (
-          <button
-            type="button"
-            onClick={onGoToCurrent}
-            className="type-button ml-auto min-h-[44px] px-3 text-accent hover:underline cursor-pointer"
-          >
-            {t('tracker.day_navigator.go_to_current')}
-          </button>
-        )}
       </div>
 
       {showKeyboardHints && (

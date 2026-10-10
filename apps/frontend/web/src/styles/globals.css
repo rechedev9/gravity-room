@@ -889,3 +889,14 @@ body {
   background: var(--color-accent-dim);
   color: var(--color-main);
 }
+
+/* ── Tracker week rail: chips scroll sideways and fade out at the right edge ── */
+
+.week-rail {
+  scrollbar-width: none;
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.25rem), transparent);
+}
+
+.week-rail::-webkit-scrollbar {
+  display: none;
+}

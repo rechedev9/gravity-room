@@ -14,13 +14,20 @@ test.describe('Undo', () => {
     await ensureCompactView(page);
   });
 
-  test('undo has no chrome surface — it lives on the card that recorded it', async ({ page }) => {
-    const chrome = page.getByTestId('session-chrome');
-    await expect(chrome).toBeVisible();
-    // The chrome legitimately contains "no se puede deshacer" copy inside the
-    // reset ConfirmDialog, so assert on the absence of an undo CONTROL, not
-    // on any free text matching /deshacer/i.
-    await expect(chrome.getByRole('button', { name: 'Deshacer' })).toHaveCount(0);
+  test('header undo is disabled with no history and reverts the last result', async ({ page }) => {
+    const undo = page.getByTestId('session-chrome-undo');
+    await expect(undo).toBeDisabled();
+
+    await markTierSuccess(page, 'T1');
+    await expect(tierUndoButton(page, 'T1', 'éxito')).toBeVisible();
+    await expect(undo).toBeEnabled();
+    await undo.click();
+
+    // T1 is unresolved again, so it is back as the hero lift.
+    const heroCard = page.getByTestId('current-lift-card');
+    await expect(heroCard.getByTestId('current-lift-confirm-set')).toBeVisible();
+    await expect(tierUndoButton(page, 'T1', 'éxito')).toHaveCount(0);
+    await expect(undo).toBeDisabled();
   });
 
   test('record T1 then undo via keyboard', async ({ page }) => {

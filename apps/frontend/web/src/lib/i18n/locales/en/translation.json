@@ -1133,8 +1133,8 @@
       "day_label": "DAY",
       "day_name": "Day {{n}}",
       "complete_suffix": " · COMPLETE",
-      "close": "close ▴",
-      "change_day": "change day ▾"
+      "close": "Close",
+      "change_day": "Change day"
     },
     "shortcuts": {
       "title": "KEYBOARD SHORTCUTS",
@@ -1152,7 +1152,16 @@
     },
     "session_chrome": {
       "day_progress_aria": "Day progress",
-      "edit_weights_aria": "Edit starting weights"
+      "edit_weights_aria": "Edit starting weights",
+      "label": "Workout",
+      "switch_program_aria": "{{name}}: switch program",
+      "undo_aria": "Undo the last result",
+      "week_label": "WEEK {{n}}",
+      "week_chip": "Week {{n}}",
+      "weeks_aria": "Program weeks",
+      "days_aria": "Days of the week",
+      "day_done_aria": "{{day}}, completed",
+      "exercises_progress": "{{done}} of {{total}} exercises"
     },
     "current_lift": {
       "aria": "Current lift: {{exercise}}",
