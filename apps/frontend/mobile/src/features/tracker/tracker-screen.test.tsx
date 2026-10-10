@@ -770,6 +770,35 @@ describe('TrackerScreen', () => {
     expect(mockRestSkip).toHaveBeenCalled();
   });
 
+  it('reopens a failed slot with the sets already lifted when the fail is undone', async () => {
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
+    mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
+    mockedUpsertProgramDetail.mockResolvedValue();
+    jest.mocked(getSetDrafts).mockResolvedValue({
+      '0:squat-t1': [
+        { reps: 3, weight: 60 },
+        { reps: 3, weight: 60 },
+      ],
+    });
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Mark Squat fail' }));
+    expect(await screen.findByText('Logged fail')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
+
+    expect(await screen.findByRole('button', { name: 'Confirm set 3 for Squat' })).toBeTruthy();
+    expect(screen.getByLabelText('Set 1: 3 reps at 60 kg')).toBeTruthy();
+    expect(screen.getByLabelText('Set 2: 3 reps at 60 kg')).toBeTruthy();
+    expect(jest.mocked(saveSetDrafts)).toHaveBeenLastCalledWith('instance-1', {
+      '0:squat-t1': [
+        { reps: 3, weight: 60 },
+        { reps: 3, weight: 60 },
+      ],
+    });
+  });
+
   it('records a bare Fail without inventing sets', async () => {
     mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);

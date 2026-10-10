@@ -663,6 +663,16 @@ export function TrackerScreen({
 
     const previousDetail = currentDetail;
     const restoredDetail = applyUndoEntry(currentDetail, currentUndoEntry);
+    // Undoing a result that closed a slot with logged sets reopens it where the lifter was:
+    // every set but the last one, which is the one that closed it, returns as a draft.
+    const closingLogs =
+      currentDetail.results[String(currentUndoEntry.i)]?.[currentUndoEntry.slotId]?.setLogs;
+    const reopenedSlot =
+      restoredDetail.results[String(currentUndoEntry.i)]?.[currentUndoEntry.slotId];
+    const reopenedDraft =
+      reopenedSlot?.result === undefined && closingLogs !== undefined
+        ? closingLogs.slice(0, -1)
+        : [];
     const nextDetail = {
       ...restoredDetail,
       undoHistory: currentDetail.undoHistory.slice(0, -1),
@@ -684,6 +694,18 @@ export function TrackerScreen({
       localStateVersionRef.current += 1;
       setDetailState(previousDetail);
       return;
+    }
+
+    if (reopenedDraft.length > 0) {
+      try {
+        await persistDraftLogs({
+          ...draftLogsRef.current,
+          [slotLogKey(currentUndoEntry.i, currentUndoEntry.slotId)]: reopenedDraft,
+        });
+      } catch {
+        setSyncNotice('draft_failed');
+        return;
+      }
     }
 
     setSyncNotice(null);
