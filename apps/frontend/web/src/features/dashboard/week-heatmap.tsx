@@ -43,7 +43,7 @@ export function WeekHeatmap({ workouts, weeks = 12 }: WeekHeatmapProps): React.R
   const todayKey = new Date().toDateString();
 
   return (
-    <section className="bg-card border border-rule rounded-[var(--radius-base)] p-4 sm:p-5">
+    <section className="bg-card border border-rule rounded-card p-4 sm:p-5">
       <p className="chalk-stamp mb-3">{t('dashboard.heatmap.title', { weeks })}</p>
 
       {/* The plot is capped and centered so 12 weeks read as bold, evenly-spread
@@ -102,7 +102,7 @@ export function WeekHeatmap({ workouts, weeks = 12 }: WeekHeatmapProps): React.R
                     role="gridcell"
                     aria-label={label}
                     className={cn(
-                      'block aspect-square w-full rounded-[2px] border',
+                      'block aspect-square w-full rounded-md border',
                       LEVEL_CLASS[cell.level],
                       isToday && 'ring-1 ring-main'
                     )}

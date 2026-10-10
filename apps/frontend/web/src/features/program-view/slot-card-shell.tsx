@@ -30,7 +30,7 @@ export function SlotCardShell({ slot, isCurrent, children }: SlotCardShellProps)
 
   return (
     <div
-      className={`relative border border-rule bg-card px-4 py-3.5 transition-opacity duration-200 ${
+      className={`relative border border-rule bg-card rounded-card px-4 py-3.5 transition-opacity duration-200 ${
         fullyDone ? 'opacity-70' : ''
       } ${isCurrentSlot ? 'accent-left-gold' : 'accent-left-muted'} ${
         slot.isChanged && !isDone ? 'bg-changed' : ''

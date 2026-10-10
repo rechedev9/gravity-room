@@ -92,7 +92,7 @@ export function ProgramTabContent({
       {navExpanded && (
         <div
           data-testid="tracker-day-navigation-panel"
-          className="mb-4 border border-rule bg-card p-3 shadow-[var(--shadow-card)] sm:p-4"
+          className="mb-4 border border-rule bg-card rounded-card p-3 shadow-[var(--shadow-card)] sm:p-4"
         >
           <DayNavigator
             selectedDayIndex={selectedDayIndex}
@@ -125,7 +125,7 @@ export function ProgramTabContent({
                         ? t('tracker.tab_content.aria_compact_view')
                         : t('tracker.tab_content.aria_detailed_view')
                     }
-                    className="min-h-[44px] border border-rule bg-card px-3 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-muted transition-colors hover:border-rule-light hover:text-main cursor-pointer"
+                    className="type-button min-h-[44px] border border-rule bg-card rounded-control px-3 text-muted transition-colors hover:border-rule-light hover:text-main cursor-pointer"
                   >
                     {viewMode === 'detailed'
                       ? t('tracker.tab_content.compact_view')

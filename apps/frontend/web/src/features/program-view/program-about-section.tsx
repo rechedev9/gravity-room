@@ -13,7 +13,7 @@ interface ProgramAboutSectionProps {
 
 function MetaChip({ children }: { readonly children: ReactNode }): ReactNode {
   return (
-    <span className="inline-flex items-center border border-rule bg-body/40 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-muted">
+    <span className="inline-flex items-center border border-rule rounded-chip bg-body/40 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-muted">
       {children}
     </span>
   );
@@ -32,10 +32,10 @@ export function ProgramAboutSection({
   return (
     <details
       open={defaultOpen}
-      className="group mb-4 overflow-hidden border border-rule bg-card sm:mb-8"
+      className="group mb-4 overflow-hidden border border-rule bg-card rounded-card sm:mb-8"
     >
       <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3.5 text-xs font-bold tracking-wide select-none sm:px-5 [&::marker]:hidden">
-        <span className="font-display text-sm uppercase tracking-wide text-title">{title}</span>
+        <span className="text-[15px] font-semibold text-title">{title}</span>
         <span className="text-muted transition-transform duration-200 group-open:rotate-90">
           &#9656;
         </span>

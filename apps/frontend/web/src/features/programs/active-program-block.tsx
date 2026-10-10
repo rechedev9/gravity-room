@@ -32,12 +32,10 @@ export function ActiveProgramBlock({
   return (
     <section className="mb-10">
       <h2 className="dash-section-title mb-4">{t('programs.active_heading')}</h2>
-      <div className="bg-card border border-rule rounded-[var(--radius-base)] p-5 sm:p-6">
+      <div className="bg-card border border-rule rounded-card p-5 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h3 className="font-display text-2xl sm:text-3xl text-main leading-none tracking-[0.02em]">
-              {displayName}
-            </h3>
+            <h3 className="type-title sm:type-display-sm text-main">{displayName}</h3>
             {total > 0 && (
               <p className="mt-1.5 font-mono text-xs text-muted">
                 {t('programs.active_workout', { completed, total })}
@@ -46,7 +44,7 @@ export function ActiveProgramBlock({
           </div>
           <Link
             to="/app/tracker"
-            className="shrink-0 px-4 py-2.5 text-center font-mono text-[11px] font-bold uppercase tracking-[0.06em] border rounded-[var(--radius-base)] cursor-pointer transition-colors bg-accent text-on-accent border-accent-hover hover:bg-accent-hover"
+            className="type-button shrink-0 px-4 py-2.5 text-center border rounded-[var(--radius-base)] cursor-pointer transition-colors bg-accent text-on-accent border-accent-hover hover:bg-accent-hover"
           >
             {t('programs.active_cta')}
           </Link>

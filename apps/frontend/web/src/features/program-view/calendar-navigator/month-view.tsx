@@ -60,7 +60,7 @@ function MonthTile({ row, state, onSelect }: MonthTileProps): ReactNode {
       aria-label={label}
       title={`#${row.index + 1} ${localizedDayName(t, row.dayName ?? '')}`}
       aria-current={state === 'selected' ? 'true' : undefined}
-      className={`
+      className={`rounded-control 
         flex flex-col items-center justify-center gap-0.5
         min-h-[44px] min-w-[44px] w-full px-1 py-1.5
         text-xs font-mono tabular-nums
@@ -149,7 +149,7 @@ export function MonthView({
           disabled={monthPage === 0}
           onClick={() => setMonthPage((p) => Math.max(0, p - 1))}
           aria-label={t('calendar_navigator.month_prev_aria')}
-          className="
+          className="rounded-control 
             text-xs font-bold px-3 py-1.5 min-h-[44px]
             border border-rule bg-card text-muted
             hover:bg-hover-row hover:text-main hover:border-rule-light
@@ -173,7 +173,7 @@ export function MonthView({
             onClick={() => setMonthPage(currentMonthPage)}
             aria-label={t('calendar_navigator.month_current_aria')}
             data-testid="month-current-btn"
-            className="
+            className="rounded-control 
               text-xs font-bold px-3 py-1.5 min-h-[44px]
               border border-accent bg-card text-accent
               hover:bg-accent hover:text-bg
@@ -189,7 +189,7 @@ export function MonthView({
           disabled={monthPage >= totalMonthPages - 1}
           onClick={() => setMonthPage((p) => Math.min(totalMonthPages - 1, p + 1))}
           aria-label={t('calendar_navigator.month_next_aria')}
-          className="
+          className="rounded-control 
             text-xs font-bold px-3 py-1.5 min-h-[44px]
             border border-rule bg-card text-muted
             hover:bg-hover-row hover:text-main hover:border-rule-light

@@ -41,7 +41,7 @@ const ProfileChartsSection = lazyWithRetry(() =>
 
 function ChartsFallback(): React.ReactNode {
   return (
-    <div className="mt-6 bg-card border border-rule p-5 animate-pulse">
+    <div className="mt-6 bg-card rounded-card border border-rule p-5 animate-pulse">
       <div className="h-4 w-40 bg-rule rounded mb-4" />
       <div className="h-48 bg-rule rounded" />
     </div>
@@ -270,7 +270,7 @@ export function ProfilePage(): React.ReactNode {
     <div className="min-h-dvh bg-body">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="mb-8">
-          <h1 className="font-display text-4xl sm:text-5xl text-title leading-none hero-title-glow">
+          <h1 className="type-display-sm sm:type-display text-title">
             {t('profile.page.heading')}
           </h1>
           {user && <p className="text-sm text-muted mt-1">{displayName}</p>}
@@ -291,14 +291,14 @@ export function ProfilePage(): React.ReactNode {
         )}
 
         {!profileData && (
-          <div className="bg-card border border-rule p-8 sm:p-12 text-center card">
+          <div className="bg-card rounded-card border border-rule p-8 sm:p-12 text-center card">
             <img
               src="/empty-profile.webp"
               alt=""
               className="w-full max-w-xs mx-auto mb-6 opacity-80"
               loading="lazy"
             />
-            <p className="font-display text-6xl sm:text-7xl text-muted leading-none mb-4 hero-title-glow">
+            <p className="type-display-sm sm:type-display text-muted mb-4">
               {t('profile.empty.heading')}
             </p>
             <p className="text-sm text-muted">{t('profile.empty.description')}</p>

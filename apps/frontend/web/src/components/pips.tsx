@@ -44,7 +44,7 @@ export function Pips({ total, done, fail = 0, ariaLabel, className }: PipsProps)
         <span
           key={`${kind}-${i}`}
           className={cn(
-            'h-2.5 flex-1 rounded-[1px] border',
+            'h-2.5 flex-1 rounded-full border',
             kind === 'done' && 'bg-accent border-accent-hover',
             kind === 'fail' && 'bg-fail-ring border-fail',
             kind === 'empty' && 'bg-surface-2 border-rule'

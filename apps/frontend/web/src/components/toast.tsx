@@ -22,7 +22,7 @@ export function ToastContainer(): React.ReactNode {
         const variantStyle =
           toast.variant === 'pr'
             ? 'bg-victory text-victory-on border-[1.5px] border-victory shadow-[var(--shadow-victory)]'
-            : 'bg-header text-title border border-rule';
+            : 'bg-header text-title border border-rule rounded-control';
 
         return (
           <div

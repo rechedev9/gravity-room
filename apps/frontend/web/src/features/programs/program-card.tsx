@@ -48,7 +48,7 @@ export function ProgramCard({
     : t('programs.card.start_program_aria', { name });
 
   const baseCtaClasses =
-    'px-4 py-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.06em] border rounded-[var(--radius-base)] cursor-pointer transition-colors text-center';
+    'type-button px-4 py-2.5 border rounded-[var(--radius-base)] cursor-pointer transition-colors text-center';
   const primaryCtaClass = `${baseCtaClasses} bg-accent text-on-accent border-accent-hover hover:bg-accent-hover`;
   const secondaryCtaClass = `${baseCtaClasses} bg-transparent text-main border-rule-light hover:border-accent-deep hover:text-accent`;
   const ctaClasses = `mt-auto ${isActive ? primaryCtaClass : secondaryCtaClass}`;
@@ -58,7 +58,7 @@ export function ProgramCard({
 
   return (
     <div
-      className={`relative overflow-hidden bg-card border border-rule p-5 sm:p-6 card program-card-lift ${disabled ? 'opacity-60' : ''}`}
+      className={`relative overflow-hidden bg-card rounded-card border border-rule p-5 sm:p-6 card program-card-lift ${disabled ? 'opacity-60' : ''}`}
     >
       {/* Category hairline top edge (was a soft gradient glow) */}
       <div
@@ -69,11 +69,9 @@ export function ProgramCard({
       <div className="relative flex flex-col gap-3">
         {/* Header: name + category badge */}
         <div className="flex items-start justify-between gap-2">
-          <h3 className="font-display text-xl sm:text-2xl text-main leading-none tracking-[0.02em]">
-            {name}
-          </h3>
+          <h3 className="type-title text-main">{name}</h3>
           <span
-            className="shrink-0 font-mono text-[9px] font-bold uppercase tracking-[0.06em] px-2 py-[3px] border rounded-[1px]"
+            className="shrink-0 font-mono text-[9px] font-bold uppercase tracking-[0.06em] px-2 py-[3px] border rounded-chip"
             style={{
               borderColor: `color-mix(in srgb, ${catColor.badge} 40%, transparent)`,
               color: catColor.badge,
@@ -114,7 +112,7 @@ export function ProgramCard({
             </button>
             <Link
               to={previewTo}
-              className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-muted underline-offset-4 hover:text-main hover:underline"
+              className="type-button text-muted underline-offset-4 hover:text-main hover:underline"
               aria-label={t('catalog.card.view_program_aria', { name })}
             >
               {t('programs.card.preview')}

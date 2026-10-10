@@ -221,7 +221,7 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
         </div>
 
         {/* Statement headline */}
-        <h2 className="relative font-display leading-[0.92] text-main text-[clamp(48px,6vw,72px)] tracking-[0.02em]">
+        <h2 className="relative font-bold leading-[1.02] text-main text-[clamp(36px,4.6vw,60px)] tracking-[-0.02em]">
           {t('login.auth_separator')}
         </h2>
 
@@ -235,21 +235,19 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
       <main className="flex flex-col items-center justify-center px-6 py-12 sm:px-12">
         <div
           data-testid="auth-card"
-          className="relative w-full max-w-[400px] border border-rule bg-card p-8"
+          className="relative w-full max-w-[400px] border border-rule bg-card rounded-card p-8"
         >
-          <CornerTicks colorClass="border-rule-light" size={10} />
+          <CornerTicks colorClass="border-rule-light" />
 
           <Kicker noRule className="mb-3">
             {t('login.form.title')}
           </Kicker>
-          <h1 className="font-display text-4xl leading-none text-main tracking-[0.04em]">
-            Gravity Room
-          </h1>
+          <h1 className="type-display mb-6 text-main">Gravity Room</h1>
 
           {/* Sign-in providers — only the methods this deployment offers
               (per /auth/providers) are rendered; no disabled placeholders. */}
           {hasSocialProvider && (
-            <div className="mt-7 flex flex-col gap-2.5">
+            <div className="flex flex-col gap-2.5">
               {googleEnabled && (
                 <GoogleSignInButton
                   label={t('login.social.google')}
@@ -295,7 +293,7 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
               <button
                 type="button"
                 onClick={() => setShowEmail(true)}
-                className="w-full cursor-pointer border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.06em] text-main transition-colors hover:border-rule-light"
+                className="type-button w-full cursor-pointer border border-rule bg-header rounded-control py-3 text-main transition-colors hover:border-rule-light"
               >
                 ▸ {t('login.email.toggle')}
               </button>
@@ -312,7 +310,7 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder={t('login.email.email_placeholder')}
-                    className="border border-rule bg-header px-3 py-2 text-sm text-main outline-none focus:border-accent"
+                    className="border border-rule bg-header rounded-control px-3 py-2 text-sm text-main outline-none focus:border-accent"
                   />
                 </label>
 
@@ -327,7 +325,7 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder={t('login.email.name_placeholder')}
-                      className="border border-rule bg-header px-3 py-2 text-sm text-main outline-none focus:border-accent"
+                      className="border border-rule bg-header rounded-control px-3 py-2 text-sm text-main outline-none focus:border-accent"
                     />
                   </label>
                 )}
@@ -344,14 +342,14 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={t('login.email.password_placeholder')}
-                    className="border border-rule bg-header px-3 py-2 text-sm text-main outline-none focus:border-accent"
+                    className="border border-rule bg-header rounded-control px-3 py-2 text-sm text-main outline-none focus:border-accent"
                   />
                 </label>
 
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full cursor-pointer border border-accent-dim bg-accent-deep/10 py-2.5 font-mono text-[11px] uppercase tracking-[0.06em] text-accent transition-colors hover:bg-accent-deep/20 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="type-button rounded-control w-full cursor-pointer border border-accent-dim bg-accent-deep/10 py-2.5 text-accent transition-colors hover:bg-accent-deep/20 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {emailMode === 'signin'
                     ? t('login.email.submit_signin')
@@ -404,7 +402,7 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
                       type="button"
                       onClick={() => void handleResend()}
                       disabled={resendStatus === 'sending' || resendStatus === 'sent'}
-                      className="w-full cursor-pointer border border-rule bg-header py-2 font-mono text-[10px] uppercase tracking-[0.06em] text-main transition-colors hover:border-rule-light disabled:cursor-not-allowed disabled:opacity-50"
+                      className="type-button w-full cursor-pointer border border-rule bg-header rounded-control py-2 text-main transition-colors hover:border-rule-light disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {t('login.email.resend')}
                     </button>
@@ -434,7 +432,7 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
             <button
               type="button"
               onClick={() => void handleDevLogin()}
-              className="mt-3 w-full border border-dashed border-accent-dim py-2 font-mono text-[10px] uppercase tracking-[0.08em] text-accent-deep transition-colors hover:text-accent cursor-pointer"
+              className="type-button rounded-control mt-3 w-full border border-dashed border-accent-dim py-2 text-accent-deep transition-colors hover:text-accent cursor-pointer"
             >
               {t('login.dev.dev_login')}
             </button>
@@ -456,7 +454,7 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
         <button
           type="button"
           onClick={handleGuestEntry}
-          className="mt-5 cursor-pointer px-4 py-2 font-mono text-[11px] uppercase tracking-[0.06em] text-muted transition-colors hover:text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="type-button mt-5 cursor-pointer px-4 py-2 text-muted transition-colors hover:text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           {t('login.guest.cta')}
         </button>
@@ -529,7 +527,7 @@ function GoogleSignInButton({
       {/* Visible skin — identical to the email/social buttons. */}
       <div
         aria-hidden="true"
-        className="flex w-full items-center justify-center gap-2.5 border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.06em] text-main transition-colors group-hover:border-rule-light group-focus-within:border-accent group-focus-within:ring-2 group-focus-within:ring-accent group-focus-within:ring-offset-2 group-focus-within:ring-offset-card"
+        className="type-button flex w-full items-center justify-center gap-2.5 border border-rule bg-header rounded-control py-3 text-main transition-colors group-hover:border-rule-light group-focus-within:border-accent group-focus-within:ring-2 group-focus-within:ring-accent group-focus-within:ring-offset-2 group-focus-within:ring-offset-card"
       >
         <GoogleGlyph />
         <span>{label}</span>
@@ -562,7 +560,7 @@ function SocialButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-center gap-2 border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.06em] text-main transition-colors hover:border-rule-light"
+      className="type-button flex w-full items-center justify-center gap-2 border border-rule bg-header rounded-control py-3 text-main transition-colors hover:border-rule-light"
     >
       <span>{label}</span>
     </button>

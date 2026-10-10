@@ -26,7 +26,7 @@ export function LoadRecommendation({
 
   return (
     <div
-      className="bg-card border border-rule card p-5"
+      className="bg-card rounded-card border border-rule card p-5"
       aria-label={`${name}: ${actionLabel} ${t('insights.load_rec.from')} ${format(payload.currentWeight)} ${t('insights.load_rec.to')} ${format(payload.recommendedWeight)}`}
     >
       <div className="flex items-center justify-between mb-4">

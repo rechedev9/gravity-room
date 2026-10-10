@@ -353,7 +353,7 @@ export function ProgramApp({
           <button
             type="button"
             onClick={handleResetAll}
-            className="px-5 py-2.5 text-xs font-bold cursor-pointer bg-btn text-btn-text border-2 border-btn-ring hover:bg-btn-active hover:text-btn-active-text transition-colors"
+            className="rounded-control px-5 py-2.5 text-xs font-bold cursor-pointer bg-btn text-btn-text border-2 border-btn-ring hover:bg-btn-active hover:text-btn-active-text transition-colors"
           >
             {t('tracker.delete_and_return')}
           </button>

@@ -42,7 +42,7 @@ export function CookieBanner(): React.ReactNode {
       data-cookie-banner=""
       className="fixed bottom-0 left-0 right-0 z-50 p-4 sm:p-6 pointer-events-none"
     >
-      <div className="pointer-events-auto max-w-3xl mx-auto bg-card border border-rule rounded-lg shadow-elevated px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+      <div className="pointer-events-auto max-w-3xl mx-auto bg-card border border-rule rounded-card shadow-elevated px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
         <p className="text-sm text-muted leading-relaxed flex-1">
           {t('cookie_banner.message')}{' '}
           <Link to="/cookies" className="text-accent underline hover:opacity-80 transition-opacity">
@@ -52,7 +52,7 @@ export function CookieBanner(): React.ReactNode {
         <button
           type="button"
           onClick={dismiss}
-          className="shrink-0 min-h-11 px-5 py-2 text-sm font-bold rounded-md border border-btn-ring text-btn-text bg-btn hover:bg-btn-active hover:text-btn-active-text transition-colors cursor-pointer"
+          className="shrink-0 min-h-11 px-5 py-2 text-sm font-bold rounded-control border border-btn-ring text-btn-text bg-btn hover:bg-btn-active hover:text-btn-active-text transition-colors cursor-pointer"
         >
           {t('cookie_banner.accept')}
         </button>

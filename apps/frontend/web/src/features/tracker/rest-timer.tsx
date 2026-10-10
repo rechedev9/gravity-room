@@ -95,7 +95,7 @@ export function RestTimer({
           type="button"
           onClick={onSkip}
           data-testid="rest-timer-skip"
-          className="min-h-[36px] shrink-0 border border-rule-light px-3 font-mono text-2xs font-bold uppercase tracking-[0.08em] text-muted transition-colors hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+          className="type-button rounded-control min-h-[36px] shrink-0 border border-rule-light px-3 text-muted transition-colors hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
         >
           {t('tracker.rest_timer.skip')}
         </button>
@@ -108,7 +108,7 @@ export function RestTimer({
       role="status"
       aria-live="off"
       aria-label={statusLabel}
-      className="fixed left-1/2 z-[60] -translate-x-1/2 bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.5rem)] lg:bottom-6 flex items-center gap-3 bg-ink border-2 border-accent px-4 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.55)] max-w-[calc(100vw-2rem)]"
+      className="fixed left-1/2 z-[60] -translate-x-1/2 bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.5rem)] lg:bottom-6 flex items-center gap-3 bg-ink border-2 border-accent rounded-card px-4 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.55)] max-w-[calc(100vw-2rem)]"
       data-testid="rest-timer"
     >
       <div className="flex flex-col min-w-0">
@@ -124,7 +124,7 @@ export function RestTimer({
         type="button"
         onClick={onSkip}
         data-testid="rest-timer-skip"
-        className="shrink-0 min-h-[44px] min-w-[44px] px-3 font-mono text-2xs font-bold tracking-[0.05em] uppercase text-on-accent bg-accent border border-accent hover:brightness-110 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ink focus-visible:outline-none"
+        className="type-button rounded-control shrink-0 min-h-[44px] min-w-[44px] px-3 text-on-accent bg-accent border border-accent hover:brightness-110 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ink focus-visible:outline-none"
       >
         {t('tracker.rest_timer.skip')}
       </button>

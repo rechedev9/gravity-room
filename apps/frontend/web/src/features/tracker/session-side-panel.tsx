@@ -96,7 +96,10 @@ export function SessionSidePanel({
       )}
 
       {failNote !== null && (
-        <div className="border border-rule bg-card px-4 py-3.5" data-testid="session-fail-preview">
+        <div
+          className="border border-rule bg-card rounded-card px-4 py-3.5"
+          data-testid="session-fail-preview"
+        >
           <PanelHeading>{t('tracker.session_panel.fail_title')}</PanelHeading>
           <p className="m-0 text-[12.5px] leading-relaxed text-muted">{failNote}</p>
         </div>
@@ -119,7 +122,7 @@ export function SessionSidePanel({
           <button
             type="button"
             onClick={onGoToProfile}
-            className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-muted transition-colors hover:text-main cursor-pointer"
+            className="type-button text-muted transition-colors hover:text-main cursor-pointer"
           >
             {t('tracker.session_panel.stats_link')}
           </button>

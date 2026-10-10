@@ -301,7 +301,7 @@ function SlotTable({
                   <td className="text-center py-1.5 pl-1">
                     {isConfirmed ? (
                       <span
-                        className={`inline-flex items-center justify-center w-8 h-8 text-sm font-bold rounded-sm animate-[pop-in_0.2s_cubic-bezier(0.16,1,0.3,1)] ${metTarget ? 'text-ok bg-ok-bg' : 'text-fail bg-fail-bg'}`}
+                        className={`inline-flex items-center justify-center w-8 h-8 text-sm font-bold rounded-lg animate-[pop-in_0.2s_cubic-bezier(0.16,1,0.3,1)] ${metTarget ? 'text-ok bg-ok-bg' : 'text-fail bg-fail-bg'}`}
                         aria-label={t(
                           metTarget
                             ? 'tracker.detailed_day_view.set_completed_aria'
@@ -312,7 +312,7 @@ function SlotTable({
                       </span>
                     ) : doneWithoutLogs ? (
                       <span
-                        className={`inline-flex items-center justify-center w-8 h-8 text-sm font-bold rounded-sm ${slotSucceeded ? 'text-ok bg-ok-bg' : 'text-fail bg-fail-bg'}`}
+                        className={`inline-flex items-center justify-center w-8 h-8 text-sm font-bold rounded-lg ${slotSucceeded ? 'text-ok bg-ok-bg' : 'text-fail bg-fail-bg'}`}
                         aria-label={t(
                           slotSucceeded
                             ? 'tracker.detailed_day_view.set_completed_aria'
@@ -329,7 +329,7 @@ function SlotTable({
                         aria-label={t('tracker.detailed_day_view.confirm_set_aria', {
                           label: row.label,
                         })}
-                        className="w-8 h-8 text-sm font-bold text-ok border-2 border-ok-ring bg-transparent cursor-pointer rounded-sm transition-all duration-150 hover:bg-ok-bg active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default"
+                        className="w-8 h-8 text-sm font-bold text-ok border-2 border-ok-ring bg-transparent cursor-pointer rounded-lg transition-all duration-150 hover:bg-ok-bg active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default"
                       >
                         &#10003;
                       </button>

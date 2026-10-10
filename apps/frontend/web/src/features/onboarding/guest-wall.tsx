@@ -24,7 +24,7 @@ export function GuestWall({ onCreateAccount, onContinueAsGuest }: GuestWallProps
   return (
     <div data-testid="start-guest-wall" className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="min-w-0">
-        <h2 className="font-display mb-3 text-[40px] leading-[0.9] tracking-[0.03em] text-title sm:text-[52px]">
+        <h2 className="mb-3 type-display-sm sm:type-display text-title">
           {t('onboarding.guest.title')}
         </h2>
         <p className="mb-7 max-w-[560px] text-[15px] leading-relaxed text-muted">
@@ -37,7 +37,7 @@ export function GuestWall({ onCreateAccount, onContinueAsGuest }: GuestWallProps
             data-testid="start-guest-create-account"
             onClick={onCreateAccount}
             style={{ boxShadow: 'var(--shadow-pressed-steel)' }}
-            className="bg-accent px-7 py-3.5 font-mono text-xs font-bold uppercase tracking-[0.08em] text-on-accent transition-colors hover:bg-accent-hover cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+            className="type-button rounded-control bg-accent px-7 py-3.5 text-on-accent transition-colors hover:bg-accent-hover cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
           >
             {t('onboarding.guest.create_account')}
           </button>
@@ -45,7 +45,7 @@ export function GuestWall({ onCreateAccount, onContinueAsGuest }: GuestWallProps
             type="button"
             data-testid="start-guest-continue"
             onClick={onContinueAsGuest}
-            className="border-[1.5px] border-rule-light px-6 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted transition-colors hover:border-accent-deep hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+            className="type-button rounded-control border-[1.5px] border-rule-light px-6 py-3 text-muted transition-colors hover:border-accent-deep hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
           >
             {t('onboarding.guest.continue')}
           </button>

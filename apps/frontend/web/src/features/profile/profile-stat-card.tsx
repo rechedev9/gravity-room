@@ -47,7 +47,7 @@ export function ProfileStatCard({
         </p>
         {badge && (
           <span
-            className={`text-2xs font-bold px-1.5 py-0.5 border rounded-sm ${BADGE_STYLES[badgeVariant]}`}
+            className={`text-2xs font-bold px-1.5 py-0.5 border rounded-chip ${BADGE_STYLES[badgeVariant]}`}
           >
             {badge}
           </span>

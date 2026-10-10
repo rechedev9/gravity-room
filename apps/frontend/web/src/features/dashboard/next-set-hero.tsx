@@ -49,9 +49,9 @@ function EmptyHero(): React.ReactNode {
   const { t } = useTranslation();
 
   return (
-    <section className="bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-elevated)] p-8 sm:p-10 text-center">
+    <section className="bg-card border border-rule rounded-card shadow-[var(--shadow-elevated)] p-8 sm:p-10 text-center">
       <p className="chalk-stamp text-label">{t('dashboard.next_set.no_program')}</p>
-      <h1 className="font-display text-5xl sm:text-7xl text-main my-4">
+      <h1 className="type-display-sm sm:type-display text-main my-4">
         {t('dashboard.next_set.choose_forge')}
       </h1>
       <p className="text-muted mb-6">{t('dashboard.next_set.empty_body')}</p>
@@ -66,10 +66,10 @@ function DayOneHero({ instance }: { readonly instance: ProgramInstance }): React
   const { t } = useTranslation();
 
   return (
-    <section className="relative bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-card)] p-6 sm:p-8">
+    <section className="relative bg-card border border-rule rounded-card shadow-[var(--shadow-card)] p-6 sm:p-8">
       <CornerTicks />
       <p className="chalk-stamp">{instance.name.toUpperCase()}</p>
-      <h1 className="font-display text-4xl sm:text-6xl text-main my-3">
+      <h1 className="type-display-sm sm:type-display text-main my-3">
         {t('dashboard.next_set.day_one')}
       </h1>
       <p className="text-muted mb-6">{t('dashboard.next_set.day_one_body')}</p>
@@ -93,7 +93,7 @@ function FullHero({ instance, nextWorkout: nw, nextSet: ns }: FullHeroProps): Re
   return (
     <section
       className={cn(
-        'relative bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-card)] p-5 sm:p-7',
+        'relative bg-card border border-rule rounded-card shadow-[var(--shadow-card)] p-5 sm:p-7',
         'transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out-expo)] hover:border-rule-light'
       )}
     >

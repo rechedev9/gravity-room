@@ -17,7 +17,7 @@ export function HomeHeader({
 
   return (
     <header>
-      <h1 className="font-display text-xl sm:text-2xl text-title tracking-wide">
+      <h1 className="type-title sm:type-display-sm text-title">
         {userName
           ? t('home.header.greeting_named', { name: userName })
           : t('home.header.greeting_generic')}

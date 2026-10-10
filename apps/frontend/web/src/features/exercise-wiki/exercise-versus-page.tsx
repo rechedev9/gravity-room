@@ -15,7 +15,7 @@ const GOALS = VersusGoalSchema.options;
 const APP_BASE = '/app/exercises/versus';
 
 const selectClassName =
-  'w-full h-12 px-3 border-2 border-rule bg-body text-main text-sm cursor-pointer focus:outline-none focus-visible:ring-2 ring-accent focus:border-accent transition-colors';
+  'w-full h-12 px-3 border-2 border-rule bg-body rounded-control text-main text-sm cursor-pointer focus:outline-none focus-visible:ring-2 ring-accent focus:border-accent transition-colors';
 
 interface ExerciseVersusPageProps {
   readonly lang: ArticleLang;
@@ -116,7 +116,7 @@ export function ExerciseVersusPage({ lang, inApp = false }: ExerciseVersusPagePr
       </header>
 
       <form
-        className="relative border border-rule rounded-[var(--radius-base)] bg-card shadow-[var(--shadow-card)] overflow-hidden"
+        className="relative border border-rule rounded-card bg-card shadow-[var(--shadow-card)] overflow-hidden"
         onSubmit={(e) => {
           e.preventDefault();
           runCompare();
@@ -146,7 +146,7 @@ export function ExerciseVersusPage({ lang, inApp = false }: ExerciseVersusPagePr
             <button
               type="button"
               onClick={swapSides}
-              className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-muted hover:text-accent border border-rule hover:border-accent px-3 py-1.5 min-h-11 transition-colors cursor-pointer focus-visible:ring-2 ring-accent focus-visible:outline-none"
+              className="type-button rounded-control text-muted hover:text-accent border border-rule hover:border-accent px-3 py-1.5 min-h-11 transition-colors cursor-pointer focus-visible:ring-2 ring-accent focus-visible:outline-none"
               data-testid="versus-swap"
             >
               {t('exerciseVersus.swap')}

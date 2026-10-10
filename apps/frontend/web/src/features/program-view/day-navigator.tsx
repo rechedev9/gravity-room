@@ -38,7 +38,7 @@ export function DayNavigator({
           onClick={onPrev}
           disabled={selectedDayIndex <= 0}
           aria-label={t('tracker.day_navigator.prev_aria')}
-          className="text-xs font-bold px-4 py-2.5 min-h-[44px] border border-rule bg-card text-muted disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-main hover:border-rule-light active:scale-95"
+          className="text-xs font-bold px-4 py-2.5 min-h-[44px] border border-rule bg-card rounded-control text-muted disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-main hover:border-rule-light active:scale-95"
         >
           &larr;<span className="hidden sm:inline"> {t('tracker.day_navigator.prev_button')}</span>
         </button>
@@ -95,7 +95,7 @@ export function DayNavigator({
           onClick={onNext}
           disabled={selectedDayIndex >= totalDays - 1}
           aria-label={t('tracker.day_navigator.next_aria')}
-          className="text-xs font-bold px-4 py-2.5 min-h-[44px] border border-rule bg-card text-muted disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-main hover:border-rule-light active:scale-95"
+          className="text-xs font-bold px-4 py-2.5 min-h-[44px] border border-rule bg-card rounded-control text-muted disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-main hover:border-rule-light active:scale-95"
         >
           <span className="hidden sm:inline">{t('tracker.day_navigator.next_button')} </span>&rarr;
         </button>
@@ -104,7 +104,7 @@ export function DayNavigator({
           <button
             type="button"
             onClick={onGoToCurrent}
-            className="ml-auto min-h-[44px] px-3 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-accent hover:underline cursor-pointer"
+            className="type-button ml-auto min-h-[44px] px-3 text-accent hover:underline cursor-pointer"
           >
             {t('tracker.day_navigator.go_to_current')}
           </button>

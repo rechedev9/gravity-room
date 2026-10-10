@@ -50,7 +50,7 @@ export function DropdownMenu({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -4, scale: 0.97 }}
           transition={{ duration: shouldReduceMotion ? 0 : 0.12, ease: EASE_OUT_EXPO }}
-          className={`absolute z-50 min-w-[180px] bg-card border border-rule py-1 shadow-elevated ${
+          className={`absolute z-50 min-w-[180px] bg-card rounded-control border border-rule py-1 shadow-elevated ${
             align === 'right' ? 'right-0' : 'left-0'
           } ${placement === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}
         >

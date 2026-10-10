@@ -38,13 +38,13 @@ function getMentorTips(t: TFunction): readonly string[] {
 function DashboardSkeleton(): React.ReactNode {
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto px-4 sm:px-6 py-6 animate-pulse">
-      <div className="bg-card border border-rule rounded-[var(--radius-base)] p-8 h-48" />
+      <div className="bg-card border border-rule rounded-card p-8 h-48" />
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-card border border-rule rounded-[var(--radius-base)] h-24" />
-        <div className="bg-card border border-rule rounded-[var(--radius-base)] h-24" />
-        <div className="bg-card border border-rule rounded-[var(--radius-base)] h-24" />
+        <div className="bg-card border border-rule rounded-card h-24" />
+        <div className="bg-card border border-rule rounded-card h-24" />
+        <div className="bg-card border border-rule rounded-card h-24" />
       </div>
-      <div className="bg-card border border-rule rounded-[var(--radius-base)] h-20" />
+      <div className="bg-card border border-rule rounded-card h-20" />
     </div>
   );
 }
@@ -129,7 +129,7 @@ export function HomePage(): React.ReactNode {
     return (
       <div className="min-h-dvh bg-body">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-          <div className="bg-card border border-rule p-6 text-center">
+          <div className="bg-card rounded-card border border-rule p-6 text-center">
             <p className="text-sm text-muted mb-3">{t('home.load_error')}</p>
             <Button
               onClick={() => {
@@ -216,7 +216,7 @@ export function HomePage(): React.ReactNode {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Link
               to="/app/profile"
-              className="group flex items-center justify-between gap-3 bg-card border border-rule rounded-[var(--radius-base)] px-4 py-3 hover:border-rule-light transition-colors"
+              className="group flex items-center justify-between gap-3 bg-card border border-rule rounded-card px-4 py-3 hover:border-rule-light transition-colors"
             >
               <span className="text-sm text-main">{t('home.footer.view_stats')}</span>
               <span
@@ -228,7 +228,7 @@ export function HomePage(): React.ReactNode {
             </Link>
             <Link
               to="/app/profile"
-              className="group flex items-center justify-between gap-3 bg-card border border-rule rounded-[var(--radius-base)] px-4 py-3 hover:border-rule-light transition-colors"
+              className="group flex items-center justify-between gap-3 bg-card border border-rule rounded-card px-4 py-3 hover:border-rule-light transition-colors"
             >
               <span className="text-sm text-main">{t('home.footer.change_language')}</span>
               <span

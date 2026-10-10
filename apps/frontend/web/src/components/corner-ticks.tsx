@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 
 interface CornerTicksProps {
-  /** Tick arm length in px. */
+  /** Tick arm length in px. Matches the card radius so each tick hugs the rounded corner. */
   readonly size?: number;
   /** Tailwind border-color class for the ticks. Defaults to the dim-gold signal. */
   readonly colorClass?: string;
@@ -16,29 +16,31 @@ interface CornerTicksProps {
  * Purely decorative; the parent must be `relative`.
  */
 export function CornerTicks({
-  size = 8,
+  size = 16,
   colorClass = 'border-accent-dim',
   inset = 0,
 }: CornerTicksProps): ReactNode {
   const dim = { width: size, height: size };
+  // The panel border is 1px, so the inner edge the ticks sit on has a 1px smaller radius.
+  const arc = 'calc(var(--radius-card) - 1px)';
   const pos = `${inset}px`;
   return (
     <span aria-hidden className="pointer-events-none">
       <span
         className={cn('absolute border-t border-l', colorClass)}
-        style={{ ...dim, top: pos, left: pos }}
+        style={{ ...dim, top: pos, left: pos, borderTopLeftRadius: arc }}
       />
       <span
         className={cn('absolute border-t border-r', colorClass)}
-        style={{ ...dim, top: pos, right: pos }}
+        style={{ ...dim, top: pos, right: pos, borderTopRightRadius: arc }}
       />
       <span
         className={cn('absolute border-b border-l', colorClass)}
-        style={{ ...dim, bottom: pos, left: pos }}
+        style={{ ...dim, bottom: pos, left: pos, borderBottomLeftRadius: arc }}
       />
       <span
         className={cn('absolute border-b border-r', colorClass)}
-        style={{ ...dim, bottom: pos, right: pos }}
+        style={{ ...dim, bottom: pos, right: pos, borderBottomRightRadius: arc }}
       />
     </span>
   );

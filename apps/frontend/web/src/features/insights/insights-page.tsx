@@ -15,7 +15,6 @@ import { lazyWithRetry } from '@/lib/lazy-with-retry';
 import { Kicker } from '@/components/kicker';
 import { Tag } from '@/components/tag';
 import { StatBlock } from '@/components/stat-block';
-import { CornerTicks } from '@/components/corner-ticks';
 import { EmptyState } from '@/components/empty-state';
 import { FrequencyCard } from './frequency-card';
 import { PlateauAlert } from './plateau-alert';
@@ -36,7 +35,7 @@ const INSIGHT_TYPES = [
 
 function ChartFallback(): React.ReactNode {
   return (
-    <div className="border border-rule bg-card p-5 animate-pulse">
+    <div className="border border-rule bg-card rounded-card p-5 animate-pulse">
       <div className="mb-4 h-3 w-32 rounded bg-rule" />
       <div className="h-48 rounded bg-rule" />
     </div>
@@ -132,7 +131,7 @@ export function InsightsPage(): React.ReactNode {
             <Kicker noRule className="mb-2">
               {t('insights.page.kicker')}
             </Kicker>
-            <h1 className="font-display text-4xl leading-none text-main sm:text-5xl">
+            <h1 className="type-display-sm sm:type-display text-main">
               {t('insights.page.title')}
             </h1>
           </div>
@@ -207,9 +206,11 @@ export function InsightsPage(): React.ReactNode {
                 <Kicker index="02">{t('insights.page.section_signals')}</Kicker>
                 {recommendations.length > 0 && (
                   <div className="relative">
-                    {/* Hatch strip + register ticks mark the scarce gold signal of this view */}
-                    <div className="hatch absolute inset-x-0 top-0 h-1.5" aria-hidden />
-                    <CornerTicks />
+                    {/* The hatch strip marks the scarce gold signal of this view */}
+                    <div
+                      className="hatch absolute inset-x-4 top-0 h-1.5 rounded-full"
+                      aria-hidden
+                    />
                     <div className="flex flex-col gap-3 pt-1.5">
                       {recommendations.map((insight) => (
                         <LoadRecommendation

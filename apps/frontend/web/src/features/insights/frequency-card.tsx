@@ -49,7 +49,7 @@ export function FrequencyCard({ insight }: FrequencyCardProps): React.ReactNode 
   }) as string[];
 
   return (
-    <div className="bg-card border border-rule card p-5">
+    <div className="bg-card rounded-card border border-rule card p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-mono text-[10px] font-bold text-muted uppercase tracking-widest">
           {t('insights.frequency.title')}

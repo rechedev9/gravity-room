@@ -71,7 +71,7 @@ export function DayCompletedPanel({
           <p className="mb-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-ok">
             {t('tracker.day_completed.closed')}
           </p>
-          <h2 className="font-display m-0 text-[44px] leading-[0.9] tracking-[0.03em] text-title sm:text-[60px]">
+          <h2 className="m-0 type-display-sm sm:type-display text-title">
             {t('tracker.day_completed.title', { day: workout.index + 1 })}
           </h2>
         </div>
@@ -100,7 +100,7 @@ export function DayCompletedPanel({
           <li
             key={slot.slotId}
             data-testid="day-completed-line"
-            className={`flex flex-wrap items-center gap-3.5 border-l-[3px] bg-card px-4 py-3.5 ${
+            className={`flex flex-wrap items-center gap-3.5 border-l-[3px] bg-card rounded-card px-4 py-3.5 ${
               slot.result === 'fail' ? 'border-l-fail' : 'border-l-ok'
             }`}
           >
@@ -115,7 +115,7 @@ export function DayCompletedPanel({
               {reps}
             </span>
             {isRecord && (
-              <span className="bg-accent px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-on-accent">
+              <span className="bg-accent rounded-chip px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-on-accent">
                 {t('tracker.day_completed.record')}
               </span>
             )}
@@ -134,7 +134,10 @@ export function DayCompletedPanel({
       </ul>
 
       {nextWorkout !== null && nextWorkout.slots.length > 0 && (
-        <div className="mb-6 border border-rule bg-header px-4 py-3.5" data-testid="next-session">
+        <div
+          className="mb-6 border border-rule rounded-card bg-header px-4 py-3.5"
+          data-testid="next-session"
+        >
           <h3 className="mb-2.5 font-mono text-2xs font-bold uppercase tracking-[0.08em] text-info">
             {isCycleDayName(nextWorkout.dayName)
               ? t('tracker.day_completed.next_session_plain', { day: nextWorkout.index + 1 })
@@ -164,7 +167,7 @@ export function DayCompletedPanel({
             data-testid="day-completed-next"
             onClick={onGoToNextDay}
             style={{ boxShadow: 'var(--shadow-pressed-steel)' }}
-            className="bg-accent px-7 py-3.5 font-mono text-xs font-bold uppercase tracking-[0.08em] text-on-accent transition-colors hover:bg-accent-hover cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+            className="type-button rounded-control bg-accent px-7 py-3.5 text-on-accent transition-colors hover:bg-accent-hover cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
           >
             {isCycleDayName(nextWorkout.dayName)
               ? t('tracker.day_completed.next_day_plain', { day: nextWorkout.index + 1 })
@@ -179,7 +182,7 @@ export function DayCompletedPanel({
             type="button"
             data-testid="day-completed-review"
             onClick={onReview}
-            className="border-[1.5px] border-rule-light px-5 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted transition-colors hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+            className="type-button rounded-control border-[1.5px] border-rule-light px-5 py-3 text-muted transition-colors hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
           >
             {t('tracker.day_completed.review')}
           </button>

@@ -64,7 +64,7 @@ export function CurrentLiftCard({
       data-testid="current-lift-card"
       data-slot-id={slot.slotId}
       aria-label={t('tracker.current_lift.aria', { exercise: exerciseLabel })}
-      className="mb-4 border border-rule-light border-l-[3px] border-l-accent bg-card px-5 py-5 sm:px-6"
+      className="mb-4 border border-rule-light border-l-[3px] border-l-accent bg-card rounded-card px-5 py-5 sm:px-6"
     >
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <span
@@ -72,7 +72,7 @@ export function CurrentLiftCard({
         >
           {slot.tier.toUpperCase()}
         </span>
-        <span className="border border-accent-dim px-1.5 py-0.5 font-mono text-2xs font-bold uppercase tracking-[0.08em] text-accent">
+        <span className="border border-accent-dim rounded-chip px-1.5 py-0.5 font-mono text-2xs font-bold uppercase tracking-[0.08em] text-accent">
           {t('tracker.current_lift.in_progress')}
         </span>
         <span className="ml-auto font-mono text-[11px] text-info">{stageLine}</span>
@@ -80,9 +80,7 @@ export function CurrentLiftCard({
 
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h3 className="font-display mb-3 text-[32px] leading-[0.95] tracking-[0.03em] text-title sm:text-[40px]">
-            {exerciseLabel}
-          </h3>
+          <h3 className="mb-3 type-display-sm sm:type-display text-title">{exerciseLabel}</h3>
           {!hasPrescriptions && !isGpp && (
             <SetIndicators
               sets={slot.sets}
@@ -117,7 +115,7 @@ export function CurrentLiftCard({
                 data-testid="current-lift-confirm-set"
                 onClick={() => onSetTap(workoutIndex, slot.slotId, nextSetIndex, slot.reps)}
                 style={{ boxShadow: 'var(--shadow-pressed-steel)' }}
-                className="h-12 bg-accent px-6 font-mono text-xs font-bold uppercase tracking-[0.08em] text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-60 cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+                className="type-button rounded-control h-12 bg-accent px-6 text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-60 cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
               >
                 {t('tracker.current_lift.confirm_set', { index: nextSetIndex + 1 })}
               </button>
@@ -126,7 +124,7 @@ export function CurrentLiftCard({
                 data-testid="current-lift-fail"
                 onClick={() => onMark(workoutIndex, slot.slotId, 'fail')}
                 aria-label={t('tracker.current_lift.fail_aria', { exercise: exerciseLabel })}
-                className="h-12 border-2 border-fail-ring bg-transparent px-4 font-mono text-xs font-bold uppercase tracking-[0.08em] text-fail transition-colors hover:bg-fail-bg cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+                className="type-button rounded-control h-12 border-2 border-fail-ring bg-transparent px-4 text-fail transition-colors hover:bg-fail-bg cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
               >
                 &#10007;
               </button>

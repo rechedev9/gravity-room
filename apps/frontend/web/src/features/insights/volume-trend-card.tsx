@@ -54,7 +54,7 @@ export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactN
         : t('insights.volume_trend.direction_stable');
 
   return (
-    <div className="bg-card border border-rule card p-5">
+    <div className="bg-card rounded-card border border-rule card p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-mono text-[10px] font-bold text-muted uppercase tracking-widest">
           {t('insights.volume_trend.title')}

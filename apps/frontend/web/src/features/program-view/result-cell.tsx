@@ -57,7 +57,7 @@ export function ResultCell({
           result: resultLabel,
         })}
         data-testid="result-cell-undo"
-        className={`${padding} text-sm font-extrabold cursor-pointer border-3 rounded-sm animate-[pop-in_0.25s_cubic-bezier(0.16,1,0.3,1)] focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none active:scale-95 transition-transform ${badgeColor} ${tableStyles} ${isSuccess ? 'shadow-[0_0_10px_rgba(106,170,58,0.2)]' : 'shadow-[0_0_10px_rgba(192,80,80,0.2)]'}`}
+        className={`${padding} text-sm font-extrabold cursor-pointer border-3 rounded-lg animate-[pop-in_0.25s_cubic-bezier(0.16,1,0.3,1)] focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none active:scale-95 transition-transform ${badgeColor} ${tableStyles} ${isSuccess ? 'shadow-[0_0_10px_rgba(106,170,58,0.2)]' : 'shadow-[0_0_10px_rgba(192,80,80,0.2)]'}`}
       >
         {isSuccess ? '\u2713' : '\u2717'}
         {/* fix: tooltip only on hover, not on focus (aria-label handles a11y) */}
@@ -96,7 +96,7 @@ export function ResultCell({
           tier: tierLabel,
         })}
         data-testid="result-cell-register-max"
-        className={`${testSizeClasses} font-bold border-2 border-accent bg-transparent text-accent rounded-sm cursor-pointer transition-all duration-150 hover:bg-accent/10 active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none whitespace-nowrap`}
+        className={`${testSizeClasses} font-bold border-2 border-accent bg-transparent text-accent rounded-lg cursor-pointer transition-all duration-150 hover:bg-accent/10 active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none whitespace-nowrap`}
       >
         {t('tracker.result_cell.register_max_label', { tier: tierLabel })}
       </button>
@@ -119,7 +119,7 @@ export function ResultCell({
           tier: tierLabel,
         })}
         data-testid="result-cell-mark-success"
-        className={`${sizeClasses} font-extrabold border-2 border-ok-ring bg-transparent text-ok rounded-sm cursor-pointer transition-all duration-150 hover:bg-ok-bg hover:shadow-glow-success active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none`}
+        className={`${sizeClasses} font-extrabold border-2 border-ok-ring bg-transparent text-ok rounded-lg cursor-pointer transition-all duration-150 hover:bg-ok-bg hover:shadow-glow-success active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none`}
       >
         &#10003;
       </button>
@@ -131,7 +131,7 @@ export function ResultCell({
           tier: tierLabel,
         })}
         data-testid="result-cell-mark-fail"
-        className={`${sizeClasses} font-extrabold border-2 border-fail-ring bg-transparent text-fail rounded-sm cursor-pointer transition-all duration-150 hover:bg-fail-bg hover:shadow-glow-fail active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none`}
+        className={`${sizeClasses} font-extrabold border-2 border-fail-ring bg-transparent text-fail rounded-lg cursor-pointer transition-all duration-150 hover:bg-fail-bg hover:shadow-glow-fail active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none`}
       >
         &#10007;
       </button>

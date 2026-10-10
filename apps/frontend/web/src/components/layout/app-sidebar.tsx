@@ -209,7 +209,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                 alt="Gravity Room"
                 width={32}
                 height={32}
-                className="rounded-sm shrink-0"
+                className="rounded-control shrink-0"
               />
               <span className="font-display text-xl tracking-[0.06em] text-main whitespace-nowrap">
                 Gravity Room
@@ -257,7 +257,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                 type="button"
                 onClick={() => handleGuestExit(onItemClick)}
                 className={cn(
-                  'w-full min-h-11 px-3 py-2 text-left font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-muted hover:text-main transition-colors cursor-pointer rounded-[var(--radius-base)]',
+                  'type-button w-full min-h-11 px-3 py-2 text-left text-muted hover:text-main transition-colors cursor-pointer rounded-[var(--radius-base)]',
                   SIDEBAR_FOCUS_RING
                 )}
               >

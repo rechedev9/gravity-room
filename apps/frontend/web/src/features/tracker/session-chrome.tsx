@@ -102,7 +102,7 @@ export function SessionChrome({
         onClick={onToggleNav}
         aria-expanded={navExpanded}
         data-testid="session-chrome-change-day"
-        className="shrink-0 border border-rule px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-info transition-colors hover:border-rule-light hover:text-main cursor-pointer"
+        className="type-button rounded-control shrink-0 border border-rule px-2.5 py-1.5 text-info transition-colors hover:border-rule-light hover:text-main cursor-pointer"
       >
         {navExpanded ? t('tracker.day_status.close') : t('tracker.day_status.change_day')}
       </button>
@@ -116,7 +116,7 @@ export function SessionChrome({
         aria-valuenow={doneSlots}
         aria-label={t('tracker.session_chrome.day_progress_aria')}
       >
-        <div className="h-[3px] flex-1 bg-progress-track">
+        <div className="h-[3px] flex-1 overflow-hidden rounded-full bg-progress-track">
           <div data-fill className="h-[3px] bg-accent" style={{ width: `${percent}%` }} />
         </div>
         <span className="font-mono text-[11px] tabular-nums text-muted">
@@ -133,18 +133,20 @@ export function SessionChrome({
         <span className="sm:hidden">{mobileSummary || '—'}</span>
         <span className="hidden sm:inline">{summary || '—'}</span>
       </p>
-      <button
-        type="button"
-        onClick={onEditWeights}
-        data-testid="session-chrome-edit-weights"
-        aria-label={t('tracker.session_chrome.edit_weights_aria')}
-        className="shrink-0 border border-rule px-2.5 py-1.5 font-mono text-[10px] font-bold text-info transition-colors hover:border-rule-light hover:text-main cursor-pointer"
-      >
-        &#9998;
-      </button>
+      <div className="ml-auto flex shrink-0 items-center gap-x-4 sm:ml-0">
+        <button
+          type="button"
+          onClick={onEditWeights}
+          data-testid="session-chrome-edit-weights"
+          aria-label={t('tracker.session_chrome.edit_weights_aria')}
+          className="shrink-0 rounded-control border border-rule px-2.5 py-1.5 font-mono text-[10px] font-bold text-info transition-colors hover:border-rule-light hover:text-main cursor-pointer"
+        >
+          &#9998;
+        </button>
 
-      <span className="hidden h-4 w-px bg-rule sm:block" aria-hidden="true" />
-      <SessionMenu {...menuProps} showFinishCta={programComplete} />
+        <span className="hidden h-4 w-px bg-rule sm:block" aria-hidden="true" />
+        <SessionMenu {...menuProps} showFinishCta={programComplete} />
+      </div>
 
       {isCurrentDay && <span className="sr-only">{t('tracker.day_status.today_prefix')}</span>}
     </div>

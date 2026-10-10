@@ -73,9 +73,7 @@ export function ProgramsPage(): React.ReactNode {
     <div className="min-h-dvh bg-body">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <header className="mb-8">
-          <h1 className="font-display text-2xl sm:text-3xl text-title tracking-wide">
-            {t('programs.title')}
-          </h1>
+          <h1 className="type-display-sm sm:type-display text-title">{t('programs.title')}</h1>
           <p className="text-xs text-muted mt-0.5">{t('programs.subtitle')}</p>
           <Link
             to="/app/start"
@@ -106,7 +104,7 @@ export function ProgramsPage(): React.ReactNode {
           {catalogQuery.isLoading && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {[1, 2, 3].map((n) => (
-                <div key={n} className="bg-card border border-rule p-5 animate-pulse">
+                <div key={n} className="bg-card rounded-card border border-rule p-5 animate-pulse">
                   <div className="h-4 w-32 bg-rule rounded mb-2" />
                   <div className="h-3 w-48 bg-rule rounded mb-4" />
                   <div className="h-10 w-36 bg-rule rounded" />
@@ -116,7 +114,7 @@ export function ProgramsPage(): React.ReactNode {
           )}
 
           {catalogQuery.isError && (
-            <div className="bg-card border border-rule p-6 text-center">
+            <div className="bg-card rounded-card border border-rule p-6 text-center">
               <p className="text-sm text-muted mb-3">{t('programs.catalog_load_error')}</p>
               <Button onClick={() => void catalogQuery.refetch()}>{t('programs.retry')}</Button>
             </div>
