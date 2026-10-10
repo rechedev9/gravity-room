@@ -42,9 +42,9 @@ const patchApiAuthMe_Body = z
   .object({
     name: z.string().min(1).max(100),
     avatarUrl: z.union([z.string(), z.null()]).nullable(),
+    weightUnit: z.union([z.string(), z.string()]),
   })
   .partial()
-  .passthrough()
   .readonly();
 const limit = z.union([z.string(), z.number()]).optional();
 const postApiPrograms_Body = z
@@ -193,10 +193,7 @@ export const endpoints = [
       {
         name: 'body',
         type: 'Body',
-        schema: z
-          .object({ email: z.string().max(254).email() })
-          .passthrough()
-          .readonly(),
+        schema: z.object({ email: z.string().max(254).email() }).readonly(),
       },
     ],
     response: z.void(),
@@ -346,7 +343,7 @@ export const endpoints = [
   {
     method: 'patch',
     path: '/api/auth/me',
-    description: `Updates name and/or avatar. Send avatarUrl: null to remove the avatar.`,
+    description: `Updates name, avatar and/or weight unit. Send avatarUrl: null to remove the avatar.`,
     requestFormat: 'json',
     parameters: [
       {
@@ -437,6 +434,7 @@ export const endpoints = [
             email: z.string().email(),
             name: z.union([z.string(), z.null()]).nullable(),
             avatarUrl: z.union([z.string(), z.null()]).nullable(),
+            weightUnit: z.union([z.string(), z.string()]),
           })
           .passthrough()
           .readonly(),
@@ -499,6 +497,7 @@ export const endpoints = [
             email: z.string().email(),
             name: z.union([z.string(), z.null()]).nullable(),
             avatarUrl: z.union([z.string(), z.null()]).nullable(),
+            weightUnit: z.union([z.string(), z.string()]),
           })
           .passthrough()
           .readonly(),

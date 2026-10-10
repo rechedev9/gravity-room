@@ -15,6 +15,7 @@
 import { API_URL, getAccessToken, refreshAccessToken } from './api';
 import { parseUser } from '@gzclp/domain/schemas/user';
 import type { UserInfo } from '@gzclp/domain/schemas/user';
+import type { WeightUnit } from '@gzclp/domain/weight-unit';
 import { mergeHeaders } from '@gzclp/api-client/merge-headers';
 import { readApiError } from '@gzclp/api-client/response-error';
 
@@ -78,10 +79,11 @@ export async function fetchMe(): Promise<UserInfo> {
   return parseUser(data);
 }
 
-/** Update user profile (name and/or avatar). */
+/** Update user profile (name, avatar and/or weight unit). */
 export async function updateProfile(fields: {
   name?: string;
   avatarUrl?: string | null;
+  weightUnit?: WeightUnit;
 }): Promise<UserInfo> {
   const data = await apiFetch('/auth/me', {
     method: 'PATCH',

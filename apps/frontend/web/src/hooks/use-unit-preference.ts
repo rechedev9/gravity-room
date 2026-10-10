@@ -1,13 +1,6 @@
 import { useCallback, useSyncExternalStore } from 'react';
-import {
-  type WeightUnit,
-  displayToKg,
-  formatWeight,
-  kgToDisplay,
-  readWeightUnit,
-  subscribeWeightUnit,
-  writeWeightUnit,
-} from '@/lib/weight-unit';
+import { type WeightUnit, displayToKg, formatWeight, kgToDisplay } from '@gzclp/domain/weight-unit';
+import { readWeightUnit, subscribeWeightUnit, writeWeightUnit } from '@/lib/weight-unit';
 
 export interface UnitPreference {
   readonly unit: WeightUnit;
