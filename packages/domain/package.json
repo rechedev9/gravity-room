@@ -25,6 +25,7 @@
     "./progression-preview": "./src/progression-preview.ts",
     "./exercise-versus": "./src/exercise-versus.ts",
     "./exercise-versus-profiles": "./src/exercise-versus-profiles.ts",
+    "./weight-unit": "./src/weight-unit.ts",
     "./type-guards": "./src/type-guards.ts",
     "./schemas/catalog": "./src/schemas/catalog.ts",
     "./schemas/exercise-article": "./src/schemas/exercise-article.ts",

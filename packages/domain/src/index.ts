@@ -8,6 +8,7 @@ export * from './program-config';
 export * from './progression-preview';
 export * from './exercise-versus';
 export * from './exercise-versus-profiles';
+export * from './weight-unit';
 export * from './type-guards';
 export * from './schemas/catalog';
 export * from './schemas/exercises';

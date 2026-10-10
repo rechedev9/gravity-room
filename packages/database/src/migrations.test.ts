@@ -174,4 +174,23 @@ describe('migration metadata', () => {
     expect(migration).not.toContain('users_email');
     expect(migration).not.toMatch(/SET NOT NULL|DROP INDEX/i);
   });
+
+  it('adds the weight unit as a defaulted column that existing users can read', async () => {
+    const migration = await readFile(join(MIGRATIONS_DIR, '0048_low_kulan_gath.sql'), 'utf8');
+    expect(migration).toContain(`ADD COLUMN "weight_unit" varchar(3) DEFAULT 'kg' NOT NULL`);
+    expect(migration).toContain('NOT VALID');
+    expect(migration).not.toMatch(/DROP|SET NOT NULL|UPDATE /i);
+    expect(migration).not.toContain('refresh_tokens');
+
+    const snapshot = JSON.parse(
+      await readFile(join(MIGRATIONS_DIR, 'meta', '0048_snapshot.json'), 'utf8')
+    );
+    expect(parseSnapshotColumn(snapshot, 'public.users', 'weight_unit')).toMatchObject({
+      notNull: true,
+      default: "'kg'",
+    });
+    expect(parseSnapshotColumn(snapshot, 'public.refresh_tokens', 'family_id')).toMatchObject({
+      notNull: false,
+    });
+  });
 });

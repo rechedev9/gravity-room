@@ -22,6 +22,7 @@ const TEST_USER = {
   googleId: 'google-uid-123',
   authVersion: 0,
   name: null,
+  weightUnit: 'kg',
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
 } as const;
@@ -302,6 +303,7 @@ interface MockUserRow {
   authVersion: number;
   name: string | null;
   avatarUrl: string | null;
+  weightUnit: 'kg' | 'lbs';
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -316,6 +318,7 @@ const PW_USER: MockUserRow = {
   authVersion: 0,
   name: null,
   avatarUrl: null,
+  weightUnit: 'kg',
   deletedAt: null,
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
@@ -957,7 +960,13 @@ describe('POST /auth/mobile/refresh', () => {
     const body = (await res.json()) as {
       accessToken: string;
       refreshToken: string;
-      user: { id: string; email: string; name: string | null; avatarUrl: string | null };
+      user: {
+        id: string;
+        email: string;
+        name: string | null;
+        avatarUrl: string | null;
+        weightUnit: 'kg' | 'lbs';
+      };
     };
 
     expect(res.status).toBe(200);
@@ -968,6 +977,7 @@ describe('POST /auth/mobile/refresh', () => {
       email: TEST_USER.email,
       name: null,
       avatarUrl: null,
+      weightUnit: 'kg',
     });
     expect(mockRotateRefreshToken).toHaveBeenCalledWith('a'.repeat(64));
   });
@@ -1347,6 +1357,39 @@ describe('PATCH /auth/me', () => {
       'user-123',
       expect.objectContaining({ name: 'QA One' })
     );
+  });
+
+  it('stores the weight unit and returns it on the profile', async () => {
+    mockUpdateUserProfile.mockImplementationOnce(() =>
+      Promise.resolve({ ...PW_USER, name: 'Updated User', avatarUrl: null, weightUnit: 'lbs' })
+    );
+    const token = await makeValidJwt('user-123');
+    const res = await patch(
+      '/auth/me',
+      { weightUnit: 'lbs' },
+      { Authorization: `Bearer ${token}` }
+    );
+    const body = (await res.json()) as { weightUnit: string };
+
+    expect(res.status).toBe(200);
+    expect(body.weightUnit).toBe('lbs');
+    expect(mockUpdateUserProfile).toHaveBeenCalledWith(
+      'user-123',
+      expect.objectContaining({ weightUnit: 'lbs' })
+    );
+  });
+
+  it('rejects a weight unit that is neither kg nor lbs', async () => {
+    const token = await makeValidJwt('user-123');
+    const res = await patch(
+      '/auth/me',
+      { weightUnit: 'stone' },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBeLessThan(500);
+    expect(mockUpdateUserProfile).not.toHaveBeenCalled();
   });
 
   it('rejects a whitespace-only profile name', async () => {

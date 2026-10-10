@@ -880,6 +880,8 @@ var users = pgTable(
     authVersion: integer('auth_version').notNull().default(0),
     name: varchar({ length: 100 }),
     avatarUrl: text('avatar_url'),
+    /** Display unit for weights ('kg' | 'lbs'); stored weights are always kg. */
+    weightUnit: varchar('weight_unit', { length: 3 }).$type().notNull().default('kg'),
     /**
      * Soft-delete timestamp. When set, the user is in a 30-day grace period
      * before `purge-deleted-users.ts` hard-deletes (CASCADE) the row and all
@@ -904,6 +906,7 @@ var users = pgTable(
     uniqueIndex('users_email_active_uq')
       .on(table.email)
       .where(sql`${table.deletedAt} IS NULL`),
+    check('chk_users_weight_unit', sql`${table.weightUnit} IN ('kg', 'lbs')`),
   ]
 );
 var usersRelations = relations(users, ({ many }) => ({
@@ -1687,6 +1690,7 @@ async function updateUserProfile(userId, fields) {
     const updates = { updatedAt: /* @__PURE__ */ new Date() };
     if (fields.name !== void 0) updates['name'] = fields.name;
     if (fields.avatarUrl !== void 0) updates['avatarUrl'] = fields.avatarUrl;
+    if (fields.weightUnit !== void 0) updates['weightUnit'] = fields.weightUnit;
     const [updated] = await tx
       .update(users)
       .set(updates)
@@ -3051,11 +3055,13 @@ function isEmailPasswordAvailable() {
 function isGoogleConfigured() {
   return Boolean(process.env['GOOGLE_CLIENT_ID']?.trim());
 }
+var weightUnitSchema = t.Union([t.Literal('kg'), t.Literal('lbs')]);
 var userProfileResponseSchema = t.Object({
   id: t.String(),
   email: t.String({ format: 'email' }),
   name: t.Nullable(t.String()),
   avatarUrl: t.Nullable(t.String()),
+  weightUnit: weightUnitSchema,
 });
 var mobileGoogleAuthResponseSchema = t.Object({
   user: userProfileResponseSchema,
@@ -3073,6 +3079,7 @@ function userResponse(user) {
     email: user.email,
     name: user.name,
     avatarUrl: user.avatarUrl ?? null,
+    weightUnit: user.weightUnit,
   };
 }
 async function issueSessionTokens(jwt2, user) {
@@ -4122,6 +4129,7 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
       const updated = await updateUserProfile(userId, {
         name: normalizeDisplayName(body.name),
         avatarUrl: body.avatarUrl,
+        weightUnit: body.weightUnit,
       });
       reqLogger.info({ event: 'auth.profile_update', userId }, 'profile updated');
       return userResponse(updated);
@@ -4130,11 +4138,13 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
       body: t.Object({
         name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
         avatarUrl: t.Optional(t.Nullable(t.String({ maxLength: MAX_AVATAR_BYTES }))),
+        weightUnit: t.Optional(weightUnitSchema),
       }),
       detail: {
         tags: ['Auth'],
         summary: 'Update user profile',
-        description: 'Updates name and/or avatar. Send avatarUrl: null to remove the avatar.',
+        description:
+          'Updates name, avatar and/or weight unit. Send avatarUrl: null to remove the avatar.',
         security: authSecurity,
         responses: {
           200: { description: 'Updated user profile' },
