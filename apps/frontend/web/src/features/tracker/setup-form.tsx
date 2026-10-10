@@ -496,7 +496,7 @@ export function SetupForm({
 
           <dialog
             ref={editDialogRef}
-            className="relative modal-box bg-card rounded-card border border-rule p-6 sm:p-8 max-w-2xl w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto shadow-dialog backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+            className="modal-box fixed inset-0 m-auto h-fit bg-card rounded-card border border-rule p-6 sm:p-8 max-w-2xl w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto shadow-dialog backdrop:bg-black/60 backdrop:backdrop-blur-sm"
             onClick={(e) => {
               if (e.target === editDialogRef.current) {
                 setIsExpanded(false);

@@ -896,10 +896,10 @@
     "catalog_removed": "The program {{programId}} no longer exists in the catalog.",
     "guest_stats_message": "Create an account to see statistics",
     "guest_export_message": "Create an account to export your data",
-    "jaw_status_test_week": "JAW Block {{block}} · Test week — update Block {{next}} TM when done.",
-    "jaw_status_final_test_week": "JAW Block 3 · Final test week — last JAW block.",
+    "jaw_status_test_week": "JAW Block {{block}} · Test week: update Block {{next}} TM when done.",
+    "jaw_status_final_test_week": "JAW Block 3 · Final test week: last JAW block.",
     "jaw_status_progress": "JAW Block {{block}} · Wk. {{week}}/18 · Test in wk. {{testWeek}}.",
-    "result_toast": "#{{index}}: {{exercise}} {{tier}} — {{result}}",
+    "result_toast": "#{{index}}: {{exercise}} {{tier}} · {{result}}",
     "tab_content": {
       "about_label": "About",
       "aria_compact_view": "Switch to compact view",
@@ -915,7 +915,7 @@
       "generate_error": "Error generating program.",
       "edit_title_default": "Edit starting weights ({{unit}})",
       "create_title_default": "Starting weights ({{unit}})",
-      "edit_description_default": "Update your starting weights — the program will recalculate with new values",
+      "edit_description_default": "Update your starting weights: the program will recalculate with new values",
       "create_description_default": "Enter your starting weights for {{name}}",
       "active_group_indicator": "← update here",
       "error_header": "Please correct the following:",
@@ -1005,7 +1005,7 @@
       "keep_training": "Keep training"
     },
     "test_weight": {
-      "title": "Max Test —",
+      "title": "Max Test:",
       "description_propagation": "Record your max. This weight will be used as Training Max for the next block.",
       "description_final": "Record your max. This is your final result of the JAW protocol.",
       "weight_label": "How much did you lift? ({{unit}})",
@@ -1184,7 +1184,7 @@
       "shortcut_undo": "undo",
       "shortcut_day": "change day",
       "shortcut_rest": "skip rest",
-      "stats_link": "See stats in profile →"
+      "stats_link": "See stats in profile"
     },
     "failure": {
       "aria": "What failing {{exercise}} costs",

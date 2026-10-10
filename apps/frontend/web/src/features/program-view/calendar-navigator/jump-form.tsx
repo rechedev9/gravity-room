@@ -65,7 +65,7 @@ export function JumpForm({ rows, context, onSelectDay }: JumpFormProps): ReactNo
         aria-labelledby={jumpLabelId}
         aria-invalid={jumpError}
         aria-describedby={jumpError ? `${jumpInputId}-error` : undefined}
-        placeholder={`1–${rows.length}`}
+        placeholder={`1-${rows.length}`}
         className={`rounded-control 
           w-20 px-2 py-1.5 text-xs font-mono tabular-nums
           border bg-card text-main

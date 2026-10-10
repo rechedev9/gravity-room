@@ -896,10 +896,10 @@
     "catalog_removed": "El programa {{programId}} ya no existe en el catálogo.",
     "guest_stats_message": "Crea una cuenta para ver estadísticas",
     "guest_export_message": "Crea una cuenta para exportar tus datos",
-    "jaw_status_test_week": "JAW Bloque {{block}} · Semana de test — actualiza los TM del Bloque {{next}} al terminar.",
-    "jaw_status_final_test_week": "JAW Bloque 3 · Semana de test final — último bloque de JAW.",
+    "jaw_status_test_week": "JAW Bloque {{block}} · Semana de test: actualiza los TM del Bloque {{next}} al terminar.",
+    "jaw_status_final_test_week": "JAW Bloque 3 · Semana de test final: último bloque de JAW.",
     "jaw_status_progress": "JAW Bloque {{block}} · Sem. {{week}}/18 · Test en sem. {{testWeek}}.",
-    "result_toast": "#{{index}}: {{exercise}} {{tier}} — {{result}}",
+    "result_toast": "#{{index}}: {{exercise}} {{tier}} · {{result}}",
     "tab_content": {
       "about_label": "Acerca de",
       "aria_compact_view": "Cambiar a vista compacta",
@@ -915,7 +915,7 @@
       "generate_error": "Error al generar el programa.",
       "edit_title_default": "Editar pesos iniciales ({{unit}})",
       "create_title_default": "Pesos iniciales ({{unit}})",
-      "edit_description_default": "Actualiza tus pesos iniciales — el programa se recalculará con los nuevos valores",
+      "edit_description_default": "Actualiza tus pesos iniciales: el programa se recalculará con los nuevos valores",
       "create_description_default": "Ingresa tus pesos iniciales para {{name}}",
       "active_group_indicator": "← actualiza aquí",
       "error_header": "Por favor corrige lo siguiente:",
@@ -1005,7 +1005,7 @@
       "keep_training": "Seguir entrenando"
     },
     "test_weight": {
-      "title": "Test Máximo —",
+      "title": "Test Máximo:",
       "description_propagation": "Registra tu máximo. Este peso se usará como Training Max del siguiente bloque.",
       "description_final": "Registra tu máximo. Este es tu resultado final del protocolo JAW.",
       "weight_label": "¿Cuánto levantaste? ({{unit}})",
@@ -1184,7 +1184,7 @@
       "shortcut_undo": "deshacer",
       "shortcut_day": "cambiar día",
       "shortcut_rest": "saltar descanso",
-      "stats_link": "Ver estadísticas en perfil →"
+      "stats_link": "Ver estadísticas en el perfil"
     },
     "failure": {
       "aria": "Consecuencia del fallo en {{exercise}}",

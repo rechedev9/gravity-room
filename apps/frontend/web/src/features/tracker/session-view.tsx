@@ -212,7 +212,7 @@ export function SessionView({
   return (
     <div
       data-testid="session-view"
-      className="grid grid-cols-1 items-start xl:grid-cols-[minmax(0,1fr)_280px]"
+      className="grid grid-cols-1 items-start xl:grid-cols-[minmax(0,1fr)_280px] xl:gap-4"
     >
       <div
         className="min-w-0"
