@@ -50,19 +50,21 @@ test.describe('Tracker visual polish', () => {
     expect(box?.height).toBeLessThanOrEqual(300);
   });
 
-  test('set tables are width-capped with fixed layout for dense columns', async ({ page }) => {
-    const table = page.getByTestId('slot-set-table').first();
-    await expect(table).toBeVisible();
-    const box = await table.boundingBox();
-    expect(box).not.toBeNull();
-    // max-w-[20rem] ≈ 320px; allow a little headroom for zoom/subpixel.
-    expect(box!.width).toBeLessThanOrEqual(340);
+  test('set rows offer weight, reps and a confirm for the next set only', async ({ page }) => {
+    const sets = page.getByTestId('slot-set-table').first();
+    await expect(sets.getByRole('spinbutton', { name: 'Peso serie 1' })).toBeEnabled();
+    await expect(sets.getByRole('spinbutton', { name: 'Reps serie 1' })).toHaveValue('3');
+    await expect(sets.getByRole('spinbutton', { name: 'Peso serie 2' })).toBeDisabled();
+    await expect(sets.getByRole('button', { name: 'Confirmar serie 2' })).toBeDisabled();
 
-    const tableLayout = await table.evaluate((el) => getComputedStyle(el).tableLayout);
-    expect(tableLayout).toBe('fixed');
+    // The lifter can log a load other than the planned one.
+    await sets.getByRole('spinbutton', { name: 'Peso serie 1' }).fill('62.5');
+    await sets.getByRole('button', { name: 'Confirmar serie 1' }).click();
+    await expect(sets).toContainText('62.5 kg');
+    await expect(sets.getByRole('spinbutton', { name: 'Peso serie 2' })).toBeEnabled();
   });
 
-  test('desktop exercises use the available width without stretching set tables', async ({
+  test('desktop exercises use three columns and set rows stay inside their card', async ({
     page,
   }) => {
     const grid = page.getByTestId('detailed-day-grid');
@@ -71,9 +73,11 @@ test.describe('Tracker visual polish', () => {
     );
     expect(columns).toHaveLength(3);
 
-    const table = page.getByTestId('slot-set-table').first();
-    const box = await table.boundingBox();
-    expect(box?.width).toBeLessThanOrEqual(340);
+    const overflow = await page
+      .getByTestId('slot-set-table')
+      .first()
+      .evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(overflow).toBe(0);
   });
 
   test('week navigation stays compact and follows the selected workout', async ({ page }) => {

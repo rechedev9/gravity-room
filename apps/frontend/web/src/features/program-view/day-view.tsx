@@ -10,7 +10,6 @@ import type {
 import { SetIndicators } from './set-indicators';
 import { SlotCardShell } from './slot-card-shell';
 import { SlotResultFooter } from './slot-result-footer';
-import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 /** All slot-level interaction callbacks, grouped for prop-drilling convenience. */
 export interface SlotActions {
@@ -76,19 +75,6 @@ function renderPrescriptionScheme(slot: GenericSlotRow): ReactNode {
   );
 }
 
-/** Render standard scheme text: sets x reps with optional range and AMRAP */
-function renderStandardScheme(slot: GenericSlotRow): ReactNode {
-  return (
-    <span className="text-xs font-semibold text-muted tabular-nums">
-      {slot.sets}
-      {'\u00d7'}
-      {slot.complexReps ?? slot.reps}
-      {slot.repsMax !== undefined ? `\u2013${slot.repsMax}` : ''}
-      {slot.isAmrap && <span className="text-2xs ml-0.5 text-accent">+</span>}
-    </span>
-  );
-}
-
 export function DayView({
   workout,
   isCurrent,
@@ -101,7 +87,7 @@ export function DayView({
   isSlotLogging,
 }: DayViewProps): ReactNode {
   const { t } = useTranslation();
-  const { format } = useUnitPreference();
+  const nextSlotId = isCurrent ? workout.slots.find((s) => s.result === undefined)?.slotId : null;
   return (
     <div
       data-testid="compact-day-grid"
@@ -112,52 +98,28 @@ export function DayView({
         const isDone = slot.result !== undefined;
         const hasPrescriptions = slot.prescriptions !== undefined;
         const isGpp = slot.isGpp === true;
-        const isBodyweight = slot.isBodyweight === true;
 
         return (
-          <SlotCardShell key={slot.slotId} slot={slot} isCurrent={isCurrent}>
-            {/* Row 2: Weight + Scheme */}
-            <div className="flex items-baseline gap-3 mb-2.5">
-              {/* Weight */}
-              {isGpp || isBodyweight ? (
-                <span className="text-sm font-bold text-muted tabular-nums">{'\u2014'}</span>
-              ) : hasPrescriptions ? (
-                <span className="text-sm font-bold text-main tabular-nums">
-                  {format(slot.weight)}
-                  <span className="text-2xs text-muted ml-1">
-                    {`(${slot.prescriptions[slot.prescriptions.length - 1].percent}%)`}
-                  </span>
-                </span>
-              ) : (
-                <span className="text-sm font-bold text-main tabular-nums">
-                  {slot.weight > 0 ? format(slot.weight) : '\u2014'}
-                </span>
-              )}
+          <SlotCardShell key={slot.slotId} slot={slot} focal={slot.slotId === nextSlotId}>
+            {hasPrescriptions && renderPrescriptionScheme(slot)}
 
-              {/* Scheme */}
-              {hasPrescriptions ? renderPrescriptionScheme(slot) : renderStandardScheme(slot)}
-            </div>
-
-            {/* Row 3: Set indicators (standard slots only, not prescription/GPP) */}
+            {/* Set indicators (standard slots only, not prescription/GPP) */}
             {!hasPrescriptions && !isGpp && (
-              <div className="mb-3">
-                <SetIndicators
-                  sets={slot.sets}
-                  result={slot.result}
-                  isAmrap={slot.isAmrap}
-                  targetReps={slot.reps}
-                  setLogs={getSetLogs?.(workout.index, slot.slotId)}
-                  committedSetLogs={slot.setLogs}
-                  onSetTap={
-                    onSetTap && !isDone
-                      ? (setIndex, reps) => onSetTap(workout.index, slot.slotId, setIndex, reps)
-                      : undefined
-                  }
-                />
-              </div>
+              <SetIndicators
+                sets={slot.sets}
+                result={slot.result}
+                isAmrap={slot.isAmrap}
+                targetReps={slot.reps}
+                setLogs={getSetLogs?.(workout.index, slot.slotId)}
+                committedSetLogs={slot.setLogs}
+                onSetTap={
+                  onSetTap && !isDone
+                    ? (setIndex, reps) => onSetTap(workout.index, slot.slotId, setIndex, reps)
+                    : undefined
+                }
+              />
             )}
 
-            {/* Row 4: Result action */}
             <SlotResultFooter
               slot={slot}
               workoutIndex={workout.index}

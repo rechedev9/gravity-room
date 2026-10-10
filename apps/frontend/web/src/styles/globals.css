@@ -115,6 +115,8 @@
   --bottom-nav-height: 3.75rem;
   /* Space taken at the bottom by the phone tab bar; 0 when it is not mounted or on lg+. */
   --bottom-chrome: 0px;
+  /* Height of the tracker rest banner while it is docked; floating chrome clears it. */
+  --rest-banner: 0px;
 
   /* RADII — control 10 / card 16 / chip 24 come from tokens.css (shared with mobile). */
   --radius-base: var(--radius-control);
@@ -833,6 +835,8 @@ dialog::backdrop {
 
 html {
   scroll-behavior: smooth;
+  /* Focus and anchor scrolling stop short of the tab bar and the rest banner. */
+  scroll-padding-bottom: calc(var(--bottom-chrome) + var(--rest-banner));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -899,4 +903,31 @@ body {
 
 .week-rail::-webkit-scrollbar {
   display: none;
+}
+
+/* ── Tracker rest banner: docks above the phone tab bar, slides up once ── */
+
+html[data-rest-banner] {
+  --rest-banner: 3.5rem;
+}
+
+.rest-banner {
+  transition:
+    transform var(--duration-base) var(--ease-out-expo),
+    opacity var(--duration-base) var(--ease-out-expo);
+
+  @starting-style {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rest-banner {
+    transition: opacity var(--duration-fast) ease;
+
+    @starting-style {
+      transform: none;
+    }
+  }
 }

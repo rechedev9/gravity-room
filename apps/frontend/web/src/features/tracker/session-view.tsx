@@ -3,18 +3,15 @@ import { useTranslation } from 'react-i18next';
 import type { GenericSlotRow, GenericWorkoutRow } from '@gzclp/domain/types';
 import type { ProgramDefinition, GenericResults } from '@gzclp/domain/types/program';
 import { previewSlotOutcome } from '@gzclp/domain/progression-preview';
-import { localizedExerciseName } from '@/lib/catalog-display';
 import { SetIndicators } from '@/features/program-view/set-indicators';
 import { SlotCardShell } from '@/features/program-view/slot-card-shell';
 import { SlotResultFooter } from '@/features/program-view/slot-result-footer';
-import { tierColorClass } from '@/features/program-view/tier-color';
 import type { SlotActions } from '@/features/program-view/day-view';
 import { CurrentLiftCard } from './current-lift-card';
 import { DayCompletedPanel } from './day-completed-panel';
 import { FailureExplainer } from './failure-explainer';
 import { SessionSidePanel } from './session-side-panel';
 import { daysBetween, findPreviousSameDay, isSlotResolved } from './session-history';
-import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 export interface SessionViewProps {
   readonly definition: ProgramDefinition;
@@ -27,8 +24,6 @@ export interface SessionViewProps {
   /** The selected day is the one just finished, so it gets the completion screen. */
   readonly showCompletion: boolean;
   readonly resultTimestamps?: Readonly<Record<string, string>>;
-  readonly rest: { readonly seconds: number; readonly id: number } | null;
-  readonly onSkipRest: () => void;
   readonly onGoToNextDay: () => void;
   readonly onGoToProfile?: () => void;
   readonly slotActions: SlotActions;
@@ -43,46 +38,27 @@ function SecondarySlotCard({
   readonly workoutIndex: number;
   readonly slotActions: SlotActions;
 }): ReactNode {
-  const { t } = useTranslation();
-  const { format } = useUnitPreference();
   const { onMark, onUndo, onSetAmrapReps, onSetRpe, onSetTap, getSetLogs, isSlotLogging } =
     slotActions;
   const hasPrescriptions = slot.prescriptions !== undefined;
   const isGpp = slot.isGpp === true;
-  const isBodyweight = slot.isBodyweight === true;
-  const showWeight = !isGpp && !isBodyweight && slot.weight > 0;
 
   return (
-    <SlotCardShell slot={slot} isCurrent={false}>
-      <div className="mb-3 flex items-baseline gap-3">
-        <span className="font-mono text-[26px] font-semibold leading-none text-main tabular-nums">
-          {showWeight ? format(slot.weight) : '—'}
-        </span>
-        <span className="font-mono text-xs text-info tabular-nums">
-          {slot.sets}
-          {'×'}
-          {slot.complexReps ?? slot.reps}
-          {slot.repsMax !== undefined ? `–${slot.repsMax}` : ''}
-          {slot.isAmrap ? '+' : ''}
-        </span>
-      </div>
-
+    <SlotCardShell slot={slot}>
       {!hasPrescriptions && !isGpp && (
-        <div className="mb-3">
-          <SetIndicators
-            sets={slot.sets}
-            result={slot.result}
-            isAmrap={slot.isAmrap}
-            targetReps={slot.reps}
-            setLogs={getSetLogs?.(workoutIndex, slot.slotId)}
-            committedSetLogs={slot.setLogs}
-            onSetTap={
-              onSetTap && slot.result === undefined
-                ? (setIndex, reps) => onSetTap(workoutIndex, slot.slotId, setIndex, reps)
-                : undefined
-            }
-          />
-        </div>
+        <SetIndicators
+          sets={slot.sets}
+          result={slot.result}
+          isAmrap={slot.isAmrap}
+          targetReps={slot.reps}
+          setLogs={getSetLogs?.(workoutIndex, slot.slotId)}
+          committedSetLogs={slot.setLogs}
+          onSetTap={
+            onSetTap && slot.result === undefined
+              ? (setIndex, reps) => onSetTap(workoutIndex, slot.slotId, setIndex, reps)
+              : undefined
+          }
+        />
       )}
 
       <SlotResultFooter
@@ -94,7 +70,6 @@ function SecondarySlotCard({
         onSetAmrapReps={onSetAmrapReps}
         onSetRpe={onSetRpe}
       />
-      <span className="sr-only">{t('tracker.session_view.pending_aria')}</span>
     </SlotCardShell>
   );
 }
@@ -109,47 +84,30 @@ function CompletedSlotRow({
   readonly slotActions: SlotActions;
 }): ReactNode {
   const { t } = useTranslation();
-  const { format } = useUnitPreference();
-  const label = localizedExerciseName(t, slot.exerciseId, slot.exerciseName);
-  const reps =
-    slot.setLogs !== undefined && slot.setLogs.length > 0
-      ? slot.setLogs.map((s) => s.reps).join(' ')
-      : `${slot.sets}×${slot.complexReps ?? slot.reps}`;
+  const logged = slot.setLogs !== undefined && slot.setLogs.length > 0 ? slot.setLogs : null;
 
   return (
-    <div
-      data-testid="completed-slot-row"
-      data-slot-result={slot.result}
-      className="flex flex-wrap items-center gap-3.5 border border-rule bg-body px-4 py-3 opacity-70 transition-opacity hover:opacity-100"
-    >
-      <span className={`font-mono text-[11px] font-bold ${tierColorClass(slot.role)}`}>
-        {slot.tier.toUpperCase()}
-      </span>
-      <span className="text-[13.5px] text-muted">{label}</span>
-      <span className="font-mono text-[13px] text-muted tabular-nums">
-        {slot.weight > 0 ? `${format(slot.weight)} · ` : ''}
-        {reps}
-      </span>
-      <span
-        className={`ml-auto font-mono text-[11px] uppercase tracking-[0.06em] ${
-          slot.result === 'fail' ? 'text-fail' : 'text-ok'
-        }`}
-      >
-        {slot.result === 'fail'
-          ? t('tracker.session_view.failed')
-          : t('tracker.session_view.completed')}
-      </span>
-      {/* Undo lives where the mistake happened, not in the chrome. */}
-      <SlotResultFooter
-        slot={slot}
-        workoutIndex={workoutIndex}
-        isLogging={slotActions.isSlotLogging?.(workoutIndex, slot.slotId) === true}
-        onMark={slotActions.onMark}
-        onUndo={slotActions.onUndo}
-        onSetAmrapReps={slotActions.onSetAmrapReps}
-        onSetRpe={slotActions.onSetRpe}
-      />
-    </div>
+    <SlotCardShell slot={slot} testId="completed-slot-row">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        {logged !== null && (
+          <p className="font-mono text-[13px] text-label tabular-nums">
+            {t('tracker.session_view.logged_reps', {
+              reps: logged.map((entry) => entry.reps).join(' \u00b7 '),
+            })}
+          </p>
+        )}
+        {/* Undo lives where the mistake happened, next to the header one. */}
+        <SlotResultFooter
+          slot={slot}
+          workoutIndex={workoutIndex}
+          isLogging={slotActions.isSlotLogging?.(workoutIndex, slot.slotId) === true}
+          onMark={slotActions.onMark}
+          onUndo={slotActions.onUndo}
+          onSetAmrapReps={slotActions.onSetAmrapReps}
+          onSetRpe={slotActions.onSetRpe}
+        />
+      </div>
+    </SlotCardShell>
   );
 }
 
@@ -167,8 +125,6 @@ export function SessionView({
   isCurrent,
   showCompletion,
   resultTimestamps,
-  rest,
-  onSkipRest,
   onGoToNextDay,
   onGoToProfile,
   slotActions,
@@ -259,7 +215,7 @@ export function SessionView({
       className="grid grid-cols-1 items-start xl:grid-cols-[minmax(0,1fr)_280px]"
     >
       <div
-        className="min-w-0 px-0 py-5 sm:px-2"
+        className="min-w-0"
         aria-label={t('tracker.day_view.workout_aria', { number: workout.index + 1 })}
       >
         {dayResolved && showCompletion && (
@@ -288,25 +244,25 @@ export function SessionView({
         )}
 
         {hero !== null && (
-          <CurrentLiftCard
-            slot={hero}
-            workoutIndex={workout.index}
-            setLogs={getSetLogs?.(workout.index, hero.slotId)}
-            isLogging={isSlotLogging?.(workout.index, hero.slotId) === true}
-            rest={rest}
-            onSkipRest={onSkipRest}
-            onMark={slotActions.onMark}
-            onUndo={slotActions.onUndo}
-            onSetAmrapReps={slotActions.onSetAmrapReps}
-            onSetRpe={slotActions.onSetRpe}
-            onSetTap={slotActions.onSetTap}
-          />
+          <div className="mb-3">
+            <CurrentLiftCard
+              slot={hero}
+              workoutIndex={workout.index}
+              setLogs={getSetLogs?.(workout.index, hero.slotId)}
+              isLogging={isSlotLogging?.(workout.index, hero.slotId) === true}
+              onMark={slotActions.onMark}
+              onUndo={slotActions.onUndo}
+              onSetAmrapReps={slotActions.onSetAmrapReps}
+              onSetRpe={slotActions.onSetRpe}
+              onSetTap={slotActions.onSetTap}
+            />
+          </div>
         )}
 
         {secondary.length > 0 && (
           <div
             data-testid="compact-day-grid"
-            className="grid grid-cols-1 items-start gap-4 md:grid-cols-2"
+            className="grid grid-cols-1 items-start gap-3 md:grid-cols-2"
           >
             {secondary.map((slot) => (
               <SecondarySlotCard
@@ -320,7 +276,7 @@ export function SessionView({
         )}
 
         {showCompletedRows && completed.length > 0 && (
-          <div className="mt-4 flex flex-col gap-2">
+          <div className="mt-3 grid grid-cols-1 items-start gap-3 md:grid-cols-2">
             {completed.map((slot) => (
               <CompletedSlotRow
                 key={slot.slotId}

@@ -11,7 +11,7 @@ import {
 } from '@/lib/catalog-display';
 import { useUnitPreference } from '@/hooks/use-unit-preference';
 import { buildWeightsSummary } from './weights-summary';
-import { IconButton } from './icon-button';
+import { IconButton } from '@/components/icon-button';
 import { SessionMenu, type SessionMenuProps } from './session-menu';
 import {
   CalendarIcon,
@@ -21,7 +21,7 @@ import {
   ChevronRightIcon,
   PencilIcon,
   UndoIcon,
-} from './tracker-icons';
+} from '@/components/glyph-icons';
 
 export interface SessionChromeProps extends SessionMenuProps {
   readonly definition: ProgramDefinition;

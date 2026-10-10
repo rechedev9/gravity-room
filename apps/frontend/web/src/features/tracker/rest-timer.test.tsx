@@ -43,6 +43,14 @@ describe('RestTimer', () => {
     expect(onSkip).toHaveBeenCalledTimes(1);
   });
 
+  it('tells floating chrome to clear the banner only while it is up', () => {
+    const { unmount } = render(<RestTimer seconds={60} onSkip={vi.fn()} />);
+    expect(document.documentElement.dataset['restBanner']).toBe('true');
+
+    unmount();
+    expect(document.documentElement.dataset['restBanner']).toBeUndefined();
+  });
+
   it('focuses the skip control on mount for one-handed gym use', () => {
     render(<RestTimer seconds={60} onSkip={vi.fn()} />);
     expect(screen.getByTestId('rest-timer-skip')).toHaveFocus();

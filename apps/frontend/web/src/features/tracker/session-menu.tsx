@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/button';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { DropdownMenu, DropdownItem } from '@/components/dropdown-menu';
-import { IconButton } from './icon-button';
-import { MoreVerticalIcon } from './tracker-icons';
+import { IconButton } from '@/components/icon-button';
+import { MoreVerticalIcon } from '@/components/glyph-icons';
 
 export interface SessionMenuProps {
   /** Surface the finish-program CTA next to the `⋮` (program fully recorded). */

@@ -12,7 +12,7 @@ export function ToastContainer(): React.ReactNode {
       role="status"
       aria-live="polite"
       // Sit above the phone tab bar when it is mounted; desktop keeps bottom-6.
-      className="fixed left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-2 items-center pointer-events-none bottom-[calc(var(--bottom-chrome)+0.75rem)] lg:bottom-6"
+      className="fixed left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-2 items-center pointer-events-none bottom-[calc(var(--bottom-chrome)+var(--rest-banner)+0.75rem)] lg:bottom-[calc(var(--rest-banner)+1.5rem)]"
     >
       {toasts.map((toast) => {
         const animation = toast.exiting

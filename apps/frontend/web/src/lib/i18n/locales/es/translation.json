@@ -1016,20 +1016,18 @@
     },
     "day_view": {
       "workout_aria": "Entrenamiento {{number}}",
-      "deload_badge": "Deload",
-      "fail_badge": "Fallo"
+      "deload_badge": "Deload"
     },
     "detailed_day_view": {
       "workout_aria": "Entrenamiento {{number}}",
-      "col_set": "Serie",
-      "col_weight": "{{unit}}",
       "col_reps": "Reps",
-      "col_target": "Obj.",
       "table_aria": "Series de {{exercise}}",
       "reps_input_aria": "Reps serie {{label}}",
       "set_completed_aria": "Serie completada",
       "set_failed_aria": "Serie fallada",
-      "confirm_set_aria": "Confirmar serie {{label}}"
+      "confirm_set_aria": "Confirmar serie {{label}}",
+      "logged_reps": "{{reps}} reps",
+      "weight_input_aria": "Peso serie {{label}}"
     },
     "set_indicators": {
       "sets_aria_one": "{{count}} serie",
@@ -1146,8 +1144,8 @@
       "understood": "ENTENDIDO"
     },
     "rest_timer": {
-      "label": "DESCANSO",
-      "skip": "Saltar",
+      "label": "Descanso",
+      "skip": "Saltar descanso",
       "aria": "Descanso {{time}}"
     },
     "session_chrome": {
@@ -1165,15 +1163,12 @@
     },
     "current_lift": {
       "aria": "Levantamiento en curso: {{exercise}}",
-      "in_progress": "En curso",
-      "stage_scheme": "Etapa {{stage}} · {{scheme}}",
       "confirm_set": "Serie {{index}} ✓",
-      "fail_aria": "Marcar {{exercise}} como fallado"
+      "fail_aria": "Marcar {{exercise}} como fallado",
+      "fail": "Fallo"
     },
     "session_view": {
-      "completed": "Completado",
-      "failed": "Fallado",
-      "pending_aria": "Pendiente en esta sesión"
+      "logged_reps": "Reps {{reps}}"
     },
     "session_panel": {
       "aria": "Contexto de la sesión",
@@ -1224,6 +1219,11 @@
       "progress": "Día {{day}} de {{total}}",
       "next_session": "Próxima sesión · día {{day}} · {{name}}",
       "next_session_plain": "Próxima sesión · día {{day}}"
+    },
+    "slot_status": {
+      "success": "Éxito registrado",
+      "fail": "Fallo registrado",
+      "awaiting": "Resultado pendiente"
     }
   },
   "profile": {

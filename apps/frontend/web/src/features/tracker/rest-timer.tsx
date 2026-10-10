@@ -1,17 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { TimerIcon } from '@/components/glyph-icons';
 
 export interface RestTimerProps {
   /** Total rest duration when the timer starts. */
   readonly seconds: number;
   readonly onSkip: () => void;
   readonly onComplete?: () => void;
-  /**
-   * `floating` keeps the legacy fixed bar (detailed view, where there is no
-   * hero card to host it); `inline` renders a strip meant to sit inside the
-   * current-lift card, right under the set you just confirmed.
-   */
-  readonly variant?: 'floating' | 'inline';
 }
 
 function formatMmSs(totalSeconds: number): string {
@@ -22,15 +17,11 @@ function formatMmSs(totalSeconds: number): string {
 }
 
 /**
- * Sticky rest countdown after confirming a set. Pure presentation + tick;
+ * Rest countdown after confirming a set, as a banner docked above the phone tab bar (and at
+ * the foot of the content column on desktop), like the mobile app. Pure presentation + tick;
  * the parent owns when to mount/unmount and which duration to use.
  */
-export function RestTimer({
-  seconds,
-  onSkip,
-  onComplete,
-  variant = 'floating',
-}: RestTimerProps): React.ReactNode {
+export function RestTimer({ seconds, onSkip, onComplete }: RestTimerProps): React.ReactNode {
   const { t } = useTranslation();
   const [remaining, setRemaining] = useState(seconds);
   const completedRef = useRef(false);
@@ -44,9 +35,18 @@ export function RestTimer({
   }, [seconds]);
 
   // Gym one-handed use: land focus on Skip so a double-tap / Enter dismisses rest
-  // without hunting the floating bar. Soft focus (no scroll jump).
+  // without hunting the banner. Soft focus (no scroll jump).
   useEffect(() => {
     skipRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  // Floating chrome (toasts) reads this flag to sit above the banner while it is up.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset['restBanner'] = 'true';
+    return (): void => {
+      delete root.dataset['restBanner'];
+    };
   }, []);
 
   useEffect(() => {
@@ -67,67 +67,44 @@ export function RestTimer({
     };
   }, [remaining]);
 
-  // Stable status name (no per-tick countdown in the accessible name — that
+  // Stable status name (no per-tick countdown in the accessible name: that
   // would re-announce every second for up to 3 minutes on primary lifts).
   const statusLabel = t('tracker.rest_timer.aria', { time: formatMmSs(seconds) });
-  const elapsedPercent = seconds > 0 ? Math.round(((seconds - remaining) / seconds) * 100) : 0;
-
-  if (variant === 'inline') {
-    return (
-      <div
-        role="status"
-        aria-live="off"
-        aria-label={statusLabel}
-        className="mt-4 flex flex-wrap items-center gap-3.5 border-t border-rule pt-4"
-        data-testid="rest-timer"
-      >
-        <span className="font-mono text-2xs font-bold uppercase tracking-[0.08em] text-info">
-          {t('tracker.rest_timer.label')}
-        </span>
-        <span className="font-mono text-xl leading-none tabular-nums text-main" aria-hidden="true">
-          {formatMmSs(remaining)}
-        </span>
-        <div className="h-[3px] max-w-[280px] flex-1 bg-progress-track">
-          <div className="h-[3px] bg-accent-deep" style={{ width: `${elapsedPercent}%` }} />
-        </div>
-        <button
-          ref={skipRef}
-          type="button"
-          onClick={onSkip}
-          data-testid="rest-timer-skip"
-          className="type-button rounded-control min-h-[36px] shrink-0 border border-rule-light px-3 text-muted transition-colors hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
-        >
-          {t('tracker.rest_timer.skip')}
-        </button>
-      </div>
-    );
-  }
+  const elapsed = seconds > 0 ? (seconds - remaining) / seconds : 0;
 
   return (
     <div
       role="status"
       aria-live="off"
       aria-label={statusLabel}
-      className="fixed left-1/2 z-[60] -translate-x-1/2 bottom-[calc(var(--bottom-chrome)+0.5rem)] lg:bottom-6 flex items-center gap-3 bg-ink border-2 border-accent rounded-card px-4 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.55)] max-w-[calc(100vw-2rem)]"
       data-testid="rest-timer"
+      className="rest-banner fixed inset-x-0 bottom-[var(--bottom-chrome)] z-[54] border-t border-rule bg-header lg:left-[var(--sidebar-width)]"
     >
-      <div className="flex flex-col min-w-0">
-        <span className="font-mono text-2xs font-bold tracking-[0.06em] uppercase text-accent">
-          {t('tracker.rest_timer.label')}
-        </span>
-        <span className="font-mono text-2xl tabular-nums text-main leading-none" aria-hidden="true">
+      <div aria-hidden="true" className="absolute inset-x-0 -top-px h-px overflow-hidden">
+        <div
+          className="h-px origin-left bg-accent transition-transform duration-1000 ease-linear"
+          style={{ transform: `scaleX(${elapsed})` }}
+        />
+      </div>
+      <div className="mx-auto flex h-14 max-w-[1300px] items-center gap-3 px-5 sm:px-6">
+        <TimerIcon size={24} className="shrink-0 text-accent" />
+        <span className="text-base text-muted">{t('tracker.rest_timer.label')}</span>
+        <span
+          className="font-sans text-[22px] font-bold leading-none tabular-nums text-accent"
+          aria-hidden="true"
+        >
           {formatMmSs(remaining)}
         </span>
+        <button
+          ref={skipRef}
+          type="button"
+          onClick={onSkip}
+          data-testid="rest-timer-skip"
+          className="type-button ml-auto min-h-11 shrink-0 rounded-control px-3 text-muted cursor-pointer transition-colors duration-[var(--duration-press)] hover:bg-card hover:text-main"
+        >
+          {t('tracker.rest_timer.skip')}
+        </button>
       </div>
-      <button
-        ref={skipRef}
-        type="button"
-        onClick={onSkip}
-        data-testid="rest-timer-skip"
-        className="type-button rounded-control shrink-0 min-h-[44px] min-w-[44px] px-3 text-on-accent bg-accent border border-accent hover:brightness-110 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ink focus-visible:outline-none"
-      >
-        {t('tracker.rest_timer.skip')}
-      </button>
     </div>
   );
 }

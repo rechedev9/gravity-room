@@ -41,8 +41,7 @@ export function tierUndoButton(page: Page, tier: Tier, outcome: TierOutcome): Lo
 async function isHeroTier(page: Page, tier: Tier): Promise<boolean> {
   const heroCard = page.getByTestId('current-lift-card');
   if (!(await heroCard.isVisible({ timeout: 1_000 }).catch(() => false))) return false;
-  const tierText = await heroCard.locator('span').first().innerText();
-  return tierText.trim().toUpperCase() === tier;
+  return (await heroCard.getAttribute('data-tier')) === tier;
 }
 
 /**

@@ -471,8 +471,6 @@ export function ProgramApp({
             workoutsPerWeek={workoutsPerWeek}
             resultTimestamps={resultTimestamps}
             navExpanded={navExpanded}
-            rest={rest}
-            onSkipRest={dismissRest}
             onCloseNav={() => setNavExpanded(false)}
             onNextDay={dayNav.handleNextDay}
             onSelectDay={dayNav.handleSelectDay}
@@ -501,9 +499,7 @@ export function ProgramApp({
         onCancel={testWeight.handleTestWeightCancel}
       />
 
-      {/* The compact session hosts rest inside the current-lift card; the
-          detailed table has no hero, so it keeps the floating bar. */}
-      {rest !== null && dayNav.viewMode === 'detailed' ? (
+      {rest !== null ? (
         <RestTimer
           key={rest.id}
           seconds={rest.seconds}

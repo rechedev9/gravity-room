@@ -25,8 +25,6 @@ interface ProgramTabContentProps {
   readonly resultTimestamps?: Readonly<Record<string, string>>;
   /** Day-picker panel, toggled from the session chrome. */
   readonly navExpanded: boolean;
-  readonly rest: { readonly seconds: number; readonly id: number } | null;
-  readonly onSkipRest: () => void;
   readonly onCloseNav: () => void;
   readonly onNextDay: () => void;
   readonly onSelectDay: (index: number) => void;
@@ -49,8 +47,6 @@ export function ProgramTabContent({
   workoutsPerWeek,
   resultTimestamps,
   navExpanded,
-  rest,
-  onSkipRest,
   onCloseNav,
   onNextDay,
   onSelectDay,
@@ -147,8 +143,6 @@ export function ProgramTabContent({
             isCurrent={selectedDayIndex === currentDayIndex}
             showCompletion={showCompletion}
             resultTimestamps={resultTimestamps}
-            rest={rest}
-            onSkipRest={onSkipRest}
             onGoToNextDay={onNextDay}
             onGoToProfile={onGoToProfile}
             slotActions={slotActions}

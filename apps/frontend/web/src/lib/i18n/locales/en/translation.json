@@ -1016,20 +1016,18 @@
     },
     "day_view": {
       "workout_aria": "Workout {{number}}",
-      "deload_badge": "Deload",
-      "fail_badge": "Fail"
+      "deload_badge": "Deload"
     },
     "detailed_day_view": {
       "workout_aria": "Workout {{number}}",
-      "col_set": "Set",
-      "col_weight": "{{unit}}",
       "col_reps": "Reps",
-      "col_target": "Tgt.",
       "table_aria": "Sets of {{exercise}}",
       "reps_input_aria": "Set {{label}} reps",
       "set_completed_aria": "Set completed",
       "set_failed_aria": "Set failed",
-      "confirm_set_aria": "Confirm set {{label}}"
+      "confirm_set_aria": "Confirm set {{label}}",
+      "logged_reps": "{{reps}} reps",
+      "weight_input_aria": "Set {{label}} weight"
     },
     "set_indicators": {
       "sets_aria_one": "{{count}} set",
@@ -1146,8 +1144,8 @@
       "understood": "GOT IT"
     },
     "rest_timer": {
-      "label": "REST",
-      "skip": "Skip",
+      "label": "Rest",
+      "skip": "Skip rest",
       "aria": "Rest {{time}}"
     },
     "session_chrome": {
@@ -1165,15 +1163,12 @@
     },
     "current_lift": {
       "aria": "Current lift: {{exercise}}",
-      "in_progress": "In progress",
-      "stage_scheme": "Stage {{stage}} · {{scheme}}",
       "confirm_set": "Set {{index}} ✓",
-      "fail_aria": "Mark {{exercise}} as failed"
+      "fail_aria": "Mark {{exercise}} as failed",
+      "fail": "Fail"
     },
     "session_view": {
-      "completed": "Completed",
-      "failed": "Failed",
-      "pending_aria": "Pending in this session"
+      "logged_reps": "Reps {{reps}}"
     },
     "session_panel": {
       "aria": "Session context",
@@ -1224,6 +1219,11 @@
       "progress": "Day {{day}} of {{total}}",
       "next_session": "Next session · day {{day}} · {{name}}",
       "next_session_plain": "Next session · day {{day}}"
+    },
+    "slot_status": {
+      "success": "Logged success",
+      "fail": "Logged fail",
+      "awaiting": "Awaiting result"
     }
   },
   "profile": {
