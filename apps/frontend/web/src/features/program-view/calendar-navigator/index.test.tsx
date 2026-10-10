@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { CalendarNavigator } from './index';
 import { loadNavMode, saveNavMode } from '../program-navigation-preference';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
@@ -518,14 +518,10 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      // Reading mode buttons have aria-pressed and text matching reading_mode keys
-      const readingButtons = screen
-        .getAllByRole('button')
-        .filter(
-          (b) =>
-            b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('Plan') || b.textContent?.includes('Historial real'))
-        );
+      // The reading mode radiogroup only exists in the tracker context
+      const readingButtons = screen.queryAllByRole('radiogroup', {
+        name: 'Modo de lectura del calendario',
+      });
       expect(readingButtons.length).toBe(0);
     });
   });
@@ -645,15 +641,9 @@ describe('CalendarNavigator', () => {
       );
 
       // Nav mode buttons are identified by nav_mode text content
-      const modeButtons = screen
-        .getAllByRole('button')
-        .filter(
-          (b) =>
-            b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('Día') ||
-              b.textContent?.includes('Semana') ||
-              b.textContent?.includes('Mes'))
-        );
+      const modeButtons = within(
+        screen.getByRole('radiogroup', { name: 'Modo de vista del calendario' })
+      ).getAllByRole('radio');
       expect(modeButtons.length).toBe(3);
     });
 
@@ -687,15 +677,9 @@ describe('CalendarNavigator', () => {
       );
 
       // Click the Day mode button (nav_mode.day)
-      const modeButtons = screen
-        .getAllByRole('button')
-        .filter(
-          (b) =>
-            b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('Día') ||
-              b.textContent?.includes('Semana') ||
-              b.textContent?.includes('Mes'))
-        );
+      const modeButtons = within(
+        screen.getByRole('radiogroup', { name: 'Modo de vista del calendario' })
+      ).getAllByRole('radio');
       fireEvent.click(modeButtons[0]); // Day
 
       expect(screen.queryByRole('combobox', { name: 'Elegir semana del programa' })).toBeNull();
@@ -717,15 +701,9 @@ describe('CalendarNavigator', () => {
       );
 
       // Click the Month mode button (nav_mode.month)
-      const modeButtons = screen
-        .getAllByRole('button')
-        .filter(
-          (b) =>
-            b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('Día') ||
-              b.textContent?.includes('Semana') ||
-              b.textContent?.includes('Mes'))
-        );
+      const modeButtons = within(
+        screen.getByRole('radiogroup', { name: 'Modo de vista del calendario' })
+      ).getAllByRole('radio');
       fireEvent.click(modeButtons[2]); // Month
 
       // Month navigation arrows should be present
@@ -735,7 +713,7 @@ describe('CalendarNavigator', () => {
       expect(nextBtn).toBeTruthy();
     });
 
-    it('selected mode button has aria-pressed=true', () => {
+    it('selected mode radio has aria-checked=true', () => {
       const rows = makeRows(12);
       render(
         <CalendarNavigator
@@ -748,34 +726,22 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      const modeButtons = screen
-        .getAllByRole('button')
-        .filter(
-          (b) =>
-            b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('Día') ||
-              b.textContent?.includes('Semana') ||
-              b.textContent?.includes('Mes'))
-        );
+      const modeButtons = within(
+        screen.getByRole('radiogroup', { name: 'Modo de vista del calendario' })
+      ).getAllByRole('radio');
 
       // Default is week (index 1)
-      expect(modeButtons[1].getAttribute('aria-pressed')).toBe('true');
-      expect(modeButtons[0].getAttribute('aria-pressed')).toBe('false');
-      expect(modeButtons[2].getAttribute('aria-pressed')).toBe('false');
+      expect(modeButtons[1].getAttribute('aria-checked')).toBe('true');
+      expect(modeButtons[0].getAttribute('aria-checked')).toBe('false');
+      expect(modeButtons[2].getAttribute('aria-checked')).toBe('false');
 
       // Switch to month
       fireEvent.click(modeButtons[2]);
-      const updatedButtons = screen
-        .getAllByRole('button')
-        .filter(
-          (b) =>
-            b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('Día') ||
-              b.textContent?.includes('Semana') ||
-              b.textContent?.includes('Mes'))
-        );
-      expect(updatedButtons[2].getAttribute('aria-pressed')).toBe('true');
-      expect(updatedButtons[1].getAttribute('aria-pressed')).toBe('false');
+      const updatedButtons = within(
+        screen.getByRole('radiogroup', { name: 'Modo de vista del calendario' })
+      ).getAllByRole('radio');
+      expect(updatedButtons[2].getAttribute('aria-checked')).toBe('true');
+      expect(updatedButtons[1].getAttribute('aria-checked')).toBe('false');
     });
   });
 
@@ -831,15 +797,9 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      const modeButtons = screen
-        .getAllByRole('button')
-        .filter(
-          (b) =>
-            b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('Día') ||
-              b.textContent?.includes('Semana') ||
-              b.textContent?.includes('Mes'))
-        );
+      const modeButtons = within(
+        screen.getByRole('radiogroup', { name: 'Modo de vista del calendario' })
+      ).getAllByRole('radio');
       fireEvent.click(modeButtons[2]); // Month
 
       expect(loadNavMode()).toBe('month');
@@ -900,9 +860,7 @@ describe('CalendarNavigator', () => {
         />
       );
       // Switch to month mode
-      const modeButtons = screen
-        .getAllByRole('button')
-        .filter((b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('Mes'));
+      const modeButtons = screen.getAllByRole('radio', { name: 'Mes' });
       fireEvent.click(modeButtons[0]);
     }
 
@@ -1116,15 +1074,10 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      // Reading mode buttons: "calendar_navigator.reading_mode.program" and "...history"
-      const readingButtons = screen
-        .getAllByRole('button')
-        .filter(
-          (b) =>
-            b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('Plan') || b.textContent?.includes('Historial real'))
-        );
-      expect(readingButtons.length).toBe(2);
+      const readingGroup = screen.getByRole('radiogroup', {
+        name: 'Modo de lectura del calendario',
+      });
+      expect(within(readingGroup).getAllByRole('radio').length).toBe(2);
     });
 
     it('tracker defaults to program reading mode (program view visible)', () => {
@@ -1141,15 +1094,9 @@ describe('CalendarNavigator', () => {
       );
 
       // In program mode, nav mode selector (Day/Week/Month) should be visible
-      const navModeButtons = screen
-        .getAllByRole('button')
-        .filter(
-          (b) =>
-            b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('Día') ||
-              b.textContent?.includes('Semana') ||
-              b.textContent?.includes('Mes'))
-        );
+      const navModeButtons = within(
+        screen.getByRole('radiogroup', { name: 'Modo de vista del calendario' })
+      ).getAllByRole('radio');
       expect(navModeButtons.length).toBe(3);
 
       // History microcopy should NOT be visible
@@ -1170,9 +1117,7 @@ describe('CalendarNavigator', () => {
       );
 
       // Click "Historial real" button
-      const readingButtons = screen
-        .getAllByRole('button')
-        .filter((b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('Historial real'));
+      const readingButtons = screen.getAllByRole('radio', { name: 'Historial real' });
       expect(readingButtons.length).toBe(1);
       fireEvent.click(readingButtons[0]);
 
@@ -1196,9 +1141,7 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      const readingButtons = screen
-        .getAllByRole('button')
-        .filter((b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('Historial real'));
+      const readingButtons = screen.getAllByRole('radio', { name: 'Historial real' });
       fireEvent.click(readingButtons[0]);
 
       expect(screen.getByTestId('history-empty')).toBeTruthy();
@@ -1219,9 +1162,7 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      const readingButtons = screen
-        .getAllByRole('button')
-        .filter((b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('Historial real'));
+      const readingButtons = screen.getAllByRole('radio', { name: 'Historial real' });
       fireEvent.click(readingButtons[0]);
 
       // Should show 3 completed session buttons (#1, #3, #5)
@@ -1249,9 +1190,7 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      const readingButtons = screen
-        .getAllByRole('button')
-        .filter((b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('Historial real'));
+      const readingButtons = screen.getAllByRole('radio', { name: 'Historial real' });
       fireEvent.click(readingButtons[0]);
 
       // Should show 2 completed sessions
@@ -1274,22 +1213,11 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      const readingButtons = screen
-        .getAllByRole('button')
-        .filter((b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('Historial real'));
+      const readingButtons = screen.getAllByRole('radio', { name: 'Historial real' });
       fireEvent.click(readingButtons[0]);
 
-      // Nav mode buttons (Day/Week/Month) should not be visible
-      const navModeButtons = screen
-        .getAllByRole('button')
-        .filter(
-          (b) =>
-            b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('Día') ||
-              b.textContent?.includes('Semana') ||
-              b.textContent?.includes('Mes'))
-        );
-      expect(navModeButtons.length).toBe(0);
+      // The Day/Week/Month radiogroup should not be rendered
+      expect(screen.queryByRole('radiogroup', { name: 'Modo de vista del calendario' })).toBeNull();
     });
   });
 });

@@ -25,4 +25,21 @@ describe('generated tokens.css', () => {
       );
     }
   });
+
+  it('exposes the mobile type voice as utilities: Barlow sentence case headings and buttons', () => {
+    const css = renderTokensCss();
+    const block = (name: string): string =>
+      new RegExp(`@utility ${name} \{([^}]*)\}`).exec(css)?.[1] ?? '';
+    expect(block('type-display')).toContain("font-family: 'Barlow'");
+    expect(block('type-display')).toContain('font-weight: 700');
+    expect(block('type-button')).toContain('font-size: 14px');
+    expect(block('type-button')).toContain('font-weight: 600');
+    expect(block('type-button')).not.toContain('text-transform');
+    expect(block('type-kicker')).toContain('text-transform: uppercase');
+    expect(block('type-kicker')).toContain("font-family: 'JetBrains Mono'");
+  });
+
+  it('keeps --radius-base on the shared control radius', () => {
+    expect(read('styles/globals.css')).toMatch(/--radius-base: var\(--radius-control\);/);
+  });
 });

@@ -91,7 +91,7 @@ test.describe('Frontend perf budgets', () => {
     await navigateToTracker(page);
     await expandDayControls(page);
 
-    await page.getByRole('button', { name: 'Historial real', pressed: false }).click();
+    await page.getByRole('radio', { name: 'Historial real', checked: false }).click();
     await expect(page.getByTestId('history-microcopy')).toBeVisible({ timeout: 10_000 });
 
     const list = page.getByTestId('history-list');
