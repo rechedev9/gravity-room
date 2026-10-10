@@ -73,10 +73,7 @@ export function ProgramsPage(): React.ReactNode {
         </Link>
 
         <section className="hidden lg:block mb-10">
-          {activeProgram && (
-            <h2 className="dash-section-title mb-4">{t('programs.other_programs')}</h2>
-          )}
-          <ProgramCatalog activeProgramId={activeProgram?.programId ?? null} />
+          <ProgramCatalog showHeading activeProgramId={activeProgram?.programId ?? null} />
         </section>
       </div>
     </div>

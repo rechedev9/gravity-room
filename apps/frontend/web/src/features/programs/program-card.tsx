@@ -1,11 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
-import { getCategoryColor } from '@/lib/category-colors';
-import {
-  localizedCategoryLabel,
-  localizedProgramDescription,
-  localizedProgramName,
-} from '@/lib/catalog-display';
+import { ProgramCover } from '@/components/program-cover';
+import { localizedProgramDescription, localizedProgramName } from '@/lib/catalog-display';
 
 /** Minimal program info needed by ProgramCard — compatible with both CatalogEntry and ProgramDefinition. */
 export interface ProgramCardInfo {
@@ -13,6 +9,7 @@ export interface ProgramCardInfo {
   readonly name: string;
   readonly description: string;
   readonly category: string;
+  readonly level?: string;
   readonly totalWorkouts: number;
   readonly workoutsPerWeek: number;
   readonly author: string;
@@ -38,8 +35,6 @@ export function ProgramCard({
   to,
 }: ProgramCardProps): React.ReactNode {
   const { t } = useTranslation();
-  const catColor = getCategoryColor(definition.category);
-  const label = localizedCategoryLabel(t, definition.category);
   const name = localizedProgramName(t, definition.id, definition.name);
   const description = localizedProgramDescription(t, definition.id, definition.description);
   const resolvedDisabledLabel = disabledLabel ?? t('programs.card.coming_soon');
@@ -56,41 +51,41 @@ export function ProgramCard({
   const showDualActions = previewTo !== undefined && onSelect !== undefined && !disabled;
   const showCta = showDualActions || to !== undefined || onSelect !== undefined || disabled;
 
+  const levelLabel =
+    definition.level === undefined ? undefined : t(`programs.card.level_${definition.level}`);
+  const meta = [
+    definition.workoutsPerWeek > 0
+      ? t('programs.card.frequency', { count: definition.workoutsPerWeek })
+      : undefined,
+    levelLabel,
+  ].filter((part): part is string => part !== undefined);
+
   return (
     <div
-      className={`relative overflow-hidden bg-card rounded-card border border-rule p-5 sm:p-6 card program-card-lift ${disabled ? 'opacity-60' : ''}`}
+      className={`relative overflow-hidden bg-card rounded-card border border-rule p-4 sm:p-5 card program-card-lift flex gap-4 ${disabled ? 'opacity-60' : ''}`}
     >
-      {/* Category hairline top edge (was a soft gradient glow) */}
-      <div
-        className="absolute top-0 left-0 right-0 h-px pointer-events-none"
-        style={{ background: catColor.badge, opacity: 0.5 }}
-      />
+      <div className="w-24 shrink-0 self-start overflow-hidden rounded-[12px] border border-rule sm:w-28">
+        <ProgramCover
+          variant="thumbnail"
+          programId={definition.id}
+          title={definition.name}
+          category={definition.category}
+          level={definition.level}
+          workoutsPerWeek={definition.workoutsPerWeek}
+        />
+      </div>
 
-      <div className="relative flex flex-col gap-3">
-        {/* Header: name + category badge */}
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="type-title text-main">{name}</h3>
-          <span
-            className="shrink-0 font-mono text-[9px] font-bold uppercase tracking-[0.06em] px-2 py-[3px] border rounded-chip"
-            style={{
-              borderColor: `color-mix(in srgb, ${catColor.badge} 40%, transparent)`,
-              color: catColor.badge,
-            }}
-          >
-            {label}
-          </span>
+      <div className="relative flex min-w-0 flex-1 flex-col gap-2.5">
+        <div>
+          <h3 className="type-title text-main text-base sm:text-[17px] leading-snug">{name}</h3>
+          {meta.length > 0 && <p className="mt-1 text-xs text-muted">{meta.join(' · ')}</p>}
         </div>
 
-        {/* Description */}
-        <p className="text-xs text-muted leading-relaxed line-clamp-3">{description}</p>
+        <p className="text-xs text-muted leading-relaxed line-clamp-2">{description}</p>
 
-        {/* Meta: workouts, frequency, author */}
         {!disabled && (
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-info">
             <span>{t('programs.card.workouts_count', { count: definition.totalWorkouts })}</span>
-            {definition.workoutsPerWeek > 0 && (
-              <span>{t('programs.card.frequency', { count: definition.workoutsPerWeek })}</span>
-            )}
             {definition.author && (
               <span>{t('programs.card.author', { author: definition.author })}</span>
             )}

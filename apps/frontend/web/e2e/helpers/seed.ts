@@ -189,7 +189,9 @@ export async function ensureCompactView(page: Page): Promise<void> {
  */
 export async function navigateToGzclpSetup(page: Page): Promise<void> {
   await page.goto('/app/programs');
-  await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('heading', { name: 'GZCLP' }).first()).toBeVisible({
+    timeout: 10_000,
+  });
   await programCard(page, 'GZCLP').getByRole('button', { name: 'Iniciar Programa' }).click();
   await expect(page.getByText('Pesos Iniciales (kg)')).toBeVisible({ timeout: 10_000 });
 }
@@ -212,7 +214,9 @@ export async function enterGuestMode(page: Page): Promise<void> {
  */
 export async function navigateToPrograms(page: Page): Promise<void> {
   await page.locator('a[href="/app/programs"]').first().click();
-  await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('heading', { name: 'GZCLP' }).first()).toBeVisible({
+    timeout: 10_000,
+  });
 }
 
 /** Enter guest mode, start a program by name, and generate with default weights. */

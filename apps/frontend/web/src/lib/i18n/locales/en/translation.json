@@ -706,7 +706,6 @@
     "guided_start_cta": "First time? Start with the guided setup",
     "retry": "Retry",
     "catalog_load_error": "Could not load catalog.",
-    "other_programs": "Other programs",
     "replace": {
       "title": "Start {{next}}?",
       "message": "Your active program, {{current}}, will be ended. Your history is kept.",
@@ -861,10 +860,23 @@
     },
     "explore": {
       "page_title": "Explore plans | Gravity Room",
-      "eyebrow": "Catalog",
-      "title": "Explore",
-      "subtitle": "Pick a program by level and start training.",
       "link": "Explore more plans"
+    },
+    "catalog": {
+      "eyebrow": "Catalog",
+      "title": "Find your next program",
+      "subtitle": "Structured plans. Progress you can track.",
+      "search": "Search programs",
+      "clear": "Clear search",
+      "reset_filters": "Reset filters",
+      "levels": "Filter by level",
+      "level_all": "All",
+      "results_count_one": "{{count}} program",
+      "results_count_other": "{{count}} programs",
+      "featured": "Strength foundations",
+      "all_programs": "All programs",
+      "empty": "No programs match. Try another search or level.",
+      "empty_all": "There are no other programs to show right now."
     }
   },
   "tracker": {

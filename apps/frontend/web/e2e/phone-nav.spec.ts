@@ -32,7 +32,9 @@ test.describe('Phone tab bar (signed in)', () => {
 
     await tab(page, 'Explorar').click();
     await page.waitForURL('**/app/explore');
-    await expect(page.getByRole('heading', { level: 1, name: 'Explorar' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Encuentra tu próximo programa' })
+    ).toBeVisible();
     await expect(page.getByText('GZCLP').first()).toBeVisible({ timeout: 10_000 });
 
     await tab(page, 'Ejercicios').click();

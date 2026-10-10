@@ -706,7 +706,6 @@
     "guided_start_cta": "¿Primera vez? Empieza con el asistente",
     "retry": "Reintentar",
     "catalog_load_error": "No se pudo cargar el catálogo.",
-    "other_programs": "Otros programas",
     "replace": {
       "title": "¿Empezar {{next}}?",
       "message": "Tu programa activo, {{current}}, se dará por finalizado. Tu historial se conserva.",
@@ -861,10 +860,23 @@
     },
     "explore": {
       "page_title": "Explorar planes | Gravity Room",
-      "eyebrow": "Catálogo",
-      "title": "Explorar",
-      "subtitle": "Elige un programa por nivel y empieza a entrenar.",
       "link": "Explorar más planes"
+    },
+    "catalog": {
+      "eyebrow": "Catálogo",
+      "title": "Encuentra tu próximo programa",
+      "subtitle": "Planes estructurados. Progreso que puedes seguir.",
+      "search": "Buscar programas",
+      "clear": "Borrar búsqueda",
+      "reset_filters": "Restablecer filtros",
+      "levels": "Filtrar por nivel",
+      "level_all": "Todos",
+      "results_count_one": "{{count}} programa",
+      "results_count_other": "{{count}} programas",
+      "featured": "Bases de fuerza",
+      "all_programs": "Todos los programas",
+      "empty": "No hay coincidencias. Prueba otra búsqueda o nivel.",
+      "empty_all": "No hay otros programas que mostrar ahora."
     }
   },
   "tracker": {

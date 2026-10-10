@@ -28,9 +28,9 @@ export function ExplorePage(): React.ReactNode {
       <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 py-6 sm:py-8">
         <ScreenHeader
           className="mb-6"
-          eyebrow={t('programs.explore.eyebrow')}
-          title={t('programs.explore.title')}
-          subtitle={t('programs.explore.subtitle')}
+          eyebrow={t('programs.catalog.eyebrow')}
+          title={t('programs.catalog.title')}
+          subtitle={t('programs.catalog.subtitle')}
         />
         <ProgramCatalog activeProgramId={activeProgram?.programId ?? null} />
       </div>
