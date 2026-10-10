@@ -1,5 +1,12 @@
-import { PROGRAM_CATALOG } from '@gzclp/domain';
-import { hashIdentity, monogramFor, programCoverSpec } from './program-cover-spec';
+import { describe, expect, it } from 'vitest';
+import { PROGRAM_CATALOG } from './catalog';
+import {
+  COVER_CANVAS,
+  hashIdentity,
+  monogramFor,
+  programCoverLayout,
+  programCoverSpec,
+} from './program-cover';
 
 describe('monogramFor', () => {
   it.each([
@@ -84,5 +91,31 @@ describe('programCoverSpec', () => {
 
   it('produces an empty monogram when nothing names the program', () => {
     expect(programCoverSpec({}).monogram).toBe('');
+  });
+});
+
+describe('programCoverLayout', () => {
+  it('lays out every catalog program inside its canvas for both variants', () => {
+    for (const entry of PROGRAM_CATALOG) {
+      const spec = programCoverSpec({ programId: entry.id, workoutsPerWeek: 4 });
+      for (const variant of ['cover', 'thumbnail'] as const) {
+        const layout = programCoverLayout(spec, variant);
+        expect(layout.width).toBe(COVER_CANVAS[variant].width);
+        expect(layout.shapes.length).toBe(spec.motif === 'hatch' ? spec.density * 2 : spec.density);
+        expect(layout.shapes.filter((shape) => shape.tone === 'focal')).toHaveLength(1);
+        expect(layout.monogram?.text).toBe(spec.monogram);
+        expect(layout.monogram?.plate !== null).toBe(variant === 'thumbnail');
+        expect(layout.ticks).toHaveLength(variant === 'cover' ? 4 : 0);
+      }
+    }
+  });
+
+  it('draws no monogram for an unnamed program', () => {
+    expect(programCoverLayout(programCoverSpec({}), 'cover').monogram).toBeNull();
+  });
+
+  it('is deterministic', () => {
+    const spec = programCoverSpec({ programId: 'gzclp' });
+    expect(programCoverLayout(spec, 'cover')).toEqual(programCoverLayout(spec, 'cover'));
   });
 });

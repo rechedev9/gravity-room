@@ -17,6 +17,8 @@
     ".": "./src/index.ts",
     "./barbell": "./src/barbell.ts",
     "./catalog": "./src/catalog.ts",
+    "./catalog-filter": "./src/catalog-filter.ts",
+    "./program-cover": "./src/program-cover.ts",
     "./generic-engine": "./src/generic-engine.ts",
     "./generic-stats": "./src/generic-stats.ts",
     "./graduation": "./src/graduation.ts",
