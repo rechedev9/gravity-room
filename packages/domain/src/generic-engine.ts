@@ -59,6 +59,32 @@ export function deriveResultFromSetLogsSimple(
   return 'fail';
 }
 
+/** Confirmable sets of a percent-prescription ladder, warm-up groups included. */
+export function plannedPrescriptionSets(
+  prescriptions: readonly { readonly sets: number }[]
+): number {
+  return prescriptions.reduce((sum, entry) => sum + entry.sets, 0);
+}
+
+/**
+ * Result of a percent-prescription ladder. Each set is judged against the reps
+ * of its own group (a warm-up triple is not held to the single of the last
+ * group), and the ladder has no result until every planned set is logged.
+ */
+export function deriveResultFromPrescriptionLogs(
+  setLogs: readonly SetLogEntry[] | undefined,
+  prescriptions: readonly ResolvedPrescription[]
+): ResultValue | undefined {
+  if (setLogs === undefined || setLogs.length < plannedPrescriptionSets(prescriptions)) {
+    return undefined;
+  }
+
+  const plannedReps = prescriptions.flatMap((entry) =>
+    Array.from({ length: entry.sets }, () => entry.reps)
+  );
+  return setLogs.every((log, i) => log.reps >= (plannedReps[i] ?? 0)) ? 'success' : 'fail';
+}
+
 function deriveSlotResult(
   slot: SlotDef,
   slotResult: SlotResult,
