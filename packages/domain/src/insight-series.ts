@@ -13,9 +13,18 @@ export interface InsightSeriesRef {
   readonly tier: string | null;
 }
 
+/** Throws a RangeError for a key the column cannot hold or `parse` cannot read back. */
 export function buildInsightSeriesKey({ exerciseId, tier }: InsightSeriesRef): string {
-  if (tier === null) return exerciseId;
-  return `${exerciseId}${SEPARATOR}${tier.replaceAll(SEPARATOR, '-')}`.slice(0, MAX_KEY_LENGTH);
+  if (exerciseId.includes(SEPARATOR)) {
+    throw new RangeError(`Insight series exercise id contains "${SEPARATOR}": ${exerciseId}`);
+  }
+  const key =
+    tier === null ? exerciseId : `${exerciseId}${SEPARATOR}${tier.replaceAll(SEPARATOR, '-')}`;
+  // Cutting the key would merge the tiers of one lift into a single series.
+  if (key.length > MAX_KEY_LENGTH) {
+    throw new RangeError(`Insight series key exceeds ${MAX_KEY_LENGTH} characters: ${key}`);
+  }
+  return key;
 }
 
 export function parseInsightSeriesKey(key: string): InsightSeriesRef {

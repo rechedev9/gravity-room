@@ -10,9 +10,12 @@ export function isWeightUnit(value: unknown): value is WeightUnit {
   return value === 'kg' || value === 'lbs';
 }
 
-/** Stored weights are always kg; lbs exist only at the display/input boundary. */
+/**
+ * Stored weights are always kg; lbs exist only at the display/input boundary.
+ * Two lbs decimals are what lets a stored kg survive display and save: one loses it.
+ */
 export function kgToDisplay(kg: number, unit: WeightUnit): number {
-  if (unit === 'lbs') return Math.round(kg * LBS_PER_KG * 10) / 10;
+  if (unit === 'lbs') return Math.round(kg * LBS_PER_KG * 100) / 100;
   return kg;
 }
 

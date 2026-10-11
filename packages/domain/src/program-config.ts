@@ -8,18 +8,13 @@ const DEFAULT_WEIGHT_FALLBACK = 20;
 
 export type WeightConfigField = Extract<ProgramConfigField, { type: 'weight' }>;
 
-/** Starting weight of a weight field: `step * 8` (an empty 20 kg bar for 2.5 kg steps), never below `min`. */
+/** Starting weight of a weight field: its `min` when it has one, else `step * 8` (20 kg without a step). */
 export function defaultWeightValue(field: WeightConfigField): number {
-  const fromStep = field.step * DEFAULT_WEIGHT_STEPS || DEFAULT_WEIGHT_FALLBACK;
-  return Math.max(field.min, fromStep);
+  if (field.min > 0) return field.min;
+  return field.step * DEFAULT_WEIGHT_STEPS || DEFAULT_WEIGHT_FALLBACK;
 }
 
-/**
- * Value a field starts with before the lifter edits it.
- * - weight: `defaultWeightValue`; `min` alone would start every lift of a 2.5 kg-minimum
- *   plan at a bare 2.5 kg.
- * - select: the first option.
- */
+/** Value a field starts with before the lifter edits it: a select takes its first option. */
 export function defaultConfigValue(field: ProgramConfigField): number | string {
   if (field.type === 'weight') return defaultWeightValue(field);
   const firstOption = field.options[0];

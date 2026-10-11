@@ -4459,7 +4459,7 @@ function computeGenericProgram(definition, config, results, options) {
   }
   const rows = [];
   const cycleLength = definition.days.length;
-  const prevWeightByLiftTier = /* @__PURE__ */ new Map();
+  const prevWeightByPrescription = /* @__PURE__ */ new Map();
   const rowLimit = Math.min(definition.totalWorkouts, options?.maxRows ?? definition.totalWorkouts);
   for (let i = 0; i < rowLimit; i++) {
     const day = requireValue(definition.days[i % cycleLength], `Missing day for workout ${i}`);
@@ -4552,11 +4552,14 @@ function computeGenericProgram(definition, config, results, options) {
         slot.trainingMaxKey !== void 0 && slot.tmPercent !== void 0
           ? roundToNearest((tmState[slot.trainingMaxKey] ?? 0) * slot.tmPercent, roundingStep)
           : state.weight;
-      const liftTierKey = `${slot.exerciseId}:${slot.tier}`;
-      const prevWeight = prevWeightByLiftTier.get(liftTierKey);
+      const prescriptionKey =
+        slot.trainingMaxKey !== void 0 && slot.tmPercent !== void 0
+          ? `${slot.id}@${slot.tmPercent}`
+          : slot.id;
+      const prevWeight = prevWeightByPrescription.get(prescriptionKey);
       const isDeload = prevWeight !== void 0 && weight > 0 && weight < prevWeight;
       if (weight > 0) {
-        prevWeightByLiftTier.set(liftTierKey, weight);
+        prevWeightByPrescription.set(prescriptionKey, weight);
       }
       const derivedResult = deriveSlotResult(slot, slotResult, stageConfig.reps);
       derivedResultsBySlotId[slot.id] = derivedResult;
@@ -7122,6 +7125,36 @@ import {
   sql as sql8,
 } from 'drizzle-orm';
 
+// packages/domain/src/insight-series.ts
+var SEPARATOR = ':';
+var MAX_KEY_LENGTH = 100;
+function buildInsightSeriesKey({ exerciseId, tier }) {
+  if (exerciseId.includes(SEPARATOR)) {
+    throw new RangeError(`Insight series exercise id contains "${SEPARATOR}": ${exerciseId}`);
+  }
+  const key =
+    tier === null ? exerciseId : `${exerciseId}${SEPARATOR}${tier.replaceAll(SEPARATOR, '-')}`;
+  if (key.length > MAX_KEY_LENGTH) {
+    throw new RangeError(`Insight series key exceeds ${MAX_KEY_LENGTH} characters: ${key}`);
+  }
+  return key;
+}
+
+// apps/backend/api/src/analytics/record.ts
+function seriesKeyResolver(history) {
+  const tiers = /* @__PURE__ */ new Map();
+  for (const point of history) {
+    const seen = tiers.get(point.exerciseId) ?? /* @__PURE__ */ new Set();
+    seen.add(point.tier);
+    tiers.set(point.exerciseId, seen);
+  }
+  return (point) =>
+    buildInsightSeriesKey({
+      exerciseId: point.exerciseId,
+      tier: (tiers.get(point.exerciseId)?.size ?? 0) > 1 ? point.tier : null,
+    });
+}
+
 // apps/backend/api/src/analytics/prescribed-weight.ts
 function isSetLogs(value) {
   return Array.isArray(value) && value.every((entry) => isRecord(entry));
@@ -7221,6 +7254,23 @@ async function resolveInstanceDefinition(instance, executor) {
   const stored = await getHistoricalProgramDefinition(instance.templateId, executor);
   return stored.status === 'found' ? stored.definition : null;
 }
+async function fetchResultHistory(userId, executor) {
+  return executor
+    .select({
+      instanceId: sql8`${programInstances.id}::text`,
+      workoutIndex: workoutResults.workoutIndex,
+      slotId: workoutResults.slotId,
+      exerciseId: workoutResults.exerciseId,
+      definitionVersion: workoutResults.definitionVersion,
+      result: workoutResults.result,
+      rpe: sql8`${workoutResults.rpe}::float`,
+      amrapReps: workoutResults.amrapReps,
+      setLogs: workoutResults.setLogs,
+    })
+    .from(workoutResults)
+    .innerJoin(programInstances, eq7(programInstances.id, workoutResults.instanceId))
+    .where(eq7(programInstances.userId, userId));
+}
 async function fetchWorkoutRecords(userId, executor = getDb()) {
   const rows = await executor
     .select({
@@ -7252,43 +7302,56 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
       desc4(workoutResults.id)
     )
     .limit(MAX_ANALYTICS_RECORDS_PER_USER);
-  const resultInstances = new Set(rows.map((row) => row.instanceId));
+  if (rows.length === 0) return [];
+  const history = await fetchResultHistory(userId, executor);
+  const identified = history.filter(
+    (row) => row.exerciseId !== null && row.definitionVersion !== null
+  );
+  const identifiedInstances = new Set(identified.map((row) => row.instanceId));
   const unweighted = new Set(
     rows.filter((row) => row.loggedWeight === null).map((row) => row.instanceId)
   );
   const prescribed = /* @__PURE__ */ new Map();
   const tiers = /* @__PURE__ */ new Map();
-  if (resultInstances.size > 0) {
-    const instances = await executor
-      .select({
-        id: sql8`${programInstances.id}::text`,
-        templateId: programInstances.templateId,
-        config: programInstances.programConfig,
-        customDefinition: programInstances.customDefinition,
-      })
-      .from(programInstances)
-      .where(eq7(programInstances.userId, userId));
-    for (const instance of instances) {
-      if (!resultInstances.has(instance.id)) continue;
-      const definition = await resolveInstanceDefinition(instance, executor);
-      if (definition === null) continue;
-      tiers.set(instance.id, slotTiers(definition));
-      if (!unweighted.has(instance.id)) continue;
-      prescribed.set(
-        instance.id,
-        prescribedWeights(
-          rows.filter((row) => row.instanceId === instance.id),
-          { definition, config: instance.config }
-        )
-      );
+  const instances = await executor
+    .select({
+      id: sql8`${programInstances.id}::text`,
+      templateId: programInstances.templateId,
+      config: programInstances.programConfig,
+      customDefinition: programInstances.customDefinition,
+    })
+    .from(programInstances)
+    .where(eq7(programInstances.userId, userId));
+  for (const instance of instances) {
+    if (!identifiedInstances.has(instance.id)) continue;
+    const definition = await resolveInstanceDefinition(instance, executor);
+    if (definition === null) continue;
+    tiers.set(instance.id, slotTiers(definition));
+    if (!unweighted.has(instance.id)) continue;
+    prescribed.set(
+      instance.id,
+      prescribedWeights(
+        history.filter((row) => row.instanceId === instance.id),
+        { definition, config: instance.config }
+      )
+    );
+  }
+  const seriesHistory = [];
+  for (const row of identified) {
+    const tier = tiers.get(row.instanceId)?.get(row.slotId);
+    if (tier !== void 0 && row.exerciseId !== null) {
+      seriesHistory.push({ exerciseId: row.exerciseId, tier });
     }
   }
+  const seriesKeyOf = reportingSeriesKey(userId, seriesKeyResolver(seriesHistory));
   const records = [];
   for (const row of rows.reverse()) {
     const tier = tiers.get(row.instanceId)?.get(row.slotId);
     if (tier === void 0) continue;
     const weight = row.loggedWeight ?? prescribed.get(row.instanceId)?.get(weightKey(row));
     if (weight === void 0) continue;
+    const seriesKey = seriesKeyOf({ exerciseId: row.exerciseId, tier });
+    if (seriesKey === null) continue;
     records.push({
       userId: row.userId,
       instanceId: row.instanceId,
@@ -7297,6 +7360,7 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
       exerciseId: row.exerciseId,
       definitionVersion: Number(row.definitionVersion),
       tier,
+      seriesKey,
       weight: Number(weight),
       result: row.result,
       rpe: row.rpe === null ? null : Number(row.rpe),
@@ -7305,6 +7369,22 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
     });
   }
   return records;
+}
+function reportingSeriesKey(userId, keyOf) {
+  const reported = /* @__PURE__ */ new Set();
+  return (point) => {
+    try {
+      return keyOf(point);
+    } catch (error) {
+      if (!(error instanceof RangeError)) throw error;
+      const series = JSON.stringify([point.exerciseId, point.tier]);
+      if (!reported.has(series)) {
+        reported.add(series);
+        logger.error({ err: error, userId }, 'analytics: insight series key cannot be stored');
+      }
+      return null;
+    }
+  };
 }
 function slotTiers(definition) {
   const tiers = /* @__PURE__ */ new Map();
@@ -7527,29 +7607,6 @@ function consistencyPercentage(sortedDateKeys, first, last) {
   return pyRound(Math.min(100, (weeksWithSession.size / totalWeeks) * 100), 1);
 }
 
-// packages/domain/src/insight-series.ts
-var SEPARATOR = ':';
-var MAX_KEY_LENGTH = 100;
-function buildInsightSeriesKey({ exerciseId, tier }) {
-  if (tier === null) return exerciseId;
-  return `${exerciseId}${SEPARATOR}${tier.replaceAll(SEPARATOR, '-')}`.slice(0, MAX_KEY_LENGTH);
-}
-
-// apps/backend/api/src/analytics/record.ts
-function seriesKeyResolver(records) {
-  const tiers = /* @__PURE__ */ new Map();
-  for (const r of records) {
-    const seen = tiers.get(r.exerciseId) ?? /* @__PURE__ */ new Set();
-    seen.add(r.tier);
-    tiers.set(r.exerciseId, seen);
-  }
-  return (r) =>
-    buildInsightSeriesKey({
-      exerciseId: r.exerciseId,
-      tier: (tiers.get(r.exerciseId)?.size ?? 0) > 1 ? r.tier : null,
-    });
-}
-
 // apps/backend/api/src/analytics/epley.ts
 function epley(weight, reps) {
   if (reps === 1) return weight;
@@ -7569,13 +7626,12 @@ function compareByRecordedAtThenIndex(a, b) {
 var MIN_POINTS = 4;
 var DEFAULT_REPS2 = 5;
 function computeE1rmPerExercise(records) {
-  const keyOf = seriesKeyResolver(records);
   const bySlot = /* @__PURE__ */ new Map();
   for (const r of records) {
     if (r.result !== 'success') continue;
-    const slot = bySlot.get(keyOf(r)) ?? [];
+    const slot = bySlot.get(r.seriesKey) ?? [];
     slot.push(r);
-    bySlot.set(keyOf(r), slot);
+    bySlot.set(r.seriesKey, slot);
   }
   const result = /* @__PURE__ */ new Map();
   for (const [exerciseId, exerciseRecords] of bySlot) {
@@ -7611,12 +7667,11 @@ function formatDate(timestamp2, workoutIndex) {
 // apps/backend/api/src/analytics/pipelines/summary.ts
 var DEFAULT_REPS3 = 5;
 function computeSummaryPerExercise(records) {
-  const keyOf = seriesKeyResolver(records);
   const bySlot = /* @__PURE__ */ new Map();
   for (const r of records) {
-    const slot = bySlot.get(keyOf(r)) ?? [];
+    const slot = bySlot.get(r.seriesKey) ?? [];
     slot.push(r);
-    bySlot.set(keyOf(r), slot);
+    bySlot.set(r.seriesKey, slot);
   }
   const result = /* @__PURE__ */ new Map();
   for (const [exerciseId, exerciseRecords] of bySlot) {
@@ -7806,15 +7861,14 @@ var MAX_CONFIDENCE = 0.95;
 var MS_PER_WEEK = 7 * 864e5;
 function computePlateauPerExercise(records) {
   const cutoff = Date.now() - WEEKS_BACK * MS_PER_WEEK;
-  const keyOf = seriesKeyResolver(records);
   const bySlot = /* @__PURE__ */ new Map();
   for (const r of records) {
     if (r.result !== 'success' || r.recordedAt === null) continue;
     const instant = parseInstant(r.recordedAt);
     if (instant === null || instant.getTime() < cutoff) continue;
-    const slot = bySlot.get(keyOf(r)) ?? [];
+    const slot = bySlot.get(r.seriesKey) ?? [];
     slot.push(r);
-    bySlot.set(keyOf(r), slot);
+    bySlot.set(r.seriesKey, slot);
   }
   const result = /* @__PURE__ */ new Map();
   for (const [exerciseId, exerciseRecords] of bySlot) {
@@ -7882,13 +7936,12 @@ var R2_THRESHOLD = 0.5;
 var DEFAULT_REPS4 = 5;
 var FALLBACK_T_CRIT = 1.96;
 function computeForecastPerExercise(records) {
-  const keyOf = seriesKeyResolver(records);
   const bySlot = /* @__PURE__ */ new Map();
   for (const r of records) {
     if (r.result !== 'success') continue;
-    const slot = bySlot.get(keyOf(r)) ?? [];
+    const slot = bySlot.get(r.seriesKey) ?? [];
     slot.push(r);
-    bySlot.set(keyOf(r), slot);
+    bySlot.set(r.seriesKey, slot);
   }
   const result = /* @__PURE__ */ new Map();
   for (const [exerciseId, exerciseRecords] of bySlot) {
@@ -8135,12 +8188,11 @@ var DEFAULT_REPS5 = 5;
 var MS_PER_WEEK2 = 7 * 864e5;
 var MS_PER_DAY2 = 864e5;
 function computeRecommendationPerExercise(records) {
-  const keyOf = seriesKeyResolver(records);
   const bySlot = /* @__PURE__ */ new Map();
   for (const r of records) {
-    const slot = bySlot.get(keyOf(r)) ?? [];
+    const slot = bySlot.get(r.seriesKey) ?? [];
     slot.push(r);
-    bySlot.set(keyOf(r), slot);
+    bySlot.set(r.seriesKey, slot);
   }
   const result = /* @__PURE__ */ new Map();
   for (const [exerciseId, exerciseRecords] of bySlot) {

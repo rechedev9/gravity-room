@@ -118,7 +118,8 @@ export function TestWeightModal({
           {...register('weight')}
           min={toDisplay(MIN_WEIGHT)}
           max={toDisplay(MAX_WEIGHT)}
-          step={WEIGHT_STEP}
+          // A kg plate step has no meaning in lbs: there it would reject the prefilled value.
+          step={unit === 'kg' ? WEIGHT_STEP : 'any'}
           aria-invalid={!isWeightValid}
           aria-describedby={showRangeError ? rangeErrorId : undefined}
           className="w-full border border-rule bg-body text-main text-sm px-3 py-2.5 rounded-control focus:outline-none focus:ring-2 focus:ring-accent mb-1"

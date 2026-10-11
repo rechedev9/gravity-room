@@ -19,7 +19,7 @@ describe('useUnitPreference', () => {
 
     act(() => result.current.toggleUnit());
 
-    expect(screen.getByTestId('reading').textContent).toBe('220.5 lbs');
+    expect(screen.getByTestId('reading').textContent).toBe('220.46 lbs');
     expect(result.current.unit).toBe('lbs');
   });
 

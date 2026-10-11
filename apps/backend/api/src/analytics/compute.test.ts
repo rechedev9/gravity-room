@@ -49,6 +49,7 @@ function craftedRecords(): WorkoutRecord[] {
         exerciseId: 'squat',
         definitionVersion: 1,
         tier: 't1',
+        seriesKey: 'squat',
         weight: 80 + 2.5 * (7 - week),
         result: 'success',
         rpe: null,

@@ -15,25 +15,25 @@ test.describe('Setup flow', () => {
   test('renders setup form with correct defaults', async ({ page }) => {
     await expect(page.getByText('Pesos Iniciales (kg)')).toBeVisible();
 
-    // Fresh weight fields start at the empty bar (20 kg), like the guided flow's "I don't know"
-    await expect(page.locator('#weight-squat')).toHaveValue('20');
-    await expect(page.locator('#weight-bench')).toHaveValue('20');
-    await expect(page.locator('#weight-deadlift')).toHaveValue('20');
-    await expect(page.locator('#weight-ohp')).toHaveValue('20');
-    await expect(page.locator('#weight-latpulldown')).toHaveValue('20');
-    await expect(page.locator('#weight-dbrow')).toHaveValue('20');
+    // GZCLP weight fields start at the field minimum (2.5 kg), the domain default
+    await expect(page.locator('#weight-squat')).toHaveValue('2.5');
+    await expect(page.locator('#weight-bench')).toHaveValue('2.5');
+    await expect(page.locator('#weight-deadlift')).toHaveValue('2.5');
+    await expect(page.locator('#weight-ohp')).toHaveValue('2.5');
+    await expect(page.locator('#weight-latpulldown')).toHaveValue('2.5');
+    await expect(page.locator('#weight-dbrow')).toHaveValue('2.5');
   });
 
   test('+/- buttons adjust weight by one step', async ({ page }) => {
-    // GZCLP step is 2.5 kg; starting from the 20 kg default
+    // GZCLP step is 2.5 kg; starting from the 2.5 kg default
     const squatInput = page.locator('#weight-squat');
-    await expect(squatInput).toHaveValue('20');
+    await expect(squatInput).toHaveValue('2.5');
 
     await page.getByRole('button', { name: 'Aumentar Sentadilla' }).click();
-    await expect(squatInput).toHaveValue('22.5');
+    await expect(squatInput).toHaveValue('5');
 
     await page.getByRole('button', { name: 'Disminuir Sentadilla' }).click();
-    await expect(squatInput).toHaveValue('20');
+    await expect(squatInput).toHaveValue('2.5');
   });
 
   test('shows validation error for weight below minimum', async ({ page }) => {

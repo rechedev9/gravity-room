@@ -10,8 +10,7 @@ import { Button } from '@/components/button';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { SelectField } from '@/components/select-field';
 import { localizedProgramName } from '@/lib/catalog-display';
-import { DEFAULT_BAR_KG } from '@gzclp/domain/barbell';
-import { roundToNearest } from '@gzclp/domain/generic-engine';
+import { defaultWeightValue } from '@gzclp/domain/program-config';
 import { useUnitPreference } from '@/hooks/use-unit-preference';
 import { WeightField } from './weight-field';
 
@@ -47,10 +46,7 @@ function getFieldDefault(
   if (initialConfig?.[field.key] !== undefined) {
     return String(initialConfig[field.key]);
   }
-  // Start from the empty bar like the guided flow's "I don't know", not the bare minimum.
-  if (isWeightField(field)) {
-    return String(roundToNearest(Math.max(field.min, DEFAULT_BAR_KG), field.step));
-  }
+  if (isWeightField(field)) return String(defaultWeightValue(field));
   // Select: default to first option's value
   return field.options[0]?.value ?? '';
 }

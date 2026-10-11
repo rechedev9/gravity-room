@@ -1,7 +1,7 @@
 /**
  * Drizzle data access for analytics pipelines.
- * Reads use stable exercise identity, a bounded newest-history window, and
- * deterministic ordering. `upsertInsight` writes `user_insights` with
+ * Insight points use stable exercise identity, a bounded newest-history window,
+ * and deterministic ordering; the engine replay reads every result. `upsertInsight` writes `user_insights` with
  * `ON CONFLICT (user_id, insight_type, exercise_id) DO UPDATE`.
  */
 
@@ -10,9 +10,10 @@ import { getDb } from '../db';
 import { programInstances, userInsights, users, workoutResults } from '@gzclp/database/schema';
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
-import type { WorkoutRecord } from './record';
-import { prescribedWeights, weightKey } from './prescribed-weight';
+import { seriesKeyResolver, type SeriesPoint, type WorkoutRecord } from './record';
+import { prescribedWeights, weightKey, type AnalyticsResultRow } from './prescribed-weight';
 import { MAX_ANALYTICS_RECORDS_PER_USER } from '../lib/data-limits';
+import { logger } from '../lib/logger';
 import { getHistoricalProgramDefinition } from '../services/catalog';
 
 export interface UserRow {
@@ -130,6 +131,30 @@ async function resolveInstanceDefinition(
   return stored.status === 'found' ? stored.definition : null;
 }
 
+interface HistoryRow extends AnalyticsResultRow {
+  readonly exerciseId: string | null;
+  readonly definitionVersion: number | null;
+}
+
+/** Every result of the user's instances: no identity filter and no cap. */
+async function fetchResultHistory(userId: string, executor: Executor): Promise<HistoryRow[]> {
+  return executor
+    .select({
+      instanceId: sql<string>`${programInstances.id}::text`,
+      workoutIndex: workoutResults.workoutIndex,
+      slotId: workoutResults.slotId,
+      exerciseId: workoutResults.exerciseId,
+      definitionVersion: workoutResults.definitionVersion,
+      result: workoutResults.result,
+      rpe: sql<number | null>`${workoutResults.rpe}::float`,
+      amrapReps: workoutResults.amrapReps,
+      setLogs: workoutResults.setLogs,
+    })
+    .from(workoutResults)
+    .innerJoin(programInstances, eq(programInstances.id, workoutResults.instanceId))
+    .where(eq(programInstances.userId, userId));
+}
+
 /**
  * The newest bounded workout-result window for a user. Only rows with a stable
  * versioned exercise identity participate; unresolved legacy rows are omitted
@@ -173,39 +198,56 @@ export async function fetchWorkoutRecords(
     )
     .limit(MAX_ANALYTICS_RECORDS_PER_USER);
 
+  if (rows.length === 0) return [];
+
   // Each result's tier and, for unlogged ones, its prescribed weight both come
   // from replaying the instance's own definition.
-  const resultInstances = new Set(rows.map((row) => row.instanceId));
+  const history = await fetchResultHistory(userId, executor);
+  const identified = history.filter(
+    (row) => row.exerciseId !== null && row.definitionVersion !== null
+  );
+  const identifiedInstances = new Set(identified.map((row) => row.instanceId));
   const unweighted = new Set(
     rows.filter((row) => row.loggedWeight === null).map((row) => row.instanceId)
   );
   const prescribed = new Map<string, ReadonlyMap<string, number>>();
   const tiers = new Map<string, ReadonlyMap<string, string>>();
-  if (resultInstances.size > 0) {
-    const instances = await executor
-      .select({
-        id: sql<string>`${programInstances.id}::text`,
-        templateId: programInstances.templateId,
-        config: programInstances.programConfig,
-        customDefinition: programInstances.customDefinition,
-      })
-      .from(programInstances)
-      .where(eq(programInstances.userId, userId));
-    for (const instance of instances) {
-      if (!resultInstances.has(instance.id)) continue;
-      const definition = await resolveInstanceDefinition(instance, executor);
-      if (definition === null) continue;
-      tiers.set(instance.id, slotTiers(definition));
-      if (!unweighted.has(instance.id)) continue;
-      prescribed.set(
-        instance.id,
-        prescribedWeights(
-          rows.filter((row) => row.instanceId === instance.id),
-          { definition, config: instance.config }
-        )
-      );
+  const instances = await executor
+    .select({
+      id: sql<string>`${programInstances.id}::text`,
+      templateId: programInstances.templateId,
+      config: programInstances.programConfig,
+      customDefinition: programInstances.customDefinition,
+    })
+    .from(programInstances)
+    .where(eq(programInstances.userId, userId));
+  for (const instance of instances) {
+    if (!identifiedInstances.has(instance.id)) continue;
+    const definition = await resolveInstanceDefinition(instance, executor);
+    if (definition === null) continue;
+    tiers.set(instance.id, slotTiers(definition));
+    if (!unweighted.has(instance.id)) continue;
+    // The engine reads a missing result as a rule of its own, so the replay
+    // needs every result of the instance, not the insight window.
+    prescribed.set(
+      instance.id,
+      prescribedWeights(
+        history.filter((row) => row.instanceId === instance.id),
+        { definition, config: instance.config }
+      )
+    );
+  }
+
+  // Whether a lift has one tier or several is a fact of the whole history: read
+  // from the window, a series would change key when its other tier aged out.
+  const seriesHistory: SeriesPoint[] = [];
+  for (const row of identified) {
+    const tier = tiers.get(row.instanceId)?.get(row.slotId);
+    if (tier !== undefined && row.exerciseId !== null) {
+      seriesHistory.push({ exerciseId: row.exerciseId, tier });
     }
   }
+  const seriesKeyOf = reportingSeriesKey(userId, seriesKeyResolver(seriesHistory));
 
   // The query takes the newest bounded window; restore chronological order for
   // pipelines whose stable tie behavior relies on input order.
@@ -217,6 +259,8 @@ export async function fetchWorkoutRecords(
     if (tier === undefined) continue;
     const weight = row.loggedWeight ?? prescribed.get(row.instanceId)?.get(weightKey(row));
     if (weight === undefined) continue;
+    const seriesKey = seriesKeyOf({ exerciseId: row.exerciseId, tier });
+    if (seriesKey === null) continue;
     records.push({
       userId: row.userId,
       instanceId: row.instanceId,
@@ -225,6 +269,7 @@ export async function fetchWorkoutRecords(
       exerciseId: row.exerciseId,
       definitionVersion: Number(row.definitionVersion),
       tier,
+      seriesKey,
       weight: Number(weight),
       result: row.result,
       rpe: row.rpe === null ? null : Number(row.rpe),
@@ -233,6 +278,27 @@ export async function fetchWorkoutRecords(
     });
   }
   return records;
+}
+
+/** A series whose key cannot be stored is left out and reported once, not truncated. */
+function reportingSeriesKey(
+  userId: string,
+  keyOf: (point: SeriesPoint) => string
+): (point: SeriesPoint) => string | null {
+  const reported = new Set<string>();
+  return (point) => {
+    try {
+      return keyOf(point);
+    } catch (error) {
+      if (!(error instanceof RangeError)) throw error;
+      const series = JSON.stringify([point.exerciseId, point.tier]);
+      if (!reported.has(series)) {
+        reported.add(series);
+        logger.error({ err: error, userId }, 'analytics: insight series key cannot be stored');
+      }
+      return null;
+    }
+  };
 }
 
 function slotTiers(definition: ProgramDefinition): ReadonlyMap<string, string> {

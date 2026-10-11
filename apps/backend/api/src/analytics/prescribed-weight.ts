@@ -16,7 +16,6 @@ export interface AnalyticsResultRow {
   readonly amrapReps: number | null;
   readonly rpe: number | null;
   readonly setLogs: unknown;
-  readonly loggedWeight: number | null;
 }
 
 export interface InstanceReplaySource {

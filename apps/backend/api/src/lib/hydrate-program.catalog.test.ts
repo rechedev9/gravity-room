@@ -78,4 +78,70 @@ describe('seeded catalog hydration', () => {
       expect(empty).toEqual([]);
     }
   );
+
+  // The Deload badge means a cut of the same slot, never a planned lighter step.
+  it.each(PROGRAM_CATALOG.map((meta) => [meta.id, meta] as const))(
+    'flags no deload in %s while nothing has been logged',
+    (_id, meta) => {
+      const result = hydrateProgramDefinition(
+        {
+          id: meta.id,
+          name: meta.name,
+          description: meta.description,
+          author: meta.author,
+          version: 1,
+          category: meta.category,
+          source: 'preset',
+          definition: PROGRAM_TEMPLATE_DEFINITIONS[meta.id],
+        },
+        [...seededExercises.values()]
+      );
+      if (!result.ok) throw new Error(JSON.stringify(result.error));
+
+      const defaults = buildProgramConfig(result.value);
+      const realistic = Object.fromEntries(
+        Object.entries(defaults).map(([key, value]) => [
+          key,
+          typeof value === 'number' ? 100 : value,
+        ])
+      );
+      for (const config of [defaults, realistic]) {
+        const flagged = computeGenericProgram(result.value, config, {}).flatMap((row) =>
+          row.slots.filter((slot) => slot.isDeload).map((slot) => `${row.index}:${slot.slotId}`)
+        );
+        expect(flagged).toEqual([]);
+      }
+    }
+  );
+
+  it('still flags the seeded GZCLP squat when three failed stages reset its weight', () => {
+    const meta = PROGRAM_CATALOG.find((entry) => entry.id === 'gzclp');
+    if (meta === undefined) throw new Error('GZCLP must be in the catalog');
+    const result = hydrateProgramDefinition(
+      {
+        id: meta.id,
+        name: meta.name,
+        description: meta.description,
+        author: meta.author,
+        version: 1,
+        category: meta.category,
+        source: 'preset',
+        definition: PROGRAM_TEMPLATE_DEFINITIONS[meta.id],
+      },
+      [...seededExercises.values()]
+    );
+    if (!result.ok) throw new Error(JSON.stringify(result.error));
+
+    const fail = { 'd1-t1': { result: 'fail' as const } };
+    const rows = computeGenericProgram(
+      result.value,
+      { ...buildProgramConfig(result.value), squat: 100 },
+      { '0': fail, '4': fail, '8': fail },
+      { maxRows: 13 }
+    );
+    const flagged = rows.flatMap((row) =>
+      row.slots.filter((slot) => slot.isDeload).map((slot) => `${row.index}:${slot.slotId}`)
+    );
+    expect(flagged).toEqual(['12:d1-t1']);
+  });
 });

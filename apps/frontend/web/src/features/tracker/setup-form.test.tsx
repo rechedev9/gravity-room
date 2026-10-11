@@ -58,8 +58,18 @@ describe('SetupForm validation', () => {
 });
 
 describe('SetupForm defaults', () => {
-  it('starts weight fields at the empty bar, not at the bare field minimum', () => {
+  it('starts a weight field at the domain default: its minimum when it has one', () => {
     render(createElement(SetupForm, { definition, onGenerate: vi.fn() }));
+    const input = document.getElementById('weight-squat') as HTMLInputElement;
+    expect(input.value).toBe('2.5');
+  });
+
+  it('starts a weight field without a minimum at eight steps', () => {
+    const noMinimum = {
+      ...definition,
+      configFields: [{ key: 'squat', label: 'Sentadilla', type: 'weight', min: 0, step: 2.5 }],
+    } as unknown as ProgramDefinition;
+    render(createElement(SetupForm, { definition: noMinimum, onGenerate: vi.fn() }));
     const input = document.getElementById('weight-squat') as HTMLInputElement;
     expect(input.value).toBe('20');
   });

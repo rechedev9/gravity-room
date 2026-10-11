@@ -37,7 +37,6 @@ function row(workoutIndex: number, result: 'success' | 'fail'): AnalyticsResultR
     amrapReps: null,
     rpe: null,
     setLogs: null,
-    loggedWeight: null,
   };
 }
 

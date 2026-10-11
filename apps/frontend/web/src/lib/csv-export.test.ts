@@ -438,6 +438,6 @@ describe('generateProgramCsv: weight unit', () => {
     const csv = generateProgramCsv({ rows, workoutsPerWeek: 3, unit: 'lbs' });
     const [header, line] = csv.split('\n');
     expect(header).toContain('Weight (lbs)');
-    expect(line.split(',')).toContain('132.3');
+    expect(line.split(',')).toContain('132.28');
   });
 });
