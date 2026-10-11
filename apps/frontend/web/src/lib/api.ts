@@ -12,6 +12,7 @@ import { ApiError } from '@gzclp/api-client/api-error';
 import { readApiError } from '@gzclp/api-client/response-error';
 import { createSingleFlight } from '@gzclp/api-client/single-flight';
 import { SESSION_INVALIDATED_EVENT } from './auth-events';
+import { signedInHereSince, signedInSince, snapshotSessionHint } from './session-hint';
 
 export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -56,6 +57,7 @@ export interface RefreshResult {
 const refreshAccessToken = createSingleFlight(async (): Promise<RefreshResult | null> => {
   if (refreshBlocked) return null;
 
+  const hint = snapshotSessionHint();
   const controller = new AbortController();
   activeRefreshController = controller;
   let res: Response;
@@ -74,10 +76,17 @@ const refreshAccessToken = createSingleFlight(async (): Promise<RefreshResult | 
 
   if (refreshBlocked) return null;
 
+  // A sign-in that landed in this tab meanwhile owns the session: this answer is stale.
+  if (signedInHereSince(hint)) {
+    return accessToken === null ? null : { accessToken, user: undefined };
+  }
+
   if (!res.ok) {
     const error = await readApiError(res, 'Session refresh failed');
     // 429, 5xx and a 401 from anything but the endpoint itself say nothing about the cookie.
     if (!isRefreshTokenVerdict(error)) throw error;
+    // Another tab signed in after this request left: its cookie is newer than this 401.
+    if (signedInSince(hint)) return null;
     setAccessToken(null);
     await clearApiResponseCache();
     globalThis.dispatchEvent(new Event(SESSION_INVALIDATED_EVENT));
