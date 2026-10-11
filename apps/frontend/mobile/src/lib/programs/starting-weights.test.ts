@@ -46,7 +46,7 @@ describe('startingWeightFields', () => {
         min: 2.5,
         step: 2.5,
         hint: 'Top set',
-        defaultValue: 20,
+        defaultValue: 2.5,
       },
       { key: 'bench', label: 'Press Banca', min: 0, step: 2.5, defaultValue: 20 },
       { key: 'ohp', label: 'Press Militar', min: 0, step: 1, defaultValue: 8 },

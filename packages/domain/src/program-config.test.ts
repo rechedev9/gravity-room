@@ -7,11 +7,11 @@ function weight(min: number, step: number): ProgramConfigField {
 
 describe('defaultConfigValue', () => {
   it.each([
-    ['starts a 2.5 kg minimum plan at an empty bar, not a bare 2.5 kg', 2.5, 2.5, 20],
+    ['starts at the minimum when the plan sets one', 2.5, 2.5, 2.5],
+    ['starts a training max at its minimum, not at eight steps', 10, 2.5, 10],
     ['starts a zero minimum at eight steps', 0, 5, 40],
-    ['never goes below the minimum', 60, 2.5, 60],
-    ['keeps a bodyweight style minimum', 30, 0.5, 30],
-    ['falls back to 20 when there is no step', 0, 0, 20],
+    ['keeps a minimum above eight steps', 60, 2.5, 60],
+    ['falls back to 20 when there is no minimum and no step', 0, 0, 20],
   ])('weight field: %s', (_name, min, step, expected) => {
     expect(defaultConfigValue(weight(min, step))).toBe(expected);
   });
@@ -38,7 +38,7 @@ describe('buildProgramConfig', () => {
   ];
 
   it('fills every field with its default', () => {
-    expect(buildProgramConfig({ configFields })).toEqual({ squat: 20, bench: 20, unit: 'kg' });
+    expect(buildProgramConfig({ configFields })).toEqual({ squat: 2.5, bench: 20, unit: 'kg' });
   });
 
   it('applies overrides to weight fields only and ignores unknown keys', () => {
