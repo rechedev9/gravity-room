@@ -125,6 +125,91 @@ describe('useProgramMutations', () => {
     expect(detail?.undoHistory).toHaveLength(1);
   });
 
+  it('mirrors a result change even when an older entry for the same slot looks alike', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    // The top entry is the AMRAP save: same slot, and its prev is the unchanged result.
+    const history = [
+      { i: 0, slotId: 'squat-t1' },
+      { i: 0, slotId: 'squat-t1', prev: 'success' as const },
+    ];
+    queryClient.setQueryData<GenericProgramDetail>(DETAIL_KEY, {
+      ...DETAIL,
+      results: { '0': { 'squat-t1': { result: 'success', amrapReps: 8 } } },
+      undoHistory: history,
+    });
+    const { result } = renderProgramMutations(queryClient);
+    await waitFor(() => {
+      expect(result.current).toBeDefined();
+    });
+
+    await result.current.markResultMutation.mutateAsync({
+      index: 0,
+      slotId: 'squat-t1',
+      value: 'fail',
+    });
+    expect(queryClient.getQueryData<GenericProgramDetail>(DETAIL_KEY)?.undoHistory).toEqual([
+      ...history,
+      { i: 0, slotId: 'squat-t1', prev: 'success', prevAmrapReps: 8 },
+    ]);
+
+    await result.current.undoLastMutation.mutateAsync();
+    expect(
+      queryClient.getQueryData<GenericProgramDetail>(DETAIL_KEY)?.results['0']?.['squat-t1']
+    ).toEqual({ result: 'success', amrapReps: 8 });
+  });
+
+  it('mirrors both results when two slots are marked before either is saved', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    queryClient.setQueryData(DETAIL_KEY, DETAIL);
+    const { result } = renderProgramMutations(queryClient);
+    await waitFor(() => {
+      expect(result.current).toBeDefined();
+    });
+
+    await Promise.all([
+      result.current.markResultMutation.mutateAsync({ index: 0, slotId: 'a', value: 'success' }),
+      result.current.markResultMutation.mutateAsync({ index: 0, slotId: 'b', value: 'fail' }),
+    ]);
+
+    expect(queryClient.getQueryData<GenericProgramDetail>(DETAIL_KEY)?.undoHistory).toEqual([
+      { i: 0, slotId: 'a' },
+      { i: 0, slotId: 'b' },
+    ]);
+  });
+
+  it('does not duplicate an entry that a refetch delivered during the request', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    queryClient.setQueryData(DETAIL_KEY, DETAIL);
+    mockRecordGenericResult.mockImplementationOnce(() => {
+      queryClient.setQueryData<GenericProgramDetail>(DETAIL_KEY, {
+        ...DETAIL,
+        results: { '0': { 'squat-t1': { result: 'success' } } },
+        undoHistory: [{ i: 0, slotId: 'squat-t1' }],
+      });
+      return Promise.resolve();
+    });
+    const { result } = renderProgramMutations(queryClient);
+    await waitFor(() => {
+      expect(result.current).toBeDefined();
+    });
+
+    await result.current.markResultMutation.mutateAsync({
+      index: 0,
+      slotId: 'squat-t1',
+      value: 'success',
+    });
+
+    expect(queryClient.getQueryData<GenericProgramDetail>(DETAIL_KEY)?.undoHistory).toEqual([
+      { i: 0, slotId: 'squat-t1' },
+    ]);
+  });
+
   it('offers no undo for a result the server rejected', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },

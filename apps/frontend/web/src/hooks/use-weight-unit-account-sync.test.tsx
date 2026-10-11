@@ -12,6 +12,7 @@ vi.mock('@/lib/api-core', () => ({ updateProfile: mockUpdateProfile }));
 import { useWeightUnitAccountSync } from './use-weight-unit-account-sync';
 import {
   WEIGHT_UNIT_OWNER_KEY,
+  WEIGHT_UNIT_PENDING_KEY,
   WEIGHT_UNIT_STORAGE_KEY,
   readWeightUnit,
   writeWeightUnit,
@@ -80,6 +81,57 @@ describe('useWeightUnitAccountSync', () => {
     mount(USER);
     act(() => writeWeightUnit('lbs'));
     await waitFor(() => expect(mockUpdateProfile).toHaveBeenCalledWith({ weightUnit: 'lbs' }));
+  });
+
+  it('retries a guest choice on the next load when the account write was rejected', async () => {
+    localStorage.setItem(WEIGHT_UNIT_STORAGE_KEY, 'lbs');
+    mockUpdateProfile.mockRejectedValueOnce(new Error('offline'));
+    const unmount = mount(USER);
+    await waitFor(() => expect(mockUpdateProfile).toHaveBeenCalledTimes(1));
+    unmount();
+
+    mount(USER);
+    expect(readWeightUnit()).toBe('lbs');
+    await waitFor(() => expect(mockUpdateProfile).toHaveBeenCalledTimes(2));
+    expect(mockUpdateProfile).toHaveBeenLastCalledWith({ weightUnit: 'lbs' });
+  });
+
+  it('keeps and resends a signed-in change that the account rejected', async () => {
+    mockUpdateProfile.mockRejectedValueOnce(new Error('server error'));
+    const unmount = mount(USER);
+    act(() => writeWeightUnit('lbs'));
+    await waitFor(() => expect(mockUpdateProfile).toHaveBeenCalledTimes(1));
+    unmount();
+
+    mount(USER);
+    expect(readWeightUnit()).toBe('lbs');
+    await waitFor(() => expect(mockUpdateProfile).toHaveBeenCalledTimes(2));
+    expect(mockUpdateProfile).toHaveBeenLastCalledWith({ weightUnit: 'lbs' });
+  });
+
+  it('lets the account win again once a change was saved', async () => {
+    const unmount = mount(USER);
+    act(() => writeWeightUnit('lbs'));
+    await waitFor(() => expect(mockUpdateProfile).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(localStorage.getItem(WEIGHT_UNIT_PENDING_KEY)).toBeNull());
+    unmount();
+
+    // The unit was switched back on another device.
+    mount(USER);
+    expect(readWeightUnit()).toBe('kg');
+    expect(mockUpdateProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not resend a rejected change into another account', async () => {
+    mockUpdateProfile.mockRejectedValueOnce(new Error('server error'));
+    const unmount = mount(USER);
+    act(() => writeWeightUnit('lbs'));
+    await waitFor(() => expect(mockUpdateProfile).toHaveBeenCalledTimes(1));
+    unmount();
+
+    mount({ id: 'u2', email: 'c@d.co', weightUnit: 'kg' });
+    expect(readWeightUnit()).toBe('kg');
+    expect(mockUpdateProfile).toHaveBeenCalledTimes(1);
   });
 
   it('stays local for guests and for an API that sends no unit', () => {

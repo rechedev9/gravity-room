@@ -709,7 +709,10 @@
     "replace": {
       "title": "Start {{next}}?",
       "message": "Your active program, {{current}}, will be ended. Your history is kept.",
-      "confirm": "End it and start"
+      "confirm": "End it and start",
+      "guest_message": "Your current program, {{current}}, and the results you logged on this device will be deleted.",
+      "guest_confirm": "Replace and start",
+      "load_error": "Could not check your active program. Try again."
     },
     "active_heading": "Active program",
     "active_workout": "Workout {{completed}} of {{total}}",

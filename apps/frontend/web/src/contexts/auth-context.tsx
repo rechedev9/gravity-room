@@ -18,7 +18,14 @@ import { setUser as sentrySetUser } from '@/lib/sentry';
 import { trackEvent } from '@/lib/analytics';
 import { queryKeys } from '@/lib/query-keys';
 import { useWeightUnitAccountSync } from '@/hooks/use-weight-unit-account-sync';
-import { isRecentlySignedOut, markSessionSignedIn, markSessionSignedOut } from '@/lib/session-hint';
+import {
+  isRecentlySignedOut,
+  markSessionSignedIn,
+  markSessionSignedOut,
+  signedInHereSince,
+  signedInSince,
+  snapshotSessionHint,
+} from '@/lib/session-hint';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -121,15 +128,20 @@ function isSocialCallbackPath(): boolean {
   return window.location.pathname.startsWith('/auth/callback');
 }
 
-async function restoreSession(): Promise<UserInfo | null> {
+async function restoreSession(queryClient: QueryClient): Promise<UserInfo | null> {
   if (isRecentlySignedOut() && !isSocialCallbackPath()) {
     activeAuthSessionIdentity = null;
     return null;
   }
+  const hint = snapshotSessionHint();
   const refreshed = await refreshAccessToken();
+  // A sign-in finished while this restore was in flight: its user is the session.
+  if (signedInHereSince(hint)) {
+    return queryClient.getQueryData<UserInfo | null>(SESSION_QUERY_KEY) ?? null;
+  }
   if (!refreshed) {
     activeAuthSessionIdentity = null;
-    markSessionSignedOut();
+    if (!signedInSince(hint)) markSessionSignedOut();
     return null;
   }
   try {
@@ -233,7 +245,7 @@ export function AuthProvider({
   const queryClient = useQueryClient();
   const session = useQuery({
     queryKey: SESSION_QUERY_KEY,
-    queryFn: restoreSession,
+    queryFn: () => restoreSession(queryClient),
     staleTime: Infinity,
     gcTime: Infinity,
     retry: false,

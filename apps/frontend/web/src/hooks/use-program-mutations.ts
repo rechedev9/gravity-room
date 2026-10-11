@@ -181,8 +181,10 @@ export function useProgramMutations({
       if (!current) return;
       const top = current.undoHistory[current.undoHistory.length - 1];
       const before = context?.previousDetail?.results[String(index)]?.[slotId];
-      // A refetch that raced this request already carries the entry.
-      if (top?.i === index && top.slotId === slotId && top.prev === before?.result) return;
+      // A refetch that raced this request already carries the entry. The history must have
+      // grown since onMutate: an older entry for this slot can look the same as the new one.
+      const grew = current.undoHistory.length > (context?.previousDetail?.undoHistory.length ?? 0);
+      if (grew && top?.i === index && top.slotId === slotId && top.prev === before?.result) return;
       queryClient.setQueryData<GenericProgramDetail>(detailKey, {
         ...current,
         undoHistory: [

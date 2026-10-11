@@ -8,9 +8,11 @@ import {
   readStoredWeightUnit,
   readWeightUnit,
   readWeightUnitOwner,
+  readWeightUnitPending,
   subscribeWeightUnit,
   writeWeightUnit,
   writeWeightUnitOwner,
+  writeWeightUnitPending,
 } from '@/lib/weight-unit';
 
 /**
@@ -20,6 +22,8 @@ import {
  *   unit chosen as a guest (no owner recorded) that is not the default is
  *   pushed up to the account.
  * - Later changes made anywhere in the app are written to the account.
+ * - A write the account has not accepted stays marked as pending, so the next
+ *   load sends it again instead of replacing it with the account value.
  *
  * Guests and API versions that send no unit stay purely local.
  */
@@ -38,8 +42,11 @@ export function useWeightUnitAccountSync(user: UserInfo | null): void {
 
     const push = (unit: WeightUnit): void => {
       lastSentRef.current = unit;
+      writeWeightUnitPending(userId);
       updateProfile({ weightUnit: unit }).then(
         (saved) => {
+          // A newer change may still be on its way: only the latest one settles the mark.
+          if (readWeightUnit() === unit) writeWeightUnitPending(null);
           queryClient.setQueryData(queryKeys.auth.session, (prev: UserInfo | null | undefined) =>
             prev && saved.weightUnit !== undefined
               ? { ...prev, weightUnit: saved.weightUnit }
@@ -47,8 +54,8 @@ export function useWeightUnitAccountSync(user: UserInfo | null): void {
           );
         },
         () => {
-          // Offline or rejected: the browser keeps the choice and the next
-          // change is sent again.
+          // Offline or rejected: the pending mark makes the next load resend it,
+          // and the next change is sent again.
           lastSentRef.current = accountUnitRef.current;
         }
       );
@@ -60,10 +67,13 @@ export function useWeightUnitAccountSync(user: UserInfo | null): void {
     const local = readStoredWeightUnit();
     writeWeightUnitOwner(userId);
     lastSentRef.current = known;
-    if (owner === null && local !== null && local !== known && known === 'kg') {
+    const isGuestChoice = owner === null && known === 'kg';
+    const isRejectedWrite = owner === userId && readWeightUnitPending() === userId;
+    if (local !== null && local !== known && (isGuestChoice || isRejectedWrite)) {
       push(local);
-    } else if (readWeightUnit() !== known) {
-      writeWeightUnit(known);
+    } else {
+      writeWeightUnitPending(null);
+      if (readWeightUnit() !== known) writeWeightUnit(known);
     }
 
     return subscribeWeightUnit(() => {

@@ -709,7 +709,10 @@
     "replace": {
       "title": "¿Empezar {{next}}?",
       "message": "Tu programa activo, {{current}}, se dará por finalizado. Tu historial se conserva.",
-      "confirm": "Finalizar y empezar"
+      "confirm": "Finalizar y empezar",
+      "guest_message": "Tu programa actual, {{current}}, y los resultados que has registrado en este dispositivo se borrarán.",
+      "guest_confirm": "Reemplazar y empezar",
+      "load_error": "No se pudo comprobar tu programa activo. Inténtalo de nuevo."
     },
     "active_heading": "Programa activo",
     "active_workout": "Entrenamiento {{completed}} de {{total}}",

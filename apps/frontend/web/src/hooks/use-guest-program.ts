@@ -108,9 +108,10 @@ export function useGuestProgram(
   useEffect(() => {
     if (!enabled) return;
     if (config === null) {
-      // No active guest program (finished/reset) — drop any persisted instance.
+      // Finished or reset: drop this program's instance. Another program's
+      // instance stays until generateProgram replaces it, after the user confirms.
       const existing = readGuestData();
-      if (existing && GUEST_INSTANCE_ID in existing.instances) {
+      if (existing?.instances[GUEST_INSTANCE_ID]?.programId === programId) {
         const rest = { ...existing.instances };
         delete rest[GUEST_INSTANCE_ID];
         writeGuestData({ ...existing, activeProgramId: null, instances: rest });
