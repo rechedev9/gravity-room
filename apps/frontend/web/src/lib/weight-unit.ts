@@ -7,6 +7,8 @@ import { isWeightUnit, type WeightUnit } from '@gzclp/domain/weight-unit';
 export const WEIGHT_UNIT_STORAGE_KEY = 'gravity-room:unit-preference';
 /** Id of the account the stored unit was last reconciled with; absent for a guest choice. */
 export const WEIGHT_UNIT_OWNER_KEY = 'gravity-room:unit-owner';
+/** Id of the account that has not yet accepted the stored unit; absent once it is saved. */
+export const WEIGHT_UNIT_PENDING_KEY = 'gravity-room:unit-pending';
 const WEIGHT_UNIT_EVENT = 'gravity-room:unit-change';
 
 /** The explicit choice made in this browser, or null when none was ever stored. */
@@ -45,6 +47,23 @@ export function writeWeightUnitOwner(userId: string): void {
     localStorage.setItem(WEIGHT_UNIT_OWNER_KEY, userId);
   } catch {
     // storage unavailable: the choice is simply reconciled again next load
+  }
+}
+
+export function readWeightUnitPending(): string | null {
+  try {
+    return localStorage.getItem(WEIGHT_UNIT_PENDING_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function writeWeightUnitPending(userId: string | null): void {
+  try {
+    if (userId === null) localStorage.removeItem(WEIGHT_UNIT_PENDING_KEY);
+    else localStorage.setItem(WEIGHT_UNIT_PENDING_KEY, userId);
+  } catch {
+    // storage unavailable: a rejected write is then simply not retried
   }
 }
 
