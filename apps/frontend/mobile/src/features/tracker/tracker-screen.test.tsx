@@ -165,6 +165,52 @@ const TEST_DETAIL: GenericProgramDetail = {
   updatedAt: '2026-04-20T10:00:00.000Z',
 };
 
+const PPL_DEFINITION: ProgramDefinition = {
+  ...TEST_DEFINITION,
+  id: 'ppl-prog',
+  exercises: { bench: { name: 'Bench' } },
+  configFields: [{ key: 'bench', label: 'Bench', type: 'weight', min: 20, step: 2.5 }],
+  weightIncrements: { bench: 2.5 },
+  days: [
+    {
+      name: 'Push A',
+      slots: [
+        {
+          id: 'bench-ppl',
+          exerciseId: 'bench',
+          tier: 'hypertrophy',
+          stages: [{ sets: 3, reps: 6 }],
+          onSuccess: { type: 'double_progression', repRangeTop: 12, repRangeBottom: 6 },
+          onFinalStageSuccess: { type: 'add_weight_reset_stage', amount: 2.5 },
+          onMidStageFail: { type: 'no_change' },
+          onFinalStageFail: { type: 'no_change' },
+          startWeightKey: 'bench',
+          progressionSetIndex: 0,
+        },
+      ],
+    },
+    {
+      name: 'Push B',
+      slots: [
+        {
+          id: 'bench-ppl',
+          exerciseId: 'bench',
+          tier: 'hypertrophy',
+          stages: [{ sets: 3, reps: 6 }],
+          onSuccess: { type: 'double_progression', repRangeTop: 12, repRangeBottom: 6 },
+          onFinalStageSuccess: { type: 'add_weight_reset_stage', amount: 2.5 },
+          onMidStageFail: { type: 'no_change' },
+          onFinalStageFail: { type: 'no_change' },
+          startWeightKey: 'bench',
+          progressionSetIndex: 0,
+        },
+      ],
+    },
+  ],
+};
+
+const PPL_DETAIL: GenericProgramDetail = { ...TEST_DETAIL, programId: 'ppl-prog' };
+
 const SQUAT_SET_LOGS = [
   { reps: 3, weight: 60 },
   { reps: 3, weight: 60 },
@@ -797,6 +843,100 @@ describe('TrackerScreen', () => {
         { reps: 3, weight: 60 },
       ],
     });
+  });
+
+  it('keeps the lifted sets when Fail is pressed after the progression set already passed', async () => {
+    mockedGetProgramDetail.mockResolvedValue(PPL_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(PPL_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
+    mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
+    mockedUpsertProgramDetail.mockResolvedValue();
+    jest.mocked(getSetDrafts).mockResolvedValue({
+      '0:bench-ppl': [
+        { reps: 12, weight: 40 },
+        { reps: 8, weight: 40 },
+      ],
+    });
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Mark Bench fail' }));
+
+    await waitFor(() =>
+      expect(mockCommittedEdits).toHaveBeenLastCalledWith({
+        instanceId: 'instance-1',
+        workoutIndex: 0,
+        slotId: 'bench-ppl',
+        result: 'success',
+        setLogs: [
+          { reps: 12, weight: 40 },
+          { reps: 8, weight: 40 },
+        ],
+      })
+    );
+    expect(await screen.findByText('Logged success')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'The set that counts for your progression was already completed, so this was saved as a success, not a fail.'
+      )
+    ).toBeTruthy();
+    expect(mockRestSkip).toHaveBeenCalled();
+  });
+
+  it('reopens every lifted set when a Fail that was saved as a success is undone', async () => {
+    mockedGetProgramDetail.mockResolvedValue(PPL_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(PPL_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
+    mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
+    mockedUpsertProgramDetail.mockResolvedValue();
+    jest.mocked(getSetDrafts).mockResolvedValue({
+      '0:bench-ppl': [
+        { reps: 12, weight: 40 },
+        { reps: 8, weight: 40 },
+      ],
+    });
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Mark Bench fail' }));
+    expect(await screen.findByText('Logged success')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
+
+    expect(await screen.findByRole('button', { name: 'Confirm set 3 for Bench' })).toBeTruthy();
+    expect(screen.getByLabelText('Set 1: 12 reps at 40 kg')).toBeTruthy();
+    expect(screen.getByLabelText('Set 2: 8 reps at 40 kg')).toBeTruthy();
+    expect(jest.mocked(saveSetDrafts)).toHaveBeenLastCalledWith('instance-1', {
+      '0:bench-ppl': [
+        { reps: 12, weight: 40 },
+        { reps: 8, weight: 40 },
+      ],
+    });
+    expect(screen.queryByText(/saved as a success, not a fail/)).toBeNull();
+  });
+
+  it('still records a manual Fail on PPL when the progression set missed the range', async () => {
+    mockedGetProgramDetail.mockResolvedValue(PPL_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(PPL_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
+    mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
+    mockedUpsertProgramDetail.mockResolvedValue();
+    jest.mocked(getSetDrafts).mockResolvedValue({ '0:bench-ppl': [{ reps: 4, weight: 40 }] });
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Mark Bench fail' }));
+
+    await waitFor(() =>
+      expect(mockCommittedEdits).toHaveBeenLastCalledWith({
+        instanceId: 'instance-1',
+        workoutIndex: 0,
+        slotId: 'bench-ppl',
+        result: 'fail',
+        setLogs: [
+          { reps: 4, weight: 40 },
+          { reps: 0, weight: 40 },
+        ],
+      })
+    );
+    expect(await screen.findByText('Logged fail')).toBeTruthy();
+    expect(screen.queryByText(/saved as a success, not a fail/)).toBeNull();
   });
 
   it('records a bare Fail without inventing sets', async () => {

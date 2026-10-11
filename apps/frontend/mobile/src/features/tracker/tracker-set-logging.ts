@@ -36,6 +36,18 @@ export function withMissedSet(
   return [...logs, { reps: 0, weight }];
 }
 
+/** The sets that return as drafts when the result closing a slot is undone. The last set closed
+ * it, unless a success was saved before every set was lifted: then nothing else closed it. */
+export function draftsAfterUndo(options: {
+  readonly logs: readonly SetLogEntry[];
+  readonly result: 'success' | 'fail' | undefined;
+  readonly sets: number | undefined;
+}): readonly SetLogEntry[] {
+  const { logs, result, sets } = options;
+  const closedEarly = result === 'success' && sets !== undefined && logs.length < sets;
+  return closedEarly ? logs : logs.slice(0, -1);
+}
+
 /** Bodyweight and general prep work carry no barbell load: the slot weight is the lifter's own
  * mass or zero, so it is never shown or logged as a lifted weight. */
 export function slotIsLoadless(slot: {

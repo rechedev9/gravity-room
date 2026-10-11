@@ -34,6 +34,7 @@ import { applyUndoEntry, buildUndoEntry, patchSlotMetrics, slotStateEqual } from
 import { TrackerSlotCard } from './tracker-slot-card';
 import {
   appendSetLog,
+  draftsAfterUndo,
   nextSetIndex,
   popSetLog,
   slotLogKey,
@@ -89,7 +90,9 @@ export function TrackerScreen({
   const [loadFailure, setLoadFailure] = useState<TrackerLoadFailure | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const syncStatus = useSyncStatus();
-  const [syncNotice, setSyncNotice] = useState<'cached' | 'draft_failed' | null>(null);
+  const [syncNotice, setSyncNotice] = useState<
+    'cached' | 'draft_failed' | 'fail_not_counted' | null
+  >(null);
   const [selectedWorkoutIndex, setSelectedWorkoutIndex] = useState(0);
   const [draftLogs, setDraftLogs] = useState<Readonly<Record<string, readonly SetLogEntry[]>>>({});
   const detailRef = useRef<GenericProgramDetail | null>(null);
@@ -386,6 +389,7 @@ export function TrackerScreen({
     // alone, so any other manual result is ignored while sets are in progress.
     const draftSets = draftLogsRef.current[slotLogKey(workoutIndex, slotId)] ?? [];
     const slotRow = rows[workoutIndex]?.slots.find((slot) => slot.slotId === slotId);
+    let failNotCounted = false;
     if (setLogs === undefined && draftSets.length > 0) {
       if (result !== 'fail' || slotRow === undefined) return;
       setLogs = withMissedSet(draftSets, slotRow.weight);
@@ -399,10 +403,12 @@ export function TrackerScreen({
       const derived = computeGenericProgram(definition, loggedDetail.config, loggedDetail.results)[
         workoutIndex
       ]?.slots.find((slot) => slot.slotId === slotId)?.result;
-      if (result === 'fail' && derived !== 'fail' && draftSets.length > 0) {
-        // The progression set sits among the logged sets and passed, so no set can record
-        // the fail; the fail wins and the unfinished sets are dropped.
-        setLogs = undefined;
+      if (result === 'fail' && derived === 'success' && draftSets.length > 0) {
+        // The progression set sits among the lifted sets and passed, so the domain reads a
+        // success. Keep what was lifted, without the invented miss, and tell the lifter.
+        setLogs = draftSets;
+        result = 'success';
+        failNotCounted = true;
       } else {
         result = derived ?? result;
       }
@@ -471,7 +477,7 @@ export function TrackerScreen({
 
     // A recorded result ends the exercise, so its rest is over.
     restTimer.skip();
-    setSyncNotice(null);
+    setSyncNotice(failNotCounted ? 'fail_not_counted' : null);
   }
 
   async function handleConfirmSet(
@@ -659,15 +665,20 @@ export function TrackerScreen({
 
     const previousDetail = currentDetail;
     const restoredDetail = applyUndoEntry(currentDetail, currentUndoEntry);
-    // Undoing a result that closed a slot with logged sets reopens it where the lifter was:
-    // every set but the last one, which is the one that closed it, returns as a draft.
-    const closingLogs =
-      currentDetail.results[String(currentUndoEntry.i)]?.[currentUndoEntry.slotId]?.setLogs;
+    // Undoing a result that closed a slot with logged sets reopens it where the lifter was.
+    const closingSlot =
+      currentDetail.results[String(currentUndoEntry.i)]?.[currentUndoEntry.slotId];
     const reopenedSlot =
       restoredDetail.results[String(currentUndoEntry.i)]?.[currentUndoEntry.slotId];
     const reopenedDraft =
-      reopenedSlot?.result === undefined && closingLogs !== undefined
-        ? closingLogs.slice(0, -1)
+      reopenedSlot?.result === undefined && closingSlot?.setLogs !== undefined
+        ? draftsAfterUndo({
+            logs: closingSlot.setLogs,
+            result: closingSlot.result,
+            sets: rows[currentUndoEntry.i]?.slots.find(
+              (slot) => slot.slotId === currentUndoEntry.slotId
+            )?.sets,
+          })
         : [];
     const nextDetail = {
       ...restoredDetail,

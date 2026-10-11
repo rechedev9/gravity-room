@@ -51,9 +51,12 @@ Language and rest alert choices are device settings, not account data. They live
 `src/lib/settings/device-setting-storage.ts` (SecureStore) and are applied by
 `PreferencesProvider` before the first screen renders. `system` follows the device
 language and falls back to English; program and exercise names keep the language the
-server stores them in. Never request the notification permission while a set is being
+server stores them in. Rest alerts are off until the lifter accepts the invitation or turns the More switch on; a lifter
+who already granted the permission under the old default keeps them on. The switch shows the
+preference, not the permission, so it can always be turned off; the "alerts unavailable" banner
+appears only when the lifter wants alerts and the system does not deliver them. Never request the notification permission while a set is being
 logged: only `useRestAlerts` may open the system dialog, and only from an explicit tap on
-the workout invitation or the More switch, after the in-app rationale. The exercise
+the workout invitation or the More screen, after the in-app rationale. The exercise
 library is online only (TanStack Query over `GET /exercises` and `/muscle-groups`) and
 does not touch the SQLite schema.
 
@@ -68,5 +71,7 @@ that carries the weight (`fonts.bodyBold`). Every text style must spread a `type
 
 A Fail pressed after some sets keeps them and closes the slot with a missed set of 0 reps,
 which is how the domain derives a failure from set logs. A recorded result ends the rest
-timer, and undoing a closed slot returns every set but the closing one as drafts. Bodyweight
+timer, and undoing a closed slot returns every set but the closing one as drafts. When the domain reads the sets as a success anyway (a program whose progression set already passed,
+such as PPL double progression), the sets are kept without the invented miss, the slot is saved as a
+success and the lifter sees a notice; undoing it returns every lifted set. Bodyweight
 slots (`isBodyweight`) show "Bodyweight", log reps only and add nothing to logged volume.
