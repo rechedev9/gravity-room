@@ -200,7 +200,7 @@
     "complete": "Descanso terminado",
     "next_set": "Todo listo para tu siguiente serie.",
     "skip": "Omitir descanso",
-    "alert_unavailable": "Los avisos del descanso están desactivados. El temporizador sigue activo."
+    "alert_unavailable": "Los avisos del descanso no están disponibles ahora. El temporizador sigue activo."
   },
   "ui": {
     "close": "Cerrar",
@@ -368,8 +368,10 @@
       "label": "Avisos del descanso",
       "on": "Un sonido y una notificación cuando termina el descanso, aunque la pantalla esté apagada.",
       "off": "Desactivados. El temporizador sigue contando en pantalla.",
-      "blocked": "Las notificaciones están bloqueadas para Gravity Room. Abre los ajustes del sistema para permitirlas.",
+      "blocked": "Las notificaciones están bloqueadas para Gravity Room, así que no sonará ningún aviso. Permítelas en los ajustes del sistema.",
       "open_settings": "Abrir ajustes",
+      "askable": "Esperando el permiso de notificaciones. Sin él no sonará ningún aviso.",
+      "allow": "Permitir notificaciones",
       "unsupported": "No disponible en este dispositivo."
     },
     "sync": {

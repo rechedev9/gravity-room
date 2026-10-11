@@ -200,7 +200,7 @@
     "complete": "Rest complete",
     "next_set": "Ready for your next set.",
     "skip": "Skip rest",
-    "alert_unavailable": "Rest alerts are off. The timer keeps running."
+    "alert_unavailable": "Rest alerts are unavailable right now. The timer keeps running."
   },
   "ui": {
     "close": "Close",
@@ -368,8 +368,10 @@
       "label": "Rest timer alerts",
       "on": "A sound and a notification when your rest ends, even with the screen off.",
       "off": "Off. The timer still counts down on screen.",
-      "blocked": "Notifications are blocked for Gravity Room. Open system settings to allow them.",
+      "blocked": "Notifications are blocked for Gravity Room, so no alert will sound. Allow them in system settings.",
       "open_settings": "Open settings",
+      "askable": "Waiting for notification permission. Without it no alert will sound.",
+      "allow": "Allow notifications",
       "unsupported": "Not available on this device."
     },
     "sync": {

@@ -116,7 +116,15 @@ export function ProfileScreen({ onSignOut, user }: ProfileScreenProps) {
         ? t('settings.rest_alerts.off')
         : alerts.access === 'blocked'
           ? t('settings.rest_alerts.blocked')
-          : t('settings.rest_alerts.on');
+          : alerts.access === 'askable'
+            ? t('settings.rest_alerts.askable')
+            : t('settings.rest_alerts.on');
+  const restAlertsAction =
+    alerts.enabled && alerts.access === 'blocked'
+      ? { label: t('settings.rest_alerts.open_settings'), run: alerts.openSettings }
+      : alerts.enabled && alerts.access === 'askable'
+        ? { label: t('settings.rest_alerts.allow'), run: alerts.turnOn }
+        : null;
   const version = Constants.expoConfig?.version;
 
   return (
@@ -154,16 +162,26 @@ export function ProfileScreen({ onSignOut, user }: ProfileScreenProps) {
               <Text style={styles.hint}>{t('settings.language.hint')}</Text>
             </View>
             <SwitchRow
-              last
+              last={restAlertsAction === null}
               icon="notifications-outline"
               label={t('settings.rest_alerts.label')}
               description={restAlertsDescription}
-              value={alerts.active}
+              value={alerts.enabled}
               disabled={alerts.access === null || alerts.access === 'unsupported'}
               onValueChange={(next) => {
                 void (next ? alerts.turnOn() : alerts.turnOff());
               }}
             />
+            {restAlertsAction ? (
+              <SettingsRow
+                last
+                icon="settings-outline"
+                label={restAlertsAction.label}
+                onPress={() => {
+                  void restAlertsAction.run();
+                }}
+              />
+            ) : null}
           </Card>
         </View>
 

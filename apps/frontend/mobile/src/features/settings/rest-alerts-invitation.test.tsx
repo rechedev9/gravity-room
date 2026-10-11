@@ -11,7 +11,10 @@ const requestAccess = jest.mocked(requestRestAlertsAccess);
 
 beforeEach(async () => {
   jest.clearAllMocks();
-  await restoreRestAlertsPreference({ get: async () => null, set: async () => undefined });
+  await restoreRestAlertsPreference(
+    { get: async () => null, set: async () => undefined },
+    async () => 'askable'
+  );
 });
 
 it('stays out of the way when the system already decided', async () => {
@@ -42,4 +45,18 @@ it('requests the permission only after the lifter agrees', async () => {
   fireEvent.press(await screen.findByRole('button', { name: 'Turn on alerts' }));
   await waitFor(() => expect(requestAccess).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(screen.queryByText('Get alerted when rest ends')).toBeNull());
+});
+
+it('does not invite a lifter who already turned alerts off', async () => {
+  readAccess.mockResolvedValue('askable');
+  await restoreRestAlertsPreference(
+    {
+      get: async (key) => (key === 'settings.rest-alerts' ? 'off' : null),
+      set: async () => undefined,
+    },
+    readAccess
+  );
+  render(<RestAlertsInvitation />);
+  await waitFor(() => expect(readAccess).toHaveBeenCalled());
+  expect(screen.queryByText('Get alerted when rest ends')).toBeNull();
 });

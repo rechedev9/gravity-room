@@ -16,11 +16,12 @@ export interface RestAlertsControls {
   /** Null until the system permission has been read. */
   readonly access: RestAlertsAccess | null;
   readonly enabled: boolean;
-  /** Alerts will actually fire: allowed by the system and not turned off in the app. */
+  /** Alerts will actually fire: allowed by the system and wanted by the lifter. */
   readonly active: boolean;
   readonly showInvitation: boolean;
   readonly turnOn: () => Promise<void>;
   readonly turnOff: () => Promise<void>;
+  readonly openSettings: () => Promise<void>;
   readonly dismissInvitation: () => Promise<void>;
 }
 
@@ -65,9 +66,10 @@ export function useRestAlerts(): RestAlertsControls {
     enabled: preference.enabled,
     active: access === 'granted' && preference.enabled,
     showInvitation:
-      preference.loaded && !preference.promptSeen && preference.enabled && access === 'askable',
+      preference.loaded && !preference.promptSeen && !preference.chosen && access === 'askable',
     turnOn,
     turnOff: () => setRestAlertsEnabled(false),
+    openSettings: () => openRestAlertsSettings().catch(() => undefined),
     dismissInvitation: () => markRestAlertsPromptSeen(),
   };
 }
