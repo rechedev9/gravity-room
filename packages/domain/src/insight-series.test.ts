@@ -15,9 +15,26 @@ describe('insight series key', () => {
     expect(parseInsightSeriesKey('squat')).toEqual({ exerciseId: 'squat', tier: null });
   });
 
-  it('keeps a tier that contains the separator parseable and the key within the column', () => {
-    const key = buildInsightSeriesKey({ exerciseId: 'squat', tier: `a:b${'x'.repeat(200)}` });
-    expect(key.length).toBeLessThanOrEqual(100);
-    expect(parseInsightSeriesKey(key).exerciseId).toBe('squat');
+  it('keeps a tier that contains the separator parseable', () => {
+    const key = buildInsightSeriesKey({ exerciseId: 'squat', tier: 'a:b' });
+    expect(parseInsightSeriesKey(key)).toEqual({ exerciseId: 'squat', tier: 'a-b' });
+  });
+
+  it('fills the column exactly without cutting the tier', () => {
+    const exerciseId = 'x'.repeat(97);
+    expect(buildInsightSeriesKey({ exerciseId, tier: 't1' })).toBe(`${exerciseId}:t1`);
+  });
+
+  it('refuses a key that does not fit the column instead of colliding two tiers', () => {
+    const exerciseId = 'x'.repeat(98);
+    expect(() => buildInsightSeriesKey({ exerciseId, tier: 't1' })).toThrow(RangeError);
+    expect(() => buildInsightSeriesKey({ exerciseId, tier: 't2' })).toThrow(RangeError);
+    expect(() => buildInsightSeriesKey({ exerciseId: 'x'.repeat(101), tier: null })).toThrow(
+      RangeError
+    );
+  });
+
+  it('refuses an exercise id that would read as another lift and tier', () => {
+    expect(() => buildInsightSeriesKey({ exerciseId: 'squat:t1', tier: null })).toThrow(RangeError);
   });
 });

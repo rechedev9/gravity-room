@@ -3,7 +3,7 @@
  * Dated Epley e1RM series + current max. Requires ≥ `MIN_POINTS` successes.
  */
 
-import { seriesKeyResolver, type WorkoutRecord } from '../record';
+import type { WorkoutRecord } from '../record';
 import { epley } from '../epley';
 import { wallClockDateKey } from './time';
 import { compareByRecordedAtThenIndex } from './sort';
@@ -21,13 +21,12 @@ export interface E1rmProgressionPayload {
 export function computeE1rmPerExercise(
   records: readonly WorkoutRecord[]
 ): Map<string, E1rmProgressionPayload> {
-  const keyOf = seriesKeyResolver(records);
   const bySlot = new Map<string, WorkoutRecord[]>();
   for (const r of records) {
     if (r.result !== 'success') continue;
-    const slot = bySlot.get(keyOf(r)) ?? [];
+    const slot = bySlot.get(r.seriesKey) ?? [];
     slot.push(r);
-    bySlot.set(keyOf(r), slot);
+    bySlot.set(r.seriesKey, slot);
   }
 
   const result = new Map<string, E1rmProgressionPayload>();

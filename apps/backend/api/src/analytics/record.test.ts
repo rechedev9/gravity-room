@@ -12,6 +12,7 @@ function record(overrides: Partial<WorkoutRecord> & Pick<WorkoutRecord, 'tier' |
     exerciseId: 'squat',
     definitionVersion: 1,
     tier: 't1',
+    seriesKey: 'squat',
     weight: 0,
     result: 'success',
     rpe: null,
@@ -26,11 +27,20 @@ function mixedTiers(): WorkoutRecord[] {
   const records: WorkoutRecord[] = [];
   for (let i = 0; i < 4; i++) {
     const day = `2026-01-0${i + 1}T10:00:00Z`;
-    records.push(record({ workoutIndex: i * 2, tier: 't1', weight: 100, recordedAt: day }));
+    records.push(
+      record({
+        workoutIndex: i * 2,
+        tier: 't1',
+        seriesKey: 'squat:t1',
+        weight: 100,
+        recordedAt: day,
+      })
+    );
     records.push(
       record({
         workoutIndex: i * 2 + 1,
         tier: 't2',
+        seriesKey: 'squat:t2',
         weight: 60,
         recordedAt: `${day.slice(0, 10)}T11:00:00Z`,
       })
@@ -41,15 +51,27 @@ function mixedTiers(): WorkoutRecord[] {
 
 describe('seriesKeyResolver', () => {
   it('keeps the bare exercise id when the lift only ever used one tier', () => {
-    const records = [record({ tier: 't1', weight: 100 }), record({ tier: 't1', weight: 102.5 })];
-    const keyOf = seriesKeyResolver(records);
-    expect(records.map(keyOf)).toEqual(['squat', 'squat']);
+    const history = [
+      { exerciseId: 'squat', tier: 't1' },
+      { exerciseId: 'squat', tier: 't1' },
+    ];
+    expect(history.map(seriesKeyResolver(history))).toEqual(['squat', 'squat']);
   });
 
   it('adds the tier to every series of a lift trained in several tiers', () => {
-    const records = mixedTiers();
-    const keyOf = seriesKeyResolver(records);
-    expect(new Set(records.map(keyOf))).toEqual(new Set(['squat:t1', 'squat:t2']));
+    const history = mixedTiers();
+    expect(new Set(history.map(seriesKeyResolver(history)))).toEqual(
+      new Set(['squat:t1', 'squat:t2'])
+    );
+  });
+
+  it('keeps the tier of a lift whose other tier is no longer among the insight points', () => {
+    const history = [
+      { exerciseId: 'squat', tier: 't2' },
+      { exerciseId: 'squat', tier: 't1' },
+    ];
+    const window = [{ exerciseId: 'squat', tier: 't1' }];
+    expect(window.map(seriesKeyResolver(history))).toEqual(['squat:t1']);
   });
 });
 

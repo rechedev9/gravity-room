@@ -28,6 +28,7 @@ const {
   withInsightTransaction,
 } = await import('./queries');
 const { MAX_ANALYTICS_RECORDS_PER_USER } = await import('../lib/data-limits');
+const { logger } = await import('../lib/logger');
 
 function hydratedGzclp() {
   const gzclp = hydrateProgramDefinition(
@@ -305,5 +306,70 @@ describe('analytics user selection', () => {
     const historyFilter = sqlText(historyWhere.mock.calls[0]?.[0]);
     expect(historyFilter).not.toContain('exercise_id');
     expect(historyFilter).not.toContain('definition_version');
+  });
+
+  it('keys a series by the tiers of the whole history, not of the insight window', async () => {
+    mockGetHistoricalProgramDefinition.mockImplementation(() =>
+      Promise.resolve({ status: 'found', definition: hydratedGzclp() })
+    );
+    const base = {
+      userId: 'u1',
+      instanceId: 'i1',
+      programId: 'gzclp',
+      exerciseId: 'squat',
+      definitionVersion: 1,
+      setLogs: null,
+      result: 'success',
+      rpe: null,
+      amrapReps: null,
+      recordedAt: '2026-01-01T00:00:00Z',
+    };
+    const olderT2 = { ...base, workoutIndex: 2, slotId: 'd3-t2', loggedWeight: 60 };
+    const recentT1 = { ...base, workoutIndex: 4, slotId: 'd1-t1', loggedWeight: 80 };
+    // A row without identity takes no part in the decision.
+    const legacy = { ...base, workoutIndex: 1, slotId: 'd2-t2', exerciseId: null };
+    activeDb = fakeExecutor({
+      window: [recentT1],
+      history: [legacy, olderT2, recentT1],
+      instances: [{ id: 'i1', templateId: 'gzclp', config: {}, customDefinition: null }],
+    }).executor;
+
+    const records = await fetchWorkoutRecords('u1');
+    expect(records.map((r) => r.seriesKey)).toEqual(['squat:t1']);
+  });
+
+  it('drops and reports a series whose key does not fit the column', async () => {
+    mockGetHistoricalProgramDefinition.mockImplementation(() =>
+      Promise.resolve({ status: 'found', definition: hydratedGzclp() })
+    );
+    const base = {
+      userId: 'u1',
+      instanceId: 'i1',
+      programId: 'gzclp',
+      definitionVersion: 1,
+      setLogs: null,
+      result: 'success',
+      rpe: null,
+      amrapReps: null,
+      recordedAt: '2026-01-01T00:00:00Z',
+    };
+    const longId = 'x'.repeat(99);
+    const window = [
+      { ...base, exerciseId: 'bench', workoutIndex: 1, slotId: 'd2-t1', loggedWeight: 50 },
+      { ...base, exerciseId: longId, workoutIndex: 2, slotId: 'd3-t2', loggedWeight: 60 },
+      { ...base, exerciseId: longId, workoutIndex: 0, slotId: 'd1-t1', loggedWeight: 80 },
+    ];
+    activeDb = fakeExecutor({
+      window,
+      instances: [{ id: 'i1', templateId: 'gzclp', config: {}, customDefinition: null }],
+    }).executor;
+    const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
+
+    const records = await fetchWorkoutRecords('u1');
+
+    expect(records.map((r) => r.seriesKey)).toEqual(['bench']);
+    // One report per series: the long lift in T1 and in T2.
+    expect(errorSpy).toHaveBeenCalledTimes(2);
+    errorSpy.mockRestore();
   });
 });

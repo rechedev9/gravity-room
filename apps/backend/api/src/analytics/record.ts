@@ -15,6 +15,8 @@ export interface WorkoutRecord {
   readonly definitionVersion: number;
   /** Tier of the slot that produced the result; with the exercise it identifies the series. */
   readonly tier: string;
+  /** Key of the record's series, decided over the user's whole history. */
+  readonly seriesKey: string;
   readonly weight: number;
   /** 'success' | 'fail'. */
   readonly result: string;
@@ -24,21 +26,27 @@ export interface WorkoutRecord {
   readonly recordedAt: string | null;
 }
 
+/** One identity-bearing result: the lift and the tier it was trained in. */
+export interface SeriesPoint {
+  readonly exerciseId: string;
+  readonly tier: string;
+}
+
 /**
- * Maps a record to the key of its series. The key is decided over the user's
- * whole history, so every insight type agrees on it: a lift only ever trained
- * in one tier keeps its bare exercise id.
+ * Maps a result to the key of its series. `history` must be every
+ * identity-bearing result of the user, not a window: a lift only ever trained
+ * in one tier keeps its bare exercise id, and that must not change over time.
  */
-export function seriesKeyResolver(records: readonly WorkoutRecord[]): (r: WorkoutRecord) => string {
+export function seriesKeyResolver(history: readonly SeriesPoint[]): (point: SeriesPoint) => string {
   const tiers = new Map<string, Set<string>>();
-  for (const r of records) {
-    const seen = tiers.get(r.exerciseId) ?? new Set<string>();
-    seen.add(r.tier);
-    tiers.set(r.exerciseId, seen);
+  for (const point of history) {
+    const seen = tiers.get(point.exerciseId) ?? new Set<string>();
+    seen.add(point.tier);
+    tiers.set(point.exerciseId, seen);
   }
-  return (r) =>
+  return (point) =>
     buildInsightSeriesKey({
-      exerciseId: r.exerciseId,
-      tier: (tiers.get(r.exerciseId)?.size ?? 0) > 1 ? r.tier : null,
+      exerciseId: point.exerciseId,
+      tier: (tiers.get(point.exerciseId)?.size ?? 0) > 1 ? point.tier : null,
     });
 }
