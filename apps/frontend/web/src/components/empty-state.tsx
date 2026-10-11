@@ -58,7 +58,7 @@ export function EmptyState({
     <div
       className={cn(
         'flex min-h-full flex-1 flex-col items-center justify-center',
-        'rounded-[var(--radius-base)] border border-rule bg-card',
+        'rounded-card border border-rule bg-card',
         'px-6 py-16 text-center sm:px-8',
         className
       )}
@@ -75,7 +75,7 @@ export function EmptyState({
         </div>
       ) : null}
 
-      <h2 className="font-display text-4xl text-main sm:text-5xl">{title}</h2>
+      <h2 className="type-display-sm sm:type-display text-main">{title}</h2>
 
       {body ? <p className="mx-auto mt-3 max-w-md text-sm text-muted">{body}</p> : null}
 

@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { render, screen } from '@testing-library/react';
 
+let mockPathname = '/app/tracker';
+
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
     children,
@@ -14,41 +16,63 @@ vi.mock('@tanstack/react-router', () => ({
   }) =>
     createElement('a', { href: to, 'data-to': to, ...(rest as Record<string, unknown>) }, children),
   useRouterState: ({ select }: { select: (s: { location: { pathname: string } }) => unknown }) =>
-    select({ location: { pathname: '/app/tracker' } }),
+    select({ location: { pathname: mockPathname } }),
 }));
 
-import { MobileBottomNav, MOBILE_PRIMARY_NAV } from './mobile-bottom-nav';
+import { MobileBottomNav, MOBILE_TABS } from './mobile-bottom-nav';
+
+function activeTabId(pathname: string): string | undefined {
+  return MOBILE_TABS.find((tab) => tab.isActive(pathname))?.id;
+}
 
 describe('MobileBottomNav', () => {
-  it('exposes exactly three primary destinations for gym-speed navigation', () => {
-    expect(MOBILE_PRIMARY_NAV).toHaveLength(3);
-    expect(MOBILE_PRIMARY_NAV.map((item) => item.to)).toEqual([
-      '/app',
-      '/app/tracker',
-      '/app/programs',
-    ]);
-  });
-
-  it('renders the three primary links with an accessible nav landmark', () => {
+  it('shows the same five tabs as the mobile app, in the same order', () => {
+    mockPathname = '/app/tracker';
     render(<MobileBottomNav />);
 
     const nav = screen.getByRole('navigation', { name: /navegación móvil|mobile/i });
-    expect(nav).toBeInTheDocument();
-
-    expect(screen.getByRole('link', { name: /inicio|home/i })).toHaveAttribute('data-to', '/app');
-    expect(screen.getByRole('link', { name: /tracker/i })).toHaveAttribute(
-      'data-to',
-      '/app/tracker'
-    );
-    expect(screen.getByRole('link', { name: /programas|programs/i })).toHaveAttribute(
-      'data-to',
-      '/app/programs'
-    );
+    const links = Array.from(nav.querySelectorAll('a'));
+    expect(links.map((link) => link.textContent)).toEqual([
+      'Entrenar',
+      'Mis planes',
+      'Explorar',
+      'Ejercicios',
+      'Más',
+    ]);
+    expect(links.map((link) => link.getAttribute('data-to'))).toEqual([
+      '/app/tracker',
+      '/app/programs',
+      '/app/explore',
+      '/app/exercises',
+      '/app/profile',
+    ]);
   });
 
-  it('marks the active route for the current pathname', () => {
+  it('marks the active tab for the current pathname', () => {
+    mockPathname = '/app/programs';
     render(<MobileBottomNav />);
-    const tracker = screen.getByRole('link', { name: /tracker/i });
-    expect(tracker.getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('link', { name: 'Mis planes' }).getAttribute('aria-current')).toBe(
+      'page'
+    );
+    expect(screen.getByRole('link', { name: 'Entrenar' }).getAttribute('aria-current')).toBeNull();
+  });
+
+  it('keeps every /app destination under exactly one tab', () => {
+    expect(activeTabId('/app')).toBe('train');
+    expect(activeTabId('/app/start')).toBe('train');
+    expect(activeTabId('/app/tracker/gzclp')).toBe('train');
+    expect(activeTabId('/app/programs')).toBe('plans');
+    expect(activeTabId('/app/explore')).toBe('explore');
+    expect(activeTabId('/app/exercises/back-squat')).toBe('exercises');
+    expect(activeTabId('/app/profile')).toBe('more');
+    expect(activeTabId('/app/insights')).toBe('more');
+  });
+
+  it('flags the document so floating chrome can clear the bar', () => {
+    mockPathname = '/app';
+    const { unmount } = render(<MobileBottomNav />);
+    expect(document.documentElement.hasAttribute('data-tab-bar')).toBe(true);
+    unmount();
+    expect(document.documentElement.hasAttribute('data-tab-bar')).toBe(false);
   });
 });

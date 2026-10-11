@@ -20,43 +20,8 @@ import {
   setSlotResult as setSlotResultOptimistic,
   removeSlotResult,
   patchSlotField,
-} from '@/lib/slot-result-helpers';
-import type { GenericUndoHistory } from '@gzclp/domain/types/program';
-
-// ---------------------------------------------------------------------------
-// Optimistic undo-last reconstruction
-// ---------------------------------------------------------------------------
-
-/**
- * Replicate the server's `undoLast` (results.ts) on the cached results so the
- * UI reverts instantly instead of waiting for the round-trip. The undo stack is
- * ordered ascending by id, so the last entry is the LIFO top the server pops.
- * `prev === undefined` mirrors `previousResult === null` (the slot had no result
- * before → delete it); otherwise restore the snapshot exactly. onSettled
- * reconciles against the server afterward.
- */
-function applyUndoLast(results: GenericResults, undoHistory: GenericUndoHistory): GenericResults {
-  const top = undoHistory[undoHistory.length - 1];
-  if (!top) return results;
-  if (top.prev === undefined) {
-    return removeSlotResult(results, top.i, top.slotId);
-  }
-  // Clear the current slot first so stale amrapReps/rpe/setLogs from the action
-  // being undone don't linger, then write the previous snapshot verbatim.
-  const cleared = removeSlotResult(results, top.i, top.slotId);
-  let restored = setSlotResultOptimistic(
-    cleared,
-    top.i,
-    top.slotId,
-    top.prev,
-    top.prevAmrapReps,
-    top.prevSetLogs
-  );
-  if (top.prevRpe !== undefined) {
-    restored = patchSlotField(restored, top.i, top.slotId, 'rpe', top.prevRpe);
-  }
-  return restored;
-}
+  applyUndoEntry,
+} from '@gzclp/domain/slot-results';
 
 // ---------------------------------------------------------------------------
 // Shared optimistic mutation lifecycle callbacks
@@ -179,6 +144,7 @@ export function useProgramMutations({
     onSettled: detailOnSettled,
     onSettledAfterResultIdle,
   } = optimisticDetailCallbacks(queryClient, activeInstanceId);
+  const detailKey = queryKeys.programs.detail(activeInstanceId ?? '');
 
   const markResultMutation = useMutation({
     mutationFn: async ({
@@ -208,6 +174,32 @@ export function useProgramMutations({
         ...prev,
         results: setSlotResultOptimistic(prev.results, index, slotId, value, undefined, setLogs),
       })),
+    // The server has pushed its undo entry by now: mirror it so undo is offered at once
+    // instead of after the debounced refetch. That refetch replaces it with the real entry.
+    onSuccess: (_data, { index, slotId }, context) => {
+      const current = queryClient.getQueryData<GenericProgramDetail>(detailKey);
+      if (!current) return;
+      const top = current.undoHistory[current.undoHistory.length - 1];
+      const before = context?.previousDetail?.results[String(index)]?.[slotId];
+      // A refetch that raced this request already carries the entry. The history must have
+      // grown since onMutate: an older entry for this slot can look the same as the new one.
+      const grew = current.undoHistory.length > (context?.previousDetail?.undoHistory.length ?? 0);
+      if (grew && top?.i === index && top.slotId === slotId && top.prev === before?.result) return;
+      queryClient.setQueryData<GenericProgramDetail>(detailKey, {
+        ...current,
+        undoHistory: [
+          ...current.undoHistory,
+          {
+            i: index,
+            slotId,
+            ...(before?.result !== undefined && { prev: before.result }),
+            ...(before?.amrapReps !== undefined && { prevAmrapReps: before.amrapReps }),
+            ...(before?.rpe !== undefined && { prevRpe: before.rpe }),
+            ...(before?.setLogs !== undefined && { prevSetLogs: [...before.setLogs] }),
+          },
+        ],
+      });
+    },
     onError: detailOnError,
     onSettled: onSettledAfterResultIdle,
   });
@@ -322,12 +314,16 @@ export function useProgramMutations({
       if (!activeInstanceId) throw new Error('No active program');
       await undoLastResult(activeInstanceId);
     },
+    // The undo stack is ascending by id: the last entry is the LIFO top the server pops.
     onMutate: () =>
-      snapshotAndUpdate((prev) => ({
-        ...prev,
-        results: applyUndoLast(prev.results, prev.undoHistory),
-        undoHistory: prev.undoHistory.slice(0, -1),
-      })),
+      snapshotAndUpdate((prev) => {
+        const top = prev.undoHistory[prev.undoHistory.length - 1];
+        return {
+          ...prev,
+          results: top ? applyUndoEntry(prev.results, top) : prev.results,
+          undoHistory: prev.undoHistory.slice(0, -1),
+        };
+      }),
     onError: (err, vars, ctx) => {
       detailOnError(err, vars, ctx);
       toast({ message: t('tracker.errors.undo_failed') });

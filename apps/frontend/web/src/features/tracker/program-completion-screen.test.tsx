@@ -65,30 +65,30 @@ describe('ProgramCompletionScreen', () => {
 
     // Volume — formatted with es-ES locale (dot separator)
     expect(screen.getByText('75.264 kg')).toBeDefined();
-    expect(screen.getByText('Volumen Total')).toBeDefined();
+    expect(screen.getByText('Volumen total')).toBeDefined();
   });
 
   it('should show 1RM estimates when provided', () => {
     renderScreen({ oneRMEstimates: MOCK_ONE_RM });
 
-    expect(screen.getByText('1RM Estimado (Epley)')).toBeDefined();
+    expect(screen.getByText('1RM estimado (Epley)')).toBeDefined();
     expect(screen.getByText('120 kg')).toBeDefined();
   });
 
-  it('should call onBackToDashboard when "Volver al Inicio" button clicked', () => {
+  it('should call onBackToDashboard when "Volver al inicio" button clicked', () => {
     const onDismiss = vi.fn();
     renderScreen({ onDismiss });
 
-    fireEvent.click(screen.getByText('Volver al Inicio'));
+    fireEvent.click(screen.getByText('Volver al inicio'));
 
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
-  it('should call onViewProfile when "Ver Perfil de Entrenamiento" button clicked', () => {
+  it('should call onViewProfile when "Ver perfil de entrenamiento" button clicked', () => {
     const onViewProfile = vi.fn();
     renderScreen({ onViewProfile });
 
-    fireEvent.click(screen.getByText('Ver Perfil de Entrenamiento'));
+    fireEvent.click(screen.getByText('Ver perfil de entrenamiento'));
 
     expect(onViewProfile).toHaveBeenCalledTimes(1);
   });

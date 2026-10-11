@@ -49,6 +49,12 @@ interface PasswordUserSeedInput {
  */
 export async function createAndAuthUser(page: Page): Promise<AuthResult> {
   await skipFirstRunOverlays(page);
+  // The cookie is minted outside the app, so the app never wrote its session hint.
+  // A "signed out" hint left by an earlier anonymous page view would make it skip
+  // the session restore; record the signed-in state a real sign-in would leave.
+  await page.addInitScript(() => {
+    window.localStorage.setItem('gravity-room:session-hint', 'signed-in');
+  });
   const email = `e2e-${crypto.randomUUID()}@test.local`;
 
   const res = await page.request.post(`${BASE_URL}/api/auth/dev`, {
@@ -76,6 +82,23 @@ export async function createVerifiedPasswordUser(
   });
   if (!res.ok())
     throw new Error(`Dev password user seed failed: ${res.status()} ${await res.text()}`);
+}
+
+interface CreateProgramInput {
+  readonly accessToken: string;
+  readonly programId: string;
+  readonly config: Readonly<Record<string, number>>;
+}
+
+/** Creates any catalog program via the API. Returns the program instance ID. */
+export async function createProgramById(page: Page, input: CreateProgramInput): Promise<string> {
+  const res = await page.request.post(`${BASE_URL}/api/programs`, {
+    headers: { Authorization: `Bearer ${input.accessToken}` },
+    data: { programId: input.programId, name: 'Test Program', config: input.config },
+  });
+  if (!res.ok()) throw new Error(`Create program failed: ${res.status()}`);
+  const body = (await res.json()) as { id: string };
+  return body.id;
 }
 
 /**

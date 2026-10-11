@@ -2,6 +2,10 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { AppState, Button } from 'react-native';
 import { restAlerts } from '../lib/rest/rest-alerts';
 import i18n from '../lib/i18n';
+import {
+  restoreRestAlertsPreference,
+  setRestAlertsEnabled,
+} from '../lib/rest/rest-alerts-preference';
 import { RestTimerBanner, RestTimerProvider, useRestTimer } from './rest-timer-provider';
 
 jest.mock('../lib/rest/rest-alerts', () => ({
@@ -23,6 +27,8 @@ function Controls() {
   );
 }
 
+const memory = { get: async () => null, set: async () => undefined };
+
 beforeEach(() => {
   jest.useFakeTimers();
   jest.setSystemTime(1_000);
@@ -30,6 +36,7 @@ beforeEach(() => {
   jest.spyOn(globalThis, 'setInterval');
   jest.spyOn(globalThis, 'clearInterval');
   jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove: jest.fn() });
+  return setRestAlertsEnabled(true, memory);
 });
 
 afterEach(() => {
@@ -86,6 +93,38 @@ it('shows the current alert failure while retaining a usable skip action', async
   expect(screen.queryByText('1:30')).toBeNull();
   view.unmount();
   expectProviderIntervalsReleased();
+});
+
+it('does not nag about unavailable alerts once the lifter turned them off', async () => {
+  await setRestAlertsEnabled(false, memory);
+  jest.mocked(restAlerts.schedule).mockResolvedValueOnce(null);
+  const view = render(
+    <RestTimerProvider>
+      <Controls />
+    </RestTimerProvider>
+  );
+  await act(async () => {
+    fireEvent.press(screen.getByText('Start rest'));
+  });
+  expect(screen.getByText('1:30')).toBeTruthy();
+  expect(screen.queryByText(i18n.t('rest.alert_unavailable'))).toBeNull();
+  view.unmount();
+});
+
+it('does not nag about unavailable alerts when the lifter was never asked for them', async () => {
+  await restoreRestAlertsPreference(memory, async () => 'askable');
+  jest.mocked(restAlerts.schedule).mockResolvedValueOnce(null);
+  const view = render(
+    <RestTimerProvider>
+      <Controls />
+    </RestTimerProvider>
+  );
+  await act(async () => {
+    fireEvent.press(screen.getByText('Start rest'));
+  });
+  expect(screen.getByText('1:30')).toBeTruthy();
+  expect(screen.queryByText(i18n.t('rest.alert_unavailable'))).toBeNull();
+  view.unmount();
 });
 
 function expectProviderIntervalsReleased() {

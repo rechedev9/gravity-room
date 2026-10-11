@@ -26,7 +26,7 @@ describe('DeleteAccountDialog', () => {
     render(<DeleteAccountDialog open onConfirm={vi.fn()} onCancel={vi.fn()} />);
 
     const input = screen.getByRole('textbox', { name: 'Confirmation phrase' });
-    const confirm = screen.getByRole('button', { name: 'Delete Account' });
+    const confirm = screen.getByRole('button', { name: 'Delete account' });
 
     fireEvent.change(input, { target: { value: 'ELIMINAR' } });
     expect(confirm).toBeDisabled();

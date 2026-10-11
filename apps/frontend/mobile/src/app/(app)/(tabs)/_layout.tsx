@@ -5,7 +5,7 @@ import { BottomTabBar } from '@react-navigation/bottom-tabs';
 import { RestTimerBanner } from '../../../shell/rest-timer-provider';
 import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, fonts } from '../../../shell/design';
+import { colors, fonts } from '@gzclp/design-tokens';
 
 export default function TabLayout() {
   const { t } = useTranslation();

@@ -18,7 +18,11 @@
     ".": "./src/index.ts",
     "./merge-headers": "./src/merge-headers.ts",
     "./api-error": "./src/api-error.ts",
+    "./auth-error-code": "./src/auth-error-code.ts",
+    "./response-error": "./src/response-error.ts",
+    "./cursor-pages": "./src/cursor-pages.ts",
+    "./program-requests": "./src/program-requests.ts",
     "./single-flight": "./src/single-flight.ts",
-    "./url": "./src/url.ts"
+    "./path-identifier": "./src/path-identifier.ts"
   }
 }

@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   computeGenericProgram,
+  deriveResultFromPrescriptionLogs,
   deriveResultFromSetLogs,
   deriveResultFromSetLogsSimple,
+  plannedPrescriptionSets,
   roundToNearest,
 } from './generic-engine';
 import type { GenericResults } from './schemas/instance';
@@ -532,6 +534,76 @@ describe('GZCLP progression rules', () => {
     expect(squat.stage).toBe(0);
   });
 
+  it('does not flag a lighter T2 as a deload just because the same lift was heavier as T1', () => {
+    const results: GenericResults = {
+      '0': daySuccess(0, { t2: 'fail' }),
+      '1': daySuccess(1),
+      '2': daySuccess(2),
+      '3': daySuccess(3),
+    };
+    const rows = computeGenericProgram(GZCLP_MINI, GZCLP_CONFIG, results);
+
+    // Bench is T1 on day 3 (40 kg) and T2 on day 5 (stage change, 25 kg): no weight cut.
+    const benchT2 = slotAt(rows, 4, 'd1-t2');
+    expect(benchT2.stage).toBe(1);
+    expect(benchT2.weight).toBeLessThan(slotAt(rows, 2, 'd3-t1').weight);
+    expect(rows.flatMap((r) => r.slots).filter((s) => s.isDeload)).toEqual([]);
+  });
+
+  it('still flags a real weight cut on the same lift and tier as a deload', () => {
+    const results: GenericResults = {
+      '0': daySuccess(0, { t1: 'fail' }),
+      '4': daySuccess(0, { t1: 'fail' }),
+      '8': daySuccess(0, { t1: 'fail' }),
+    };
+    const rows = computeGenericProgram(GZCLP_MINI, GZCLP_CONFIG, results);
+
+    expect(slotAt(rows, 12, 'd1-t1').isDeload).toBe(true);
+    expect(slotAt(rows, 8, 'd1-t1').isDeload).toBe(false);
+  });
+
+  it('does not flag a planned lighter percentage set that shares its tier with a heavier one', () => {
+    const percentSlot = { ...BASE_SLOT, onSuccess: { type: 'no_change' as const } };
+    const definition: ProgramDefinition = {
+      ...BASE_DEFINITION,
+      totalWorkouts: 3,
+      days: [
+        {
+          name: 'Day A',
+          slots: [
+            { ...percentSlot, id: 'work', trainingMaxKey: 'squat_tm', tmPercent: 0.75 },
+            { ...percentSlot, id: 'amrap', trainingMaxKey: 'squat_tm', tmPercent: 0.85 },
+          ],
+        },
+      ],
+    };
+    const rows = computeGenericProgram(definition, { squat_tm: 100 }, {});
+
+    expect(slotAt(rows, 1, 'work').weight).toBe(75);
+    expect(slotAt(rows, 0, 'amrap').weight).toBe(85);
+    expect(rows.flatMap((r) => r.slots).filter((s) => s.isDeload)).toEqual([]);
+  });
+
+  it('does not flag a slot whose own percentage drops when its wave restarts', () => {
+    const percentSlot = {
+      ...BASE_SLOT,
+      onSuccess: { type: 'no_change' as const },
+      trainingMaxKey: 'squat_tm',
+    };
+    const definition: ProgramDefinition = {
+      ...BASE_DEFINITION,
+      totalWorkouts: 4,
+      days: [
+        { name: 'Week 1', slots: [{ ...percentSlot, tmPercent: 0.65 }] },
+        { name: 'Week 2', slots: [{ ...percentSlot, tmPercent: 0.75 }] },
+      ],
+    };
+    const rows = computeGenericProgram(definition, { squat_tm: 100 }, {});
+
+    expect(rows.map((r) => slotAt(rows, r.index, 'squat-t1').weight)).toEqual([65, 75, 65, 75]);
+    expect(rows.flatMap((r) => r.slots).filter((s) => s.isDeload)).toEqual([]);
+  });
+
   it('advances T1 stage on mid-stage fail without changing weight', () => {
     const results: GenericResults = {
       '0': daySuccess(0, { t1: 'fail' }),
@@ -722,5 +794,31 @@ describe('progression rule variants', () => {
     expect(slot?.prescriptions).toHaveLength(3);
     expect(slot?.prescriptions?.[0]?.weight).toBe(140);
     expect(slot?.prescriptions?.[1]?.weight).toBe(160);
+  });
+});
+
+describe('deriveResultFromPrescriptionLogs', () => {
+  const ladder = [
+    { percent: 60, reps: 3, sets: 2, weight: 120 },
+    { percent: 90, reps: 1, sets: 2, weight: 180 },
+  ];
+
+  it('counts every group of the ladder as a planned set', () => {
+    expect(plannedPrescriptionSets(ladder)).toBe(4);
+  });
+
+  it('has no result until every planned set is logged', () => {
+    expect(deriveResultFromPrescriptionLogs(undefined, ladder)).toBeUndefined();
+    expect(deriveResultFromPrescriptionLogs([{ reps: 3 }, { reps: 3 }], ladder)).toBeUndefined();
+  });
+
+  it('judges each set against the reps of its own group', () => {
+    const logs = [{ reps: 3 }, { reps: 3 }, { reps: 1 }, { reps: 1 }];
+    expect(deriveResultFromPrescriptionLogs(logs, ladder)).toBe('success');
+    expect(deriveResultFromSetLogsSimple(logs, 1)).toBe('success');
+    expect(deriveResultFromPrescriptionLogs([{ reps: 2 }, ...logs.slice(1)], ladder)).toBe('fail');
+    expect(deriveResultFromPrescriptionLogs([...logs.slice(0, 3), { reps: 0 }], ladder)).toBe(
+      'fail'
+    );
   });
 });

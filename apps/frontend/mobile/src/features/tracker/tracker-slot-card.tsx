@@ -4,12 +4,13 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { GenericSlotRow, SetLogEntry } from '@gzclp/domain';
 
-import { colors, type } from '../../shell/design';
+import { type } from '../../shell/design';
+import { colors } from '@gzclp/design-tokens';
 import { IconButton } from '../../ui/icon-button';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
 import { LoggedSetRow, TrackerSetRow } from './tracker-set-row';
-import { nextSetIndex, slotSupportsSetFlow } from './tracker-set-logging';
+import { nextSetIndex, slotIsLoadless, slotSupportsSetFlow } from './tracker-set-logging';
 
 type TrackerSlotCardProps = {
   readonly slot: GenericSlotRow;
@@ -51,8 +52,9 @@ export function TrackerSlotCard({
   const { t } = useTranslation();
   const [showLogs, setShowLogs] = useState(false);
   const showMetricEditors = slot.result === 'success';
-  const isHero = variant === 'hero';
   const usesSetFlow = slotSupportsSetFlow(slot);
+  const loadless = slotIsLoadless(slot);
+  const showLoad = !loadless || slot.isBodyweight === true;
   const displayLogs = draftLogs ?? slot.setLogs;
   const setNumber = nextSetIndex(displayLogs) + 1;
   const canConfirmSet = usesSetFlow && slot.result === undefined;
@@ -64,7 +66,7 @@ export function TrackerSlotCard({
         : t('tracker.status.awaiting');
 
   return (
-    <Card focal={isHero}>
+    <Card focal={variant === 'hero'}>
       <View style={styles.headerRow}>
         <View style={styles.exerciseIcon}>
           <Ionicons
@@ -79,8 +81,16 @@ export function TrackerSlotCard({
             <Text style={styles.scheme}>
               {t('tracker.sets_reps', { sets: slot.sets, reps: slot.reps })}
             </Text>
-            <Text style={styles.metaDivider}>·</Text>
-            <Text style={styles.cardMeta}>{t('tracker.weight', { weight: slot.weight })}</Text>
+            {showLoad ? (
+              <>
+                <Text style={styles.metaDivider}>·</Text>
+                <Text style={styles.cardMeta}>
+                  {slot.isBodyweight === true
+                    ? t('tracker.bodyweight')
+                    : t('tracker.weight', { weight: slot.weight })}
+                </Text>
+              </>
+            ) : null}
           </View>
         </View>
         <Text
@@ -93,16 +103,13 @@ export function TrackerSlotCard({
           {statusLabel}
         </Text>
       </View>
-      {canConfirmSet && (draftLogs?.length ?? 0) > 0 ? (
-        <View style={styles.undoSet}>
-          <IconButton
-            name="arrow-undo-outline"
-            label={t('tracker.undo_set', { name: slot.exerciseName })}
-            onPress={() => onUndoSet(workoutIndex, slot.slotId)}
-          />
-        </View>
+      {variant === 'hero' && slot.result === undefined && slot.notes !== undefined ? (
+        <Text numberOfLines={3} style={styles.notes}>
+          {slot.notes}
+        </Text>
       ) : null}
-      {slot.result !== undefined ? (
+      {slot.result !== undefined &&
+      !(slot.result === 'fail' && (displayLogs?.length ?? 0) === 0) ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('tracker.toggle_sets', { name: slot.exerciseName })}
@@ -130,6 +137,7 @@ export function TrackerSlotCard({
                 entry={entry}
                 fallbackWeight={slot.weight}
                 targetReps={slot.reps}
+                showWeight={!loadless}
               />
             ))}
           {canConfirmSet ? (
@@ -139,6 +147,7 @@ export function TrackerSlotCard({
               index={setNumber}
               weight={slot.weight}
               reps={slot.reps}
+              showWeight={!loadless}
               onConfirm={(entry) => onConfirmSet(workoutIndex, slot.slotId, entry)}
             />
           ) : null}
@@ -241,27 +250,25 @@ export function TrackerSlotCard({
           </View>
         </View>
       ) : null}
-      {slot.result === undefined && (displayLogs?.length ?? 0) === 0 ? (
-        <View style={isHero ? styles.heroActions : styles.queueActions}>
-          <View style={isHero ? null : styles.actionFlex}>
-            {!usesSetFlow ? (
+      {slot.result === undefined ? (
+        <View style={styles.actions}>
+          {!usesSetFlow ? (
+            <View style={styles.actionFlex}>
               <Button
                 variant="primary"
                 accessibilityLabel={t('tracker.actions.mark_success', { name: slot.exerciseName })}
-                accessibilityState={{ selected: slot.result === 'success' }}
                 onPress={() => {
                   onMarkResult(workoutIndex, slot.slotId, 'success');
                 }}
               >
                 {t('tracker.result.success')}
               </Button>
-            ) : null}
-          </View>
-          <View style={isHero ? null : styles.actionFlex}>
+            </View>
+          ) : null}
+          <View style={styles.actionFlex}>
             <Button
               variant="ghost"
               accessibilityLabel={t('tracker.actions.mark_fail', { name: slot.exerciseName })}
-              accessibilityState={{ selected: slot.result === 'fail' }}
               onPress={() => {
                 onMarkResult(workoutIndex, slot.slotId, 'fail');
               }}
@@ -269,6 +276,14 @@ export function TrackerSlotCard({
               {t('tracker.result.fail')}
             </Button>
           </View>
+          {canConfirmSet && (draftLogs?.length ?? 0) > 0 ? (
+            <IconButton
+              name="arrow-undo-outline"
+              caption={t('tracker.undo_set_short')}
+              label={t('tracker.undo_set', { name: slot.exerciseName })}
+              onPress={() => onUndoSet(workoutIndex, slot.slotId)}
+            />
+          ) : null}
         </View>
       ) : null}
     </Card>
@@ -276,7 +291,6 @@ export function TrackerSlotCard({
 }
 
 const styles = StyleSheet.create({
-  undoSet: { alignItems: 'flex-end' },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -316,6 +330,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 12,
   },
+  notes: { ...type.body, fontSize: 13, lineHeight: 18, color: colors.textSecondary },
   scheme: {
     ...type.meta,
     color: colors.textMuted,
@@ -331,10 +346,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   metricLabel: {
+    ...type.button,
     flex: 1,
     color: colors.textSecondary,
     fontSize: 13,
-    fontWeight: '600',
   },
   metricActions: {
     flexDirection: 'row',
@@ -352,9 +367,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   metricButtonLabel: {
+    ...type.title,
     color: colors.textPrimary,
     fontSize: 16,
-    fontWeight: '700',
   },
   metricClearButton: {
     minHeight: 44,
@@ -369,13 +384,10 @@ const styles = StyleSheet.create({
     ...type.button,
     color: colors.textMuted,
   },
-  heroActions: {
-    marginTop: 8,
-    gap: 8,
-  },
-  queueActions: {
+  actions: {
     marginTop: 4,
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   actionFlex: {

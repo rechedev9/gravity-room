@@ -11,3 +11,11 @@ export const ProgramSummarySchema = z.object({
 });
 
 export type ProgramSummary = z.infer<typeof ProgramSummarySchema>;
+
+/** One page of `GET /programs`; `nextCursor` is null on the last page. */
+export const ProgramListPageSchema = z.object({
+  data: z.array(ProgramSummarySchema),
+  nextCursor: z.string().nullable(),
+});
+
+export type ProgramListPage = z.infer<typeof ProgramListPageSchema>;

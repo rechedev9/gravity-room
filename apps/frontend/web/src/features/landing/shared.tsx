@@ -148,11 +148,13 @@ export function LangBanner({
 }): React.ReactNode {
   return (
     <div className="w-full bg-card border-b border-rule text-center py-2 px-4">
-      <span className="font-mono text-[11px] tracking-wider text-muted">
-        <Link to={href} className="hover:text-accent transition-colors duration-200">
-          {label}
-        </Link>
-      </span>
+      <Link
+        to={href}
+        data-testid="landing-lang-switch"
+        className="inline-flex min-h-[32px] items-center border border-rule-light px-3 font-mono text-[11px] tracking-wider text-muted transition-colors duration-200 hover:border-accent hover:text-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+      >
+        {label}
+      </Link>
     </div>
   );
 }

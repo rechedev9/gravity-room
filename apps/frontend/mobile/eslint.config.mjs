@@ -37,6 +37,15 @@ export default tseslint.config(
       '@typescript-eslint/no-require-imports': 'error',
       'no-console': ['error', { allow: ['warn', 'error'] }],
       'no-restricted-imports': ['error', { patterns: [crossAppImports, testOnlyImports] }],
+      // expo-font registers each face with a normal style, so a bold weight on a named face
+      // makes Android fall back to system Roboto Bold. Pick the face that carries the weight.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "Property[key.name='fontWeight'][value.value=/^(bold|[7-9]00)$/]",
+          message: 'Use a bold face from fonts (for example fonts.bodyBold) instead of fontWeight.',
+        },
+      ],
     },
   },
   {

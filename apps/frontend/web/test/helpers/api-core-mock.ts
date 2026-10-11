@@ -12,9 +12,7 @@
 import { vi } from 'vitest';
 
 export const apiCoreStubs = {
-  API_URL: 'http://localhost:3001',
   apiFetch: vi.fn(() => Promise.reject(new Error('apiFetch not configured in this test'))),
-  extractApiError: vi.fn(() => Promise.reject(new Error('extractApiError not configured'))),
   fetchMe: vi.fn(() => Promise.resolve(null)),
   updateProfile: vi.fn(() => Promise.resolve({})),
   deleteAccount: vi.fn(() => Promise.resolve()),

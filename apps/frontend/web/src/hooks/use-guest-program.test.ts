@@ -1053,6 +1053,28 @@ describe('useGuestProgram', () => {
       expect(otherProgram.result.current.config).toBeNull();
     });
 
+    it('keeps the stored program when another program is only opened', async () => {
+      const wrapper = createWrapper();
+      const first = renderHook(() => useGuestProgram('test-prog'), { wrapper });
+      await waitFor(() => {
+        expect(first.result.current.isLoading).toBe(false);
+      });
+      await act(async () => {
+        await first.result.current.generateProgram(TEST_CONFIG);
+      });
+      act(() => first.result.current.markResult(0, 'squat-t1', 'success'));
+      first.unmount();
+
+      const other = renderHook(() => useGuestProgram('other-prog'), { wrapper });
+      await waitFor(() => {
+        expect(other.result.current.isLoading).toBe(false);
+      });
+
+      const stored = readGuestData()?.instances['guest'];
+      expect(stored?.programId).toBe('test-prog');
+      expect(stored?.results['0']?.['squat-t1']?.result).toBe('success');
+    });
+
     it('clears persisted guest data when finishProgram is called', async () => {
       const wrapper = createWrapper();
       const { result } = renderHook(() => useGuestProgram('test-prog'), { wrapper });

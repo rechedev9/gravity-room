@@ -41,6 +41,8 @@ function toRecords(raw: readonly unknown[]): WorkoutRecord[] {
       workoutIndex: Number(o['workoutIndex']),
       exerciseId: String(o['slotId']),
       definitionVersion: 1,
+      tier: 't1',
+      seriesKey: String(o['slotId']),
       weight: Number(o['weight']),
       result: String(o['result']),
       rpe: o['rpe'] === null ? null : Number(o['rpe']),

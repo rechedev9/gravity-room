@@ -152,16 +152,15 @@ describe('ToastContainer', () => {
   });
 
   describe('safe-area inset (REQ-CCF-004)', () => {
-    it('anchors the container above the mobile dock with safe-area in the bottom offset', () => {
+    it('anchors the container above the phone tab bar', () => {
       renderWithToast('Test message');
 
       const container = document.querySelector('[role="status"]');
       expect(container).not.toBeNull();
-      // Tailwind class carries env(safe-area-inset-bottom) + nav clearance.
+      // The class offsets by --bottom-chrome, which carries the tab bar height and safe area.
       // happy-dom does not expand arbitrary class tokens into computed styles,
       // so assert the class string rather than resolved CSS.
-      expect(container?.className).toContain('env(safe-area-inset-bottom)');
-      expect(container?.className).toContain('3.5rem');
+      expect(container?.className).toContain('var(--bottom-chrome)');
     });
   });
 });

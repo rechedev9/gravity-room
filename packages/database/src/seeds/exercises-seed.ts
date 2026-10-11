@@ -23,7 +23,7 @@ interface ExerciseSeed {
  * Canonical exercise list — deduplicated across all preset programs.
  * Shared exercises (squat, bench, deadlift, ohp, face_pull, etc.) appear once.
  */
-const CANONICAL_EXERCISES: readonly ExerciseSeed[] = [
+export const CANONICAL_EXERCISES: readonly ExerciseSeed[] = [
   // ── Shared main lifts ──
   {
     id: 'squat',

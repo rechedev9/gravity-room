@@ -12,11 +12,11 @@ export function EarlyHistoryCard({ completedSessions }: EarlyHistoryCardProps): 
   const progress = Math.min(1, completed / nextTarget);
 
   return (
-    <section className="overflow-hidden rounded-[var(--radius-base)] border border-rule bg-card shadow-[var(--shadow-card)]">
+    <section className="overflow-hidden rounded-card border border-rule bg-card shadow-[var(--shadow-card)]">
       <div className="grid sm:grid-cols-[minmax(0,1.15fr)_minmax(250px,0.85fr)]">
         <div className="p-5 sm:p-6">
           <p className="chalk-stamp text-accent">{t('home.early_history.kicker')}</p>
-          <h2 className="mt-2 font-display text-3xl text-main sm:text-4xl">
+          <h2 className="mt-2 type-display-sm sm:type-display text-main">
             {t('home.early_history.title')}
           </h2>
           <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">

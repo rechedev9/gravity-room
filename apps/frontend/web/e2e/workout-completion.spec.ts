@@ -37,8 +37,9 @@ test.describe('Full day completion', () => {
 
   test('marking all 3 tiers enables undo (results recorded)', async ({ page }) => {
     await completeDay1(page);
-    // Undo now lives per-card (session-chrome carries no undo control) — the
-    // day's first completed slot row surfaces the undo badge.
+    // A finished day closes into its summary; "fix something" unfolds the
+    // completed rows, where undo lives per card (session-chrome has no undo).
+    await page.getByTestId('day-completed-review').click();
     const completed = page.getByTestId('completed-slot-row').first();
     await expect(completed).toBeVisible();
     await expect(completed.getByTestId('result-cell-undo')).toBeEnabled();
@@ -72,11 +73,10 @@ test.describe('Undo after marking', () => {
     await ensureCompactView(page);
   });
 
-  test('no undo affordance exists with no history', async ({ page }) => {
-    // Undo no longer has a standing chrome control (enabled/disabled) — it
-    // only exists once there is something to undo, so its absence here IS
-    // the "disabled with no history" contract.
-    await expect(page.getByRole('button', { name: 'Deshacer' })).toHaveCount(0);
+  test('undo is disabled with no history', async ({ page }) => {
+    // The header undo is the only standing control; per-card undo appears with a result.
+    await expect(page.getByTestId('session-chrome-undo')).toBeDisabled();
+    await expect(page.getByTestId('result-cell-undo')).toHaveCount(0);
   });
 
   test('marking then undoing restores pass/fail buttons', async ({ page }) => {

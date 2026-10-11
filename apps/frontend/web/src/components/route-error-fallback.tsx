@@ -26,7 +26,7 @@ export function RouteErrorFallback({ error }: ErrorComponentProps): React.ReactN
         <p className="text-muted mb-6">{t('route_error.description')}</p>
         <button
           onClick={() => window.location.reload()}
-          className="px-6 py-2.5 bg-accent text-on-accent font-bold cursor-pointer"
+          className="rounded-control px-6 py-2.5 bg-accent text-on-accent font-bold cursor-pointer"
         >
           {t('route_error.reload')}
         </button>

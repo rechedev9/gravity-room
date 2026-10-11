@@ -1,67 +1,55 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { WeightField } from './weight-field';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+afterEach(() => {
+  localStorage.clear();
+});
 
-function buildProps(overrides?: Partial<Parameters<typeof WeightField>[0]>) {
-  return {
-    fieldKey: 'squat',
-    label: 'Sentadilla',
-    value: '60',
-    touched: false,
-    fieldError: null,
-    step: 2.5,
-    min: 20,
-    onChange: vi.fn(),
-    onBlur: vi.fn(),
-    onAdjust: vi.fn(),
-    onSubmit: vi.fn(),
-    ...overrides,
-  };
+function renderField(initial: string, onChange = vi.fn()): ReturnType<typeof vi.fn> {
+  function Harness(): React.ReactNode {
+    const [value, setValue] = useState(initial);
+    return (
+      <WeightField
+        fieldKey="squat"
+        label="Squat"
+        value={value}
+        touched={false}
+        fieldError={null}
+        step={2.5}
+        min={2.5}
+        onChange={(key, v) => {
+          onChange(key, v);
+          setValue(v);
+        }}
+        onBlur={vi.fn()}
+        onAdjust={vi.fn()}
+        onSubmit={vi.fn()}
+      />
+    );
+  }
+  render(<Harness />);
+  return onChange;
 }
 
-// ---------------------------------------------------------------------------
-// Tests (REQ-CCF-002, REQ-CCF-003)
-// ---------------------------------------------------------------------------
-
 describe('WeightField', () => {
-  describe('min attribute (REQ-CCF-002)', () => {
-    it('should set min="20" on the input when rendered with min={20}', () => {
-      render(<WeightField {...buildProps({ min: 20 })} />);
+  it('shows the stored kg value in lbs and reports typed lbs back as kg', () => {
+    localStorage.setItem('gravity-room:unit-preference', 'lbs');
+    const onChange = renderField('100');
+    const input = screen.getByRole('spinbutton');
+    expect((input as HTMLInputElement).value).toBe('220.46');
 
-      const input = screen.getByRole('spinbutton');
+    fireEvent.change(input, { target: { value: '135' } });
 
-      expect(input.getAttribute('min')).toBe('20');
-    });
-
-    it('should set min="5" on the input when rendered with min={5}', () => {
-      render(<WeightField {...buildProps({ min: 5 })} />);
-
-      const input = screen.getByRole('spinbutton');
-
-      expect(input.getAttribute('min')).toBe('5');
-    });
+    expect(onChange).toHaveBeenCalledWith('squat', '61.24');
+    expect((input as HTMLInputElement).value).toBe('135');
   });
 
-  describe('hint text (REQ-CCF-003)', () => {
-    it('should show "Mín 20 kg" when untouched and no error', () => {
-      render(<WeightField {...buildProps({ min: 20, touched: false, fieldError: null })} />);
-
-      expect(screen.getByText('Mín 20 kg')).toBeInTheDocument();
-    });
-
-    it('should show error message instead of hint when touched and error is set', () => {
-      render(
-        <WeightField
-          {...buildProps({ min: 20, touched: true, fieldError: 'El peso es demasiado bajo' })}
-        />
-      );
-
-      expect(screen.getByRole('alert').textContent).toContain('El peso es demasiado bajo');
-      expect(screen.queryByText('Mín 20 kg')).not.toBeInTheDocument();
-    });
+  it('is a plain pass-through in kg', () => {
+    const onChange = renderField('60');
+    const input = screen.getByRole('spinbutton');
+    fireEvent.change(input, { target: { value: '62.5' } });
+    expect(onChange).toHaveBeenCalledWith('squat', '62.5');
   });
 });

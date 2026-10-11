@@ -76,12 +76,39 @@ describe('auth refresh lifecycle', () => {
     window.addEventListener(SESSION_INVALIDATED_EVENT, onAuthFailure, { once: true });
     vi.stubGlobal(
       'fetch',
-      vi.fn<FetchCall>(() => Promise.resolve(new Response(null, { status: 401 })))
+      vi.fn<FetchCall>(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({ error: 'Invalid refresh token', code: 'AUTH_INVALID_REFRESH' }),
+            { status: 401, headers: { 'Content-Type': 'application/json' } }
+          )
+        )
+      )
     );
+    setAccessToken('expired-access');
 
     await expect(refreshAccessToken()).resolves.toBeNull();
 
     expect(onAuthFailure).toHaveBeenCalledOnce();
     expect(getAccessToken()).toBeNull();
   });
+
+  it.each([429, 500, 503])(
+    'keeps the session when the refresh endpoint answers %i',
+    async (status) => {
+      const onAuthFailure = vi.fn();
+      window.addEventListener(SESSION_INVALIDATED_EVENT, onAuthFailure);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn<FetchCall>(() => Promise.resolve(new Response('unavailable', { status })))
+      );
+      setAccessToken('current-access');
+
+      await expect(refreshAccessToken()).rejects.toMatchObject({ status });
+
+      window.removeEventListener(SESSION_INVALIDATED_EVENT, onAuthFailure);
+      expect(onAuthFailure).not.toHaveBeenCalled();
+      expect(getAccessToken()).toBe('current-access');
+    }
+  );
 });

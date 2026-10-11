@@ -768,6 +768,10 @@ var ProgramDefinitionSchema = z
 // packages/domain/src/schemas/instance.ts
 var MAX_REPS = 999;
 var MAX_SET_LOG_WEIGHT = 1e4;
+var MAX_PROGRAM_CONFIG_WEIGHT = 1e4;
+var MAX_SET_LOG_ITEMS = 20;
+var MAX_SLOT_ID_CHARS = 50;
+var MAX_PROGRAM_ID_CHARS = 50;
 var ResultValueSchema = z2.enum(['success', 'fail']);
 var SetLogEntrySchema = z2.strictObject({
   reps: z2.number().int().min(0).max(MAX_REPS),
@@ -876,6 +880,8 @@ var users = pgTable(
     authVersion: integer('auth_version').notNull().default(0),
     name: varchar({ length: 100 }),
     avatarUrl: text('avatar_url'),
+    /** Display unit for weights ('kg' | 'lbs'); stored weights are always kg. */
+    weightUnit: varchar('weight_unit', { length: 3 }).$type().notNull().default('kg'),
     /**
      * Soft-delete timestamp. When set, the user is in a 30-day grace period
      * before `purge-deleted-users.ts` hard-deletes (CASCADE) the row and all
@@ -900,6 +906,7 @@ var users = pgTable(
     uniqueIndex('users_email_active_uq')
       .on(table.email)
       .where(sql`${table.deletedAt} IS NULL`),
+    check('chk_users_weight_unit', sql`${table.weightUnit} IN ('kg', 'lbs')`),
   ]
 );
 var usersRelations = relations(users, ({ many }) => ({
@@ -1683,6 +1690,7 @@ async function updateUserProfile(userId, fields) {
     const updates = { updatedAt: /* @__PURE__ */ new Date() };
     if (fields.name !== void 0) updates['name'] = fields.name;
     if (fields.avatarUrl !== void 0) updates['avatarUrl'] = fields.avatarUrl;
+    if (fields.weightUnit !== void 0) updates['weightUnit'] = fields.weightUnit;
     const [updated] = await tx
       .update(users)
       .set(updates)
@@ -3047,11 +3055,13 @@ function isEmailPasswordAvailable() {
 function isGoogleConfigured() {
   return Boolean(process.env['GOOGLE_CLIENT_ID']?.trim());
 }
+var weightUnitSchema = t.Union([t.Literal('kg'), t.Literal('lbs')]);
 var userProfileResponseSchema = t.Object({
   id: t.String(),
   email: t.String({ format: 'email' }),
   name: t.Nullable(t.String()),
   avatarUrl: t.Nullable(t.String()),
+  weightUnit: weightUnitSchema,
 });
 var mobileGoogleAuthResponseSchema = t.Object({
   user: userProfileResponseSchema,
@@ -3069,6 +3079,7 @@ function userResponse(user) {
     email: user.email,
     name: user.name,
     avatarUrl: user.avatarUrl ?? null,
+    weightUnit: user.weightUnit,
   };
 }
 async function issueSessionTokens(jwt2, user) {
@@ -4118,6 +4129,7 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
       const updated = await updateUserProfile(userId, {
         name: normalizeDisplayName(body.name),
         avatarUrl: body.avatarUrl,
+        weightUnit: body.weightUnit,
       });
       reqLogger.info({ event: 'auth.profile_update', userId }, 'profile updated');
       return userResponse(updated);
@@ -4126,11 +4138,13 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
       body: t.Object({
         name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
         avatarUrl: t.Optional(t.Nullable(t.String({ maxLength: MAX_AVATAR_BYTES }))),
+        weightUnit: t.Optional(weightUnitSchema),
       }),
       detail: {
         tags: ['Auth'],
         summary: 'Update user profile',
-        description: 'Updates name and/or avatar. Send avatarUrl: null to remove the avatar.',
+        description:
+          'Updates name, avatar and/or weight unit. Send avatarUrl: null to remove the avatar.',
         security: authSecurity,
         responses: {
           200: { description: 'Updated user profile' },
@@ -4445,7 +4459,7 @@ function computeGenericProgram(definition, config, results, options) {
   }
   const rows = [];
   const cycleLength = definition.days.length;
-  const prevWeightByExerciseId = /* @__PURE__ */ new Map();
+  const prevWeightByPrescription = /* @__PURE__ */ new Map();
   const rowLimit = Math.min(definition.totalWorkouts, options?.maxRows ?? definition.totalWorkouts);
   for (let i = 0; i < rowLimit; i++) {
     const day = requireValue(definition.days[i % cycleLength], `Missing day for workout ${i}`);
@@ -4538,10 +4552,14 @@ function computeGenericProgram(definition, config, results, options) {
         slot.trainingMaxKey !== void 0 && slot.tmPercent !== void 0
           ? roundToNearest((tmState[slot.trainingMaxKey] ?? 0) * slot.tmPercent, roundingStep)
           : state.weight;
-      const prevWeight = prevWeightByExerciseId.get(slot.exerciseId);
+      const prescriptionKey =
+        slot.trainingMaxKey !== void 0 && slot.tmPercent !== void 0
+          ? `${slot.id}@${slot.tmPercent}`
+          : slot.id;
+      const prevWeight = prevWeightByPrescription.get(prescriptionKey);
       const isDeload = prevWeight !== void 0 && weight > 0 && weight < prevWeight;
       if (weight > 0) {
-        prevWeightByExerciseId.set(slot.exerciseId, weight);
+        prevWeightByPrescription.set(prescriptionKey, weight);
       }
       const derivedResult = deriveSlotResult(slot, slotResult, stageConfig.reps);
       derivedResultsBySlotId[slot.id] = derivedResult;
@@ -4754,16 +4772,16 @@ async function listPrograms() {
     return entries;
   });
 }
-async function hydrateStoredProgramDefinition(programId, includeInactive) {
+async function hydrateStoredProgramDefinition(programId, includeInactive, reader = getDb()) {
   const visibility = includeInactive
     ? eq2(programTemplates.id, programId)
     : and2(eq2(programTemplates.id, programId), eq2(programTemplates.isActive, true));
-  const [template] = await getDb().select().from(programTemplates).where(visibility).limit(1);
+  const [template] = await reader.select().from(programTemplates).where(visibility).limit(1);
   if (!template) return { status: 'not_found' };
   const exerciseIds = [...collectExerciseIds(template.definition)];
   const exerciseRows =
     exerciseIds.length > 0
-      ? await getDb()
+      ? await reader
           .select({ id: exercises.id, name: exercises.name })
           .from(exercises)
           .where(inArray(exercises.id, exerciseIds))
@@ -4798,8 +4816,8 @@ async function getProgramDefinition(programId) {
     return result;
   });
 }
-function getHistoricalProgramDefinition(programId) {
-  return hydrateStoredProgramDefinition(programId, true);
+function getHistoricalProgramDefinition(programId, reader) {
+  return hydrateStoredProgramDefinition(programId, true, reader);
 }
 var MAX_PREVIEW_ROWS = 10;
 function previewDefinition(definition, config) {
@@ -4931,7 +4949,6 @@ async function assertUserDataQuotas(tx, userId) {
 }
 
 // apps/backend/api/src/services/programs.ts
-var MAX_SET_LOG_ITEMS = 20;
 var MAX_METADATA_BYTES = 1e4;
 async function lockUserForActiveProgramMutation(tx, userId) {
   await lockUserForDataMutation(tx, userId);
@@ -5174,7 +5191,7 @@ async function updateInstanceMetadata(userId, instanceId, metadata) {
   if (serialized.length > MAX_METADATA_BYTES) {
     throw new ApiError(400, 'Metadata exceeds 10KB limit', 'METADATA_TOO_LARGE');
   }
-  const mergedMetadata = sql6`COALESCE(${programInstances.metadata}, '{}'::jsonb) || ${metadata}::jsonb`;
+  const mergedMetadata = sql6`COALESCE(${programInstances.metadata}, '{}'::jsonb) || ${serialized}::jsonb`;
   const updated = await getDb().transaction(async (tx) => {
     await lockUserForDataMutation(tx, userId);
     const [row] = await tx
@@ -5482,10 +5499,7 @@ async function invalidateCachedInstance(userId, instanceId) {
 // apps/backend/api/src/routes/programs.ts
 var instanceFlight = new SingleflightMap();
 var MAX_PROGRAM_CURSOR_CHARS = 256;
-var MAX_PROGRAM_ID_CHARS = 50;
-var MAX_SLOT_ID_CHARS = 50;
 var MAX_WORKOUT_INDEX_KEY_CHARS = String(MAX_TOTAL_WORKOUTS - 1).length;
-var MAX_SET_LOG_ITEMS2 = 20;
 var PROGRAM_ID_PATTERN = '^[a-z0-9-]+$';
 var WORKOUT_INDEX_KEY_PATTERN = '^\\d+$';
 var MUTATION_RATE_LIMIT = { failClosed: true };
@@ -5494,7 +5508,10 @@ var IMPORT_HOURLY_ROW_BUDGET = 1e4;
 var IMPORT_DAILY_KIB_BUDGET = 10 * 1024;
 var programConfigSchema = t2.Record(
   t2.String({ maxLength: 30 }),
-  t2.Union([t2.Number({ minimum: 0, maximum: 1e4 }), t2.String({ maxLength: 100 })]),
+  t2.Union([
+    t2.Number({ minimum: 0, maximum: MAX_PROGRAM_CONFIG_WEIGHT }),
+    t2.String({ maxLength: 100 }),
+  ]),
   { maxProperties: MAX_PROGRAM_CONFIG_KEYS }
 );
 var programIdSchema = t2.String({
@@ -5514,7 +5531,7 @@ var setLogsSchema = t2.Array(
     weight: t2.Optional(t2.Number({ minimum: 0, maximum: MAX_SET_LOG_WEIGHT })),
     rpe: t2.Optional(t2.Integer({ minimum: 1, maximum: 10 })),
   }),
-  { maxItems: MAX_SET_LOG_ITEMS2 }
+  { maxItems: MAX_SET_LOG_ITEMS }
 );
 var security = [{ bearerAuth: [] }];
 function getImportRateLimitCosts(data) {
@@ -5873,13 +5890,14 @@ var programRoutes = new Elysia5({ prefix: '/programs' })
 // apps/backend/api/src/routes/catalog.ts
 import { Elysia as Elysia6, t as t3 } from 'elysia';
 var HOUR_MS = 36e5;
-var MAX_PROGRAM_ID_CHARS2 = 50;
-var MAX_PREVIEW_CONFIG_KEYS = 100;
 var security2 = [{ bearerAuth: [] }];
 var previewConfigSchema = t3.Record(
   t3.String({ maxLength: 30 }),
-  t3.Union([t3.Number({ minimum: 0, maximum: 1e4 }), t3.String({ maxLength: 100 })]),
-  { maxProperties: MAX_PREVIEW_CONFIG_KEYS }
+  t3.Union([
+    t3.Number({ minimum: 0, maximum: MAX_PROGRAM_CONFIG_WEIGHT }),
+    t3.String({ maxLength: 100 }),
+  ]),
+  { maxProperties: MAX_PROGRAM_CONFIG_KEYS }
 );
 function parseMixedConfig(raw) {
   if (!isRecord(raw)) return void 0;
@@ -6005,7 +6023,7 @@ var catalogRoutes = new Elysia6({ prefix: '/catalog' })
       params: t3.Object({
         programId: t3.String({
           minLength: 1,
-          maxLength: MAX_PROGRAM_ID_CHARS2,
+          maxLength: MAX_PROGRAM_ID_CHARS,
           pattern: '^[a-z0-9-]+$',
         }),
       }),
@@ -6682,8 +6700,6 @@ async function syncCompletedAt(tx, instanceId, workoutIndex, expectedSlots) {
   }
 }
 var MAX_RESULT_WORKOUT_INDEX = MAX_TOTAL_WORKOUTS - 1;
-var MAX_SET_LOG_ITEMS3 = 20;
-var MAX_SLOT_ID_LENGTH = 50;
 function assertWorkoutIndexInRange(workoutIndex) {
   if (
     !Number.isInteger(workoutIndex) ||
@@ -6694,7 +6710,7 @@ function assertWorkoutIndexInRange(workoutIndex) {
   }
 }
 function assertSlotIdValid(slotId) {
-  if (slotId.length < 1 || slotId.length > MAX_SLOT_ID_LENGTH) {
+  if (slotId.length < 1 || slotId.length > MAX_SLOT_ID_CHARS) {
     throw new ApiError(400, `Invalid slotId: ${slotId}`, 'INVALID_DATA');
   }
 }
@@ -6707,8 +6723,8 @@ async function recordResult(userId, instanceId, input) {
   if (input.rpe !== void 0 && (input.rpe < 1 || input.rpe > 10)) {
     throw new ApiError(400, 'rpe must be between 1 and 10', 'INVALID_DATA');
   }
-  if (input.setLogs !== void 0 && input.setLogs.length > MAX_SET_LOG_ITEMS3) {
-    throw new ApiError(400, `setLogs cannot exceed ${MAX_SET_LOG_ITEMS3} entries`, 'INVALID_DATA');
+  if (input.setLogs !== void 0 && input.setLogs.length > MAX_SET_LOG_ITEMS) {
+    throw new ApiError(400, `setLogs cannot exceed ${MAX_SET_LOG_ITEMS} entries`, 'INVALID_DATA');
   }
   for (const setLog of input.setLogs ?? []) {
     if (!SetLogEntryInputSchema.safeParse(setLog).success) {
@@ -7108,6 +7124,86 @@ import {
   ne,
   sql as sql8,
 } from 'drizzle-orm';
+
+// packages/domain/src/insight-series.ts
+var SEPARATOR = ':';
+var MAX_KEY_LENGTH = 100;
+function buildInsightSeriesKey({ exerciseId, tier }) {
+  if (exerciseId.includes(SEPARATOR)) {
+    throw new RangeError(`Insight series exercise id contains "${SEPARATOR}": ${exerciseId}`);
+  }
+  const key =
+    tier === null ? exerciseId : `${exerciseId}${SEPARATOR}${tier.replaceAll(SEPARATOR, '-')}`;
+  if (key.length > MAX_KEY_LENGTH) {
+    throw new RangeError(`Insight series key exceeds ${MAX_KEY_LENGTH} characters: ${key}`);
+  }
+  return key;
+}
+
+// apps/backend/api/src/analytics/record.ts
+function seriesKeyResolver(history) {
+  const tiers = /* @__PURE__ */ new Map();
+  for (const point of history) {
+    const seen = tiers.get(point.exerciseId) ?? /* @__PURE__ */ new Set();
+    seen.add(point.tier);
+    tiers.set(point.exerciseId, seen);
+  }
+  return (point) =>
+    buildInsightSeriesKey({
+      exerciseId: point.exerciseId,
+      tier: (tiers.get(point.exerciseId)?.size ?? 0) > 1 ? point.tier : null,
+    });
+}
+
+// apps/backend/api/src/analytics/prescribed-weight.ts
+function isSetLogs(value) {
+  return Array.isArray(value) && value.every((entry) => isRecord(entry));
+}
+function toEngineConfig(config) {
+  const engineConfig = {};
+  if (!isRecord(config)) return engineConfig;
+  for (const [key, value] of Object.entries(config)) {
+    if (typeof value === 'number' || typeof value === 'string') engineConfig[key] = value;
+  }
+  return engineConfig;
+}
+function toEngineResults(rows) {
+  const results = {};
+  for (const row of rows) {
+    const workout = (results[String(row.workoutIndex)] ??= {});
+    workout[row.slotId] = {
+      result: row.result,
+      ...(row.amrapReps !== null ? { amrapReps: row.amrapReps } : {}),
+      ...(row.rpe !== null ? { rpe: row.rpe } : {}),
+      ...(isSetLogs(row.setLogs) ? { setLogs: row.setLogs } : {}),
+    };
+  }
+  return results;
+}
+function weightKey(row) {
+  return `${row.workoutIndex}:${row.slotId}`;
+}
+function prescribedWeights(rows, source) {
+  const weights = /* @__PURE__ */ new Map();
+  const lastIndex = rows.reduce((max, row) => Math.max(max, row.workoutIndex), -1);
+  if (lastIndex < 0) return weights;
+  const workouts = computeGenericProgram(
+    source.definition,
+    toEngineConfig(source.config),
+    toEngineResults(rows),
+    { maxRows: lastIndex + 1 }
+  );
+  for (const workout of workouts) {
+    for (const slot of workout.slots) {
+      if (slot.isBodyweight !== true && slot.weight > 0) {
+        weights.set(weightKey({ workoutIndex: workout.index, slotId: slot.slotId }), slot.weight);
+      }
+    }
+  }
+  return weights;
+}
+
+// apps/backend/api/src/analytics/queries.ts
 var META_INSIGHT_TYPE = '_meta';
 async function fetchLeastRecentlyComputedUsers(limit) {
   const db = getDb();
@@ -7139,6 +7235,42 @@ async function withInsightTransaction(userId, fn) {
     return fn(tx);
   });
 }
+async function hasStaleInsights(userId) {
+  const lastComputedAt = sql8`(
+    select max(${userInsights.computedAt}) from ${userInsights}
+    where ${userInsights.userId} = ${userId} and ${userInsights.insightType} = ${META_INSIGHT_TYPE}
+  )`;
+  const [row] = await getDb()
+    .select({
+      stale: sql8`count(*) > 0 and coalesce(max(${programInstances.updatedAt}) > ${lastComputedAt}, true)`,
+    })
+    .from(programInstances)
+    .where(eq7(programInstances.userId, userId));
+  return row?.stale === true;
+}
+async function resolveInstanceDefinition(instance, executor) {
+  const custom = ProgramDefinitionSchema.safeParse(instance.customDefinition);
+  if (custom.success) return custom.data;
+  const stored = await getHistoricalProgramDefinition(instance.templateId, executor);
+  return stored.status === 'found' ? stored.definition : null;
+}
+async function fetchResultHistory(userId, executor) {
+  return executor
+    .select({
+      instanceId: sql8`${programInstances.id}::text`,
+      workoutIndex: workoutResults.workoutIndex,
+      slotId: workoutResults.slotId,
+      exerciseId: workoutResults.exerciseId,
+      definitionVersion: workoutResults.definitionVersion,
+      result: workoutResults.result,
+      rpe: sql8`${workoutResults.rpe}::float`,
+      amrapReps: workoutResults.amrapReps,
+      setLogs: workoutResults.setLogs,
+    })
+    .from(workoutResults)
+    .innerJoin(programInstances, eq7(programInstances.id, workoutResults.instanceId))
+    .where(eq7(programInstances.userId, userId));
+}
 async function fetchWorkoutRecords(userId, executor = getDb()) {
   const rows = await executor
     .select({
@@ -7146,12 +7278,14 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
       instanceId: sql8`${programInstances.id}::text`,
       programId: programInstances.templateId,
       workoutIndex: workoutResults.workoutIndex,
+      slotId: workoutResults.slotId,
       exerciseId: sql8`${workoutResults.exerciseId}`,
       definitionVersion: sql8`${workoutResults.definitionVersion}`,
-      weight: sql8`(${workoutResults.setLogs} -> 0 ->> 'weight')::float`,
-      result: sql8`${workoutResults.result}::text`,
+      loggedWeight: sql8`(${workoutResults.setLogs} -> 0 ->> 'weight')::float`,
+      result: workoutResults.result,
       rpe: sql8`${workoutResults.rpe}::float`,
       amrapReps: workoutResults.amrapReps,
+      setLogs: workoutResults.setLogs,
       recordedAt: sql8`coalesce(${workoutResults.completedAt}, ${workoutResults.createdAt})::text`,
     })
     .from(workoutResults)
@@ -7160,8 +7294,7 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
       and7(
         eq7(programInstances.userId, userId),
         isNotNull(workoutResults.exerciseId),
-        isNotNull(workoutResults.definitionVersion),
-        sql8`(${workoutResults.setLogs} -> 0 ->> 'weight') is not null`
+        isNotNull(workoutResults.definitionVersion)
       )
     )
     .orderBy(
@@ -7169,19 +7302,96 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
       desc4(workoutResults.id)
     )
     .limit(MAX_ANALYTICS_RECORDS_PER_USER);
-  return rows.reverse().map((row) => ({
-    userId: row.userId,
-    instanceId: row.instanceId,
-    programId: row.programId,
-    workoutIndex: row.workoutIndex,
-    exerciseId: row.exerciseId,
-    definitionVersion: Number(row.definitionVersion),
-    weight: Number(row.weight),
-    result: row.result,
-    rpe: row.rpe === null ? null : Number(row.rpe),
-    amrapReps: row.amrapReps,
-    recordedAt: row.recordedAt,
-  }));
+  if (rows.length === 0) return [];
+  const history = await fetchResultHistory(userId, executor);
+  const identified = history.filter(
+    (row) => row.exerciseId !== null && row.definitionVersion !== null
+  );
+  const identifiedInstances = new Set(identified.map((row) => row.instanceId));
+  const unweighted = new Set(
+    rows.filter((row) => row.loggedWeight === null).map((row) => row.instanceId)
+  );
+  const prescribed = /* @__PURE__ */ new Map();
+  const tiers = /* @__PURE__ */ new Map();
+  const instances = await executor
+    .select({
+      id: sql8`${programInstances.id}::text`,
+      templateId: programInstances.templateId,
+      config: programInstances.programConfig,
+      customDefinition: programInstances.customDefinition,
+    })
+    .from(programInstances)
+    .where(eq7(programInstances.userId, userId));
+  for (const instance of instances) {
+    if (!identifiedInstances.has(instance.id)) continue;
+    const definition = await resolveInstanceDefinition(instance, executor);
+    if (definition === null) continue;
+    tiers.set(instance.id, slotTiers(definition));
+    if (!unweighted.has(instance.id)) continue;
+    prescribed.set(
+      instance.id,
+      prescribedWeights(
+        history.filter((row) => row.instanceId === instance.id),
+        { definition, config: instance.config }
+      )
+    );
+  }
+  const seriesHistory = [];
+  for (const row of identified) {
+    const tier = tiers.get(row.instanceId)?.get(row.slotId);
+    if (tier !== void 0 && row.exerciseId !== null) {
+      seriesHistory.push({ exerciseId: row.exerciseId, tier });
+    }
+  }
+  const seriesKeyOf = reportingSeriesKey(userId, seriesKeyResolver(seriesHistory));
+  const records = [];
+  for (const row of rows.reverse()) {
+    const tier = tiers.get(row.instanceId)?.get(row.slotId);
+    if (tier === void 0) continue;
+    const weight = row.loggedWeight ?? prescribed.get(row.instanceId)?.get(weightKey(row));
+    if (weight === void 0) continue;
+    const seriesKey = seriesKeyOf({ exerciseId: row.exerciseId, tier });
+    if (seriesKey === null) continue;
+    records.push({
+      userId: row.userId,
+      instanceId: row.instanceId,
+      programId: row.programId,
+      workoutIndex: row.workoutIndex,
+      exerciseId: row.exerciseId,
+      definitionVersion: Number(row.definitionVersion),
+      tier,
+      seriesKey,
+      weight: Number(weight),
+      result: row.result,
+      rpe: row.rpe === null ? null : Number(row.rpe),
+      amrapReps: row.amrapReps,
+      recordedAt: row.recordedAt,
+    });
+  }
+  return records;
+}
+function reportingSeriesKey(userId, keyOf) {
+  const reported = /* @__PURE__ */ new Set();
+  return (point) => {
+    try {
+      return keyOf(point);
+    } catch (error) {
+      if (!(error instanceof RangeError)) throw error;
+      const series = JSON.stringify([point.exerciseId, point.tier]);
+      if (!reported.has(series)) {
+        reported.add(series);
+        logger.error({ err: error, userId }, 'analytics: insight series key cannot be stored');
+      }
+      return null;
+    }
+  };
+}
+function slotTiers(definition) {
+  const tiers = /* @__PURE__ */ new Map();
+  for (const day of definition.days) {
+    for (const slot of day.slots) tiers.set(slot.id, slot.tier);
+  }
+  return tiers;
 }
 async function upsertInsight(userId, insightType, exerciseId, payload, executor = getDb()) {
   await executor
@@ -7198,7 +7408,954 @@ async function deleteComputedInsights(userId, executor) {
     .where(and7(eq7(userInsights.userId, userId), ne(userInsights.insightType, META_INSIGHT_TYPE)));
 }
 
+// apps/backend/api/src/analytics/iso-week.ts
+import { getISOWeek, getISOWeekYear } from 'date-fns';
+function isoWeekKey(date) {
+  const year = getISOWeekYear(date);
+  const week = getISOWeek(date);
+  return `${year}-W${String(week).padStart(2, '0')}`;
+}
+function parseWallClockDate(timestamp2) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(timestamp2);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null;
+  }
+  return date;
+}
+function isoWeekKeyFromTimestamp(timestamp2) {
+  const date = parseWallClockDate(timestamp2);
+  if (date === null) return null;
+  return isoWeekKey(date);
+}
+
+// apps/backend/api/src/analytics/pipelines/round.ts
+function pyRound(value, ndigits) {
+  if (!Number.isFinite(value)) return value;
+  const negative = value < 0 || Object.is(value, -0);
+  const precision = Math.min(100, Math.max(0, ndigits) + 20);
+  const fixed = Math.abs(value).toFixed(precision);
+  const rounded = roundHalfToEvenDecimal(fixed, ndigits);
+  const result = Number(rounded);
+  return negative ? -result : result;
+}
+function roundHalfToEvenDecimal(s, ndigits) {
+  const [intPart, fracPart = ''] = s.split('.');
+  if (ndigits >= fracPart.length) return s;
+  const keptFrac = fracPart.slice(0, ndigits);
+  const dropped = fracPart.slice(ndigits);
+  const digits = (intPart + keptFrac).split('');
+  const firstDropped = dropped.charAt(0);
+  let roundUp;
+  if (firstDropped > '5') {
+    roundUp = true;
+  } else if (firstDropped < '5') {
+    roundUp = false;
+  } else if (/[1-9]/.test(dropped.slice(1))) {
+    roundUp = true;
+  } else {
+    const lastKept = digits[digits.length - 1] ?? '0';
+    roundUp = (lastKept.charCodeAt(0) - 48) % 2 === 1;
+  }
+  if (roundUp) {
+    let i = digits.length - 1;
+    for (; i >= 0; i--) {
+      const d = digits[i] ?? '0';
+      if (d === '9') {
+        digits[i] = '0';
+      } else {
+        digits[i] = String.fromCharCode(d.charCodeAt(0) + 1);
+        break;
+      }
+    }
+    if (i < 0) digits.unshift('1');
+  }
+  const intLen = digits.length - ndigits;
+  const newInt = digits.slice(0, intLen).join('');
+  const newFrac = digits.slice(intLen).join('');
+  return ndigits > 0 ? `${newInt}.${newFrac}` : newInt;
+}
+
+// apps/backend/api/src/analytics/pipelines/volume.ts
+var DEFAULT_REPS = 5;
+function computeVolume(records) {
+  const weekly = /* @__PURE__ */ new Map();
+  for (const r of records) {
+    if (r.result !== 'success') continue;
+    const reps = r.amrapReps && r.amrapReps > 0 ? r.amrapReps : DEFAULT_REPS;
+    const volume = r.weight * reps;
+    if (r.recordedAt === null) continue;
+    const weekKey = isoWeekKeyFromTimestamp(r.recordedAt);
+    if (weekKey === null) continue;
+    weekly.set(weekKey, (weekly.get(weekKey) ?? 0) + volume);
+  }
+  if (weekly.size < 3) return null;
+  const weeks = [...weekly.keys()].sort();
+  const volumes = weeks.map((w) => weekly.get(w) ?? 0);
+  const slope = linearSlope(volumes);
+  const direction = slope > 0.5 ? 'up' : slope < -0.5 ? 'down' : 'flat';
+  return {
+    weeks,
+    volumes,
+    slope: pyRound(slope, 2),
+    direction,
+  };
+}
+function linearSlope(values) {
+  const n = values.length;
+  if (n < 2) return 0;
+  let xMean = 0;
+  let yMean = 0;
+  for (let i = 0; i < n; i++) {
+    xMean += i;
+    yMean += values[i];
+  }
+  xMean /= n;
+  yMean /= n;
+  let num = 0;
+  let den = 0;
+  for (let i = 0; i < n; i++) {
+    num += (i - xMean) * (values[i] - yMean);
+    den += (i - xMean) ** 2;
+  }
+  return den !== 0 ? num / den : 0;
+}
+
+// apps/backend/api/src/analytics/pipelines/time.ts
+var MS_PER_DAY = 864e5;
+function parseInstant(timestamp2) {
+  let s = timestamp2.trim();
+  if (!s.includes('T') && s.includes(' ')) {
+    s = s.replace(' ', 'T');
+  }
+  s = s.replace('Z', '+00:00');
+  s = s.replace(/([+-]\d{2})$/, '$1:00');
+  const ms = Date.parse(s);
+  return Number.isNaN(ms) ? null : new Date(ms);
+}
+function wallClockDateKey(timestamp2) {
+  const date = parseWallClockDate(timestamp2);
+  if (date === null) return null;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+function daysBetweenDateKeys(a, b) {
+  return Math.round((midnightUtc(b) - midnightUtc(a)) / MS_PER_DAY);
+}
+function shiftDateKey(key, deltaDays) {
+  const shifted = new Date(midnightUtc(key) + deltaDays * MS_PER_DAY);
+  const year = shifted.getUTCFullYear();
+  const month = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(shifted.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+function midnightUtc(dateKey) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return Date.UTC(year, month - 1, day);
+}
+
+// apps/backend/api/src/analytics/pipelines/frequency.ts
+function computeFrequency(records) {
+  const dates = /* @__PURE__ */ new Set();
+  for (const r of records) {
+    if (r.recordedAt === null) continue;
+    const key = wallClockDateKey(r.recordedAt);
+    if (key !== null) dates.add(key);
+  }
+  if (dates.size < 3) return null;
+  const sortedDates = [...dates].sort();
+  const first = sortedDates[0];
+  const last = sortedDates[sortedDates.length - 1];
+  const totalWeeks = Math.max(1, daysBetweenDateKeys(first, last) / 7);
+  const sessionsPerWeek = pyRound(sortedDates.length / totalWeeks, 2);
+  const streak = currentStreak(sortedDates);
+  const consistencyPct = consistencyPercentage(sortedDates, first, last);
+  const workoutDates = sortedDates.length > 28 ? sortedDates.slice(-28) : sortedDates;
+  return {
+    sessionsPerWeek,
+    currentStreak: streak,
+    consistencyPct,
+    totalSessions: sortedDates.length,
+    workoutDates,
+  };
+}
+function currentStreak(sortedDateKeys) {
+  if (sortedDateKeys.length === 0) return 0;
+  const present = new Set(sortedDateKeys);
+  let streak = 0;
+  let cursor = sortedDateKeys[sortedDateKeys.length - 1];
+  while (present.has(cursor)) {
+    streak += 1;
+    cursor = shiftDateKey(cursor, -1);
+  }
+  return streak;
+}
+function consistencyPercentage(sortedDateKeys, first, last) {
+  const totalWeeks = Math.max(1, Math.floor((daysBetweenDateKeys(first, last) + 1) / 7));
+  const weeksWithSession = /* @__PURE__ */ new Set();
+  for (const key of sortedDateKeys) {
+    const weekKey = isoWeekKeyFromTimestamp(key);
+    if (weekKey !== null) weeksWithSession.add(weekKey);
+  }
+  return pyRound(Math.min(100, (weeksWithSession.size / totalWeeks) * 100), 1);
+}
+
+// apps/backend/api/src/analytics/epley.ts
+function epley(weight, reps) {
+  if (reps === 1) return weight;
+  return weight * (1 + reps / 30);
+}
+
+// apps/backend/api/src/analytics/pipelines/sort.ts
+function compareByRecordedAtThenIndex(a, b) {
+  const ar = a.recordedAt ?? '';
+  const br = b.recordedAt ?? '';
+  if (ar < br) return -1;
+  if (ar > br) return 1;
+  return a.workoutIndex - b.workoutIndex;
+}
+
+// apps/backend/api/src/analytics/pipelines/e1rm.ts
+var MIN_POINTS = 4;
+var DEFAULT_REPS2 = 5;
+function computeE1rmPerExercise(records) {
+  const bySlot = /* @__PURE__ */ new Map();
+  for (const r of records) {
+    if (r.result !== 'success') continue;
+    const slot = bySlot.get(r.seriesKey) ?? [];
+    slot.push(r);
+    bySlot.set(r.seriesKey, slot);
+  }
+  const result = /* @__PURE__ */ new Map();
+  for (const [exerciseId, exerciseRecords] of bySlot) {
+    const payload = buildSeries(exerciseRecords);
+    if (payload !== null) result.set(exerciseId, payload);
+  }
+  return result;
+}
+function buildSeries(records) {
+  if (records.length < MIN_POINTS) return null;
+  const sorted = [...records].sort(compareByRecordedAtThenIndex);
+  const dates = [];
+  const e1rms = [];
+  for (const r of sorted) {
+    const reps = r.amrapReps && r.amrapReps > 0 ? r.amrapReps : DEFAULT_REPS2;
+    dates.push(formatDate(r.recordedAt, r.workoutIndex));
+    e1rms.push(pyRound(epley(r.weight, reps), 1));
+  }
+  return {
+    dates,
+    e1rms,
+    currentMax: Math.max(...e1rms),
+  };
+}
+function formatDate(timestamp2, workoutIndex) {
+  if (timestamp2 !== null) {
+    const key = wallClockDateKey(timestamp2);
+    if (key !== null) return key;
+  }
+  return `#${workoutIndex + 1}`;
+}
+
+// apps/backend/api/src/analytics/pipelines/summary.ts
+var DEFAULT_REPS3 = 5;
+function computeSummaryPerExercise(records) {
+  const bySlot = /* @__PURE__ */ new Map();
+  for (const r of records) {
+    const slot = bySlot.get(r.seriesKey) ?? [];
+    slot.push(r);
+    bySlot.set(r.seriesKey, slot);
+  }
+  const result = /* @__PURE__ */ new Map();
+  for (const [exerciseId, exerciseRecords] of bySlot) {
+    result.set(exerciseId, summarise(exerciseRecords));
+  }
+  return result;
+}
+function summarise(records) {
+  const totalSets = records.length;
+  let successSets = 0;
+  let totalVolume = 0;
+  const rpeValues = [];
+  for (const r of records) {
+    if (r.result === 'success') {
+      successSets += 1;
+      const reps = r.amrapReps && r.amrapReps > 0 ? r.amrapReps : DEFAULT_REPS3;
+      totalVolume += r.weight * reps;
+    }
+    if (r.rpe !== null) rpeValues.push(r.rpe);
+  }
+  const successRate = totalSets ? pyRound((successSets / totalSets) * 100, 1) : 0;
+  const avgRpe =
+    rpeValues.length > 0
+      ? pyRound(rpeValues.reduce((a, b) => a + b, 0) / rpeValues.length, 1)
+      : null;
+  return {
+    totalSets,
+    successSets,
+    successRate,
+    totalVolume: pyRound(totalVolume, 1),
+    avgRpe,
+  };
+}
+
+// apps/backend/api/src/analytics/stats.ts
+var LANCZOS_G = 7;
+var LANCZOS_COEF = [
+  0.9999999999998099, 676.5203681218851, -1259.1392167224028, 771.3234287776531, -176.6150291621406,
+  12.507343278686905, -0.13857109526572012, 9984369578019572e-21, 15056327351493116e-23,
+];
+function logGamma(x) {
+  if (x < 0.5) {
+    return Math.log(Math.PI / Math.sin(Math.PI * x)) - logGamma(1 - x);
+  }
+  const z3 = x - 1;
+  let a = LANCZOS_COEF[0];
+  const t7 = z3 + LANCZOS_G + 0.5;
+  for (let i = 1; i < LANCZOS_G + 2; i++) {
+    a += LANCZOS_COEF[i] / (z3 + i);
+  }
+  return 0.5 * Math.log(2 * Math.PI) + (z3 + 0.5) * Math.log(t7) - t7 + Math.log(a);
+}
+var BETACF_MAXIT = 300;
+var BETACF_EPS = 3e-14;
+var BETACF_FPMIN = 1e-300;
+function betaContinuedFraction(a, b, x) {
+  const qab = a + b;
+  const qap = a + 1;
+  const qam = a - 1;
+  let c = 1;
+  let d = 1 - (qab * x) / qap;
+  if (Math.abs(d) < BETACF_FPMIN) d = BETACF_FPMIN;
+  d = 1 / d;
+  let h = d;
+  for (let m = 1; m <= BETACF_MAXIT; m++) {
+    const m2 = 2 * m;
+    let aa = (m * (b - m) * x) / ((qam + m2) * (a + m2));
+    d = 1 + aa * d;
+    if (Math.abs(d) < BETACF_FPMIN) d = BETACF_FPMIN;
+    c = 1 + aa / c;
+    if (Math.abs(c) < BETACF_FPMIN) c = BETACF_FPMIN;
+    d = 1 / d;
+    h *= d * c;
+    aa = (-(a + m) * (qab + m) * x) / ((a + m2) * (qap + m2));
+    d = 1 + aa * d;
+    if (Math.abs(d) < BETACF_FPMIN) d = BETACF_FPMIN;
+    c = 1 + aa / c;
+    if (Math.abs(c) < BETACF_FPMIN) c = BETACF_FPMIN;
+    d = 1 / d;
+    const del = d * c;
+    h *= del;
+    if (Math.abs(del - 1) < BETACF_EPS) break;
+  }
+  return h;
+}
+function regularizedIncompleteBeta(x, a, b) {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  const lbeta = logGamma(a + b) - logGamma(a) - logGamma(b) + a * Math.log(x) + b * Math.log(1 - x);
+  const front = Math.exp(lbeta);
+  if (x < (a + 1) / (a + b + 2)) {
+    return (front * betaContinuedFraction(a, b, x)) / a;
+  }
+  return 1 - (front * betaContinuedFraction(b, a, 1 - x)) / b;
+}
+function studentTCdf(t7, df) {
+  if (!Number.isFinite(t7)) return t7 > 0 ? 1 : 0;
+  if (df <= 0) return Number.NaN;
+  const x = df / (df + t7 * t7);
+  const half = 0.5 * regularizedIncompleteBeta(x, df / 2, 0.5);
+  return t7 > 0 ? 1 - half : half;
+}
+function studentTQuantile(p, df) {
+  if (p <= 0) return -Infinity;
+  if (p >= 1) return Infinity;
+  if (p === 0.5) return 0;
+  if (df <= 0) return Number.NaN;
+  const upper = p > 0.5;
+  const target = upper ? p : 1 - p;
+  let lo = 0;
+  let hi = 1;
+  while (studentTCdf(hi, df) < target && hi < 1e12) {
+    hi *= 2;
+  }
+  for (let i = 0; i < 200; i++) {
+    const mid = (lo + hi) / 2;
+    if (studentTCdf(mid, df) < target) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  const t7 = (lo + hi) / 2;
+  return upper ? t7 : -t7;
+}
+var LINREGRESS_TINY = 1e-20;
+function linregress(x, y) {
+  const n = x.length;
+  if (n !== y.length) {
+    throw new Error(`linregress: x and y length mismatch (${n} vs ${y.length})`);
+  }
+  if (n < 2) {
+    throw new Error('linregress: need at least two points');
+  }
+  let xMean = 0;
+  let yMean = 0;
+  for (let i = 0; i < n; i++) {
+    xMean += x[i];
+    yMean += y[i];
+  }
+  xMean /= n;
+  yMean /= n;
+  let ssxm = 0;
+  let ssym = 0;
+  let ssxym = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = x[i] - xMean;
+    const dy = y[i] - yMean;
+    ssxm += dx * dx;
+    ssym += dy * dy;
+    ssxym += dx * dy;
+  }
+  ssxm /= n;
+  ssym /= n;
+  ssxym /= n;
+  const slope = ssxm === 0 ? Number.NaN : ssxym / ssxm;
+  const intercept = yMean - slope * xMean;
+  const rDen = Math.sqrt(ssxm * ssym);
+  let r;
+  if (rDen === 0) {
+    r = 0;
+  } else {
+    r = ssxym / rDen;
+    if (r > 1) r = 1;
+    else if (r < -1) r = -1;
+  }
+  let pValue;
+  let stderr;
+  if (n === 2) {
+    pValue = 1;
+    stderr = 0;
+  } else {
+    const df = n - 2;
+    const t7 = r * Math.sqrt(df / ((1 - r + LINREGRESS_TINY) * (1 + r + LINREGRESS_TINY)));
+    pValue = 2 * studentTCdf(-Math.abs(t7), df);
+    stderr = Math.sqrt(((1 - r * r) * ssym) / ssxm / df);
+  }
+  return { slope, intercept, rValue: r, rSquared: r * r, pValue, stderr, n };
+}
+
+// apps/backend/api/src/analytics/pipelines/plateau.ts
+var MIN_POINTS2 = 8;
+var WEEKS_BACK = 8;
+var PLATEAU_SLOPE_THRESHOLD = 0.1;
+var PLATEAU_PVALUE_THRESHOLD = 0.1;
+var MAX_CONFIDENCE = 0.95;
+var MS_PER_WEEK = 7 * 864e5;
+function computePlateauPerExercise(records) {
+  const cutoff = Date.now() - WEEKS_BACK * MS_PER_WEEK;
+  const bySlot = /* @__PURE__ */ new Map();
+  for (const r of records) {
+    if (r.result !== 'success' || r.recordedAt === null) continue;
+    const instant = parseInstant(r.recordedAt);
+    if (instant === null || instant.getTime() < cutoff) continue;
+    const slot = bySlot.get(r.seriesKey) ?? [];
+    slot.push(r);
+    bySlot.set(r.seriesKey, slot);
+  }
+  const result = /* @__PURE__ */ new Map();
+  for (const [exerciseId, exerciseRecords] of bySlot) {
+    const payload = analyzeSlot(exerciseRecords);
+    if (payload !== null) result.set(exerciseId, payload);
+  }
+  return result;
+}
+function analyzeSlot(records) {
+  if (records.length < MIN_POINTS2) return null;
+  const byWeek = /* @__PURE__ */ new Map();
+  for (const r of records) {
+    if (r.recordedAt === null) continue;
+    const weekKey = isoWeekKeyFromTimestamp(r.recordedAt);
+    if (weekKey === null) continue;
+    const bucket = byWeek.get(weekKey) ?? [];
+    bucket.push(r.weight);
+    byWeek.set(weekKey, bucket);
+  }
+  if (byWeek.size < 2) return null;
+  const weeks = [...byWeek.keys()].sort();
+  const weights = weeks.map((w) => Math.max(...(byWeek.get(w) ?? [])));
+  const xs = weeks.map((_, i) => i);
+  const reg = linregress(xs, weights);
+  const slope = reg.slope;
+  const degenerate = slope === 0 && populationStd(weights) === 0;
+  const pValue = degenerate ? 0 : reg.pValue;
+  const rSquared = degenerate ? 0 : reg.rSquared;
+  const isPlateau =
+    slope < PLATEAU_SLOPE_THRESHOLD && (degenerate || pValue > PLATEAU_PVALUE_THRESHOLD);
+  let confidence;
+  if (!isPlateau) {
+    confidence = 0;
+  } else if (degenerate) {
+    confidence = MAX_CONFIDENCE;
+  } else {
+    confidence = Math.min(1 - pValue, MAX_CONFIDENCE);
+  }
+  return {
+    isPlateauing: isPlateau,
+    confidence: pyRound(confidence, 3),
+    slope: pyRound(slope, 3),
+    pValue: pyRound(pValue, 4),
+    rSquared: pyRound(rSquared, 3),
+    weeksAnalyzed: weeks.length,
+    currentWeight: weights[weights.length - 1],
+  };
+}
+function populationStd(values) {
+  const n = values.length;
+  let mean = 0;
+  for (const v of values) mean += v;
+  mean /= n;
+  let sumSq = 0;
+  for (const v of values) {
+    const d = v - mean;
+    sumSq += d * d;
+  }
+  return Math.sqrt(sumSq / n);
+}
+
+// apps/backend/api/src/analytics/pipelines/forecast.ts
+var MIN_WEEKS = 6;
+var R2_THRESHOLD = 0.5;
+var DEFAULT_REPS4 = 5;
+var FALLBACK_T_CRIT = 1.96;
+function computeForecastPerExercise(records) {
+  const bySlot = /* @__PURE__ */ new Map();
+  for (const r of records) {
+    if (r.result !== 'success') continue;
+    const slot = bySlot.get(r.seriesKey) ?? [];
+    slot.push(r);
+    bySlot.set(r.seriesKey, slot);
+  }
+  const result = /* @__PURE__ */ new Map();
+  for (const [exerciseId, exerciseRecords] of bySlot) {
+    const payload = forecastSlot(exerciseRecords);
+    if (payload !== null) result.set(exerciseId, payload);
+  }
+  return result;
+}
+function forecastSlot(records) {
+  const byWeek = /* @__PURE__ */ new Map();
+  for (const r of records) {
+    if (r.recordedAt === null) continue;
+    if (parseInstant(r.recordedAt) === null) continue;
+    const weekKey = isoWeekKeyFromTimestamp(r.recordedAt);
+    if (weekKey === null) continue;
+    const reps = r.amrapReps && r.amrapReps > 0 ? r.amrapReps : DEFAULT_REPS4;
+    const bucket = byWeek.get(weekKey) ?? [];
+    bucket.push(epley(r.weight, reps));
+    byWeek.set(weekKey, bucket);
+  }
+  if (byWeek.size < MIN_WEEKS) return null;
+  const weeks = [...byWeek.keys()].sort().slice(-16);
+  const e1rms = weeks.map((w) => Math.max(...(byWeek.get(w) ?? [])));
+  const n = weeks.length;
+  const xs = weeks.map((_, i) => i);
+  const reg = linregress(xs, e1rms);
+  const rSquared = reg.rSquared;
+  if (rSquared < R2_THRESHOLD) return null;
+  const { slope, intercept } = reg;
+  if (!Number.isFinite(slope) || !Number.isFinite(intercept)) return null;
+  const forecast2w = intercept + slope * (n + 1);
+  const forecast4w = intercept + slope * (n + 3);
+  let xMean = 0;
+  for (const x of xs) xMean += x;
+  xMean /= n;
+  let ssxx = 0;
+  for (const x of xs) ssxx += (x - xMean) ** 2;
+  let sse = 0;
+  for (let i = 0; i < n; i++) {
+    const resid = e1rms[i] - (intercept + slope * xs[i]);
+    sse += resid * resid;
+  }
+  const mse = n > 2 ? sse / (n - 2) : 0;
+  const tCrit = n > 2 ? studentTQuantile(0.975, n - 2) : FALLBACK_T_CRIT;
+  const band = (xNew) => {
+    if (ssxx === 0 || mse === 0) return 0;
+    const sePred = Math.sqrt(mse * (1 + 1 / n + (xNew - xMean) ** 2 / ssxx));
+    return tCrit * sePred;
+  };
+  return {
+    weeks,
+    e1rms: e1rms.map((v) => pyRound(v, 1)),
+    slope: pyRound(slope, 3),
+    rSquared: pyRound(rSquared, 3),
+    forecast2w: pyRound(Math.max(forecast2w, 0), 1),
+    forecast4w: pyRound(Math.max(forecast4w, 0), 1),
+    band2w: pyRound(band(n + 1), 1),
+    band4w: pyRound(band(n + 3), 1),
+  };
+}
+
+// apps/backend/api/src/analytics/logistic.ts
+var DEFAULT_C = 1;
+var DEFAULT_MAX_ITER = 200;
+var DEFAULT_TOL = 1e-10;
+function sigmoid(z3) {
+  if (z3 >= 0) {
+    return 1 / (1 + Math.exp(-z3));
+  }
+  const e = Math.exp(z3);
+  return e / (1 + e);
+}
+function distinctClassCount(y) {
+  return new Set(y).size;
+}
+function standardizeColumns(X) {
+  const n = X.length;
+  if (n === 0) {
+    return { scaled: [], mean: [], std: [] };
+  }
+  const d = X[0].length;
+  const mean = new Array(d).fill(0);
+  for (const row of X) {
+    for (let j = 0; j < d; j++) mean[j] += row[j];
+  }
+  for (let j = 0; j < d; j++) mean[j] /= n;
+  const std = new Array(d).fill(0);
+  for (const row of X) {
+    for (let j = 0; j < d; j++) {
+      const dj = row[j] - mean[j];
+      std[j] += dj * dj;
+    }
+  }
+  for (let j = 0; j < d; j++) {
+    std[j] = Math.sqrt(std[j] / n);
+    if (std[j] === 0) std[j] = 1;
+  }
+  const scaled = X.map((row) => row.map((v, j) => (v - mean[j]) / std[j]));
+  return { scaled, mean, std };
+}
+function applyStandardization(x, s) {
+  return x.map((v, j) => (v - s.mean[j]) / s.std[j]);
+}
+function linearScore(beta, row, d) {
+  let eta = beta[d];
+  for (let j = 0; j < d; j++) eta += beta[j] * row[j];
+  return eta;
+}
+function accumulateSample(g, H, row, d, size, resid, w) {
+  for (let j = 0; j < size; j++) {
+    const aj = j < d ? row[j] : 1;
+    g[j] += resid * aj;
+    const Hj = H[j];
+    for (let k = j; k < size; k++) {
+      const ak = k < d ? row[k] : 1;
+      Hj[k] += w * aj * ak;
+    }
+  }
+}
+function mirrorUpperTriangle(H, size) {
+  for (let j = 0; j < size; j++) {
+    for (let k = j + 1; k < size; k++) {
+      H[k][j] = H[j][k];
+    }
+  }
+}
+function buildGradientHessian(X, y, beta, d, size, lambda) {
+  const g = new Array(size).fill(0);
+  const H = Array.from({ length: size }, () => new Array(size).fill(0));
+  for (let i = 0; i < X.length; i++) {
+    const row = X[i];
+    const p = sigmoid(linearScore(beta, row, d));
+    accumulateSample(g, H, row, d, size, p - y[i], p * (1 - p));
+  }
+  for (let j = 0; j < d; j++) {
+    g[j] += lambda * beta[j];
+    H[j][j] += lambda;
+  }
+  mirrorUpperTriangle(H, size);
+  return { g, H };
+}
+function pivotRowFor(A, col, size) {
+  let pivotRow = col;
+  let pivotMag = Math.abs(A[col][col]);
+  for (let r = col + 1; r < size; r++) {
+    const mag = Math.abs(A[r][col]);
+    if (mag > pivotMag) {
+      pivotMag = mag;
+      pivotRow = r;
+    }
+  }
+  return pivotRow;
+}
+function eliminateColumn(A, b, col, size) {
+  const pivot = A[col][col];
+  if (pivot === 0) return;
+  for (let r = col + 1; r < size; r++) {
+    const factor = A[r][col] / pivot;
+    if (factor === 0) continue;
+    const Ar = A[r];
+    const Acol = A[col];
+    for (let c = col; c < size; c++) Ar[c] -= factor * Acol[c];
+    b[r] -= factor * b[col];
+  }
+}
+function solveLinearSystem(A, b, size) {
+  for (let col = 0; col < size; col++) {
+    const pivotRow = pivotRowFor(A, col, size);
+    if (pivotRow !== col) {
+      const tmpA = A[col];
+      A[col] = A[pivotRow];
+      A[pivotRow] = tmpA;
+      const tmpB = b[col];
+      b[col] = b[pivotRow];
+      b[pivotRow] = tmpB;
+    }
+    eliminateColumn(A, b, col, size);
+  }
+  const z3 = new Array(size).fill(0);
+  for (let i = size - 1; i >= 0; i--) {
+    let sum = b[i];
+    for (let c = i + 1; c < size; c++) sum -= A[i][c] * z3[c];
+    const diag = A[i][i];
+    z3[i] = diag === 0 ? 0 : sum / diag;
+  }
+  return z3;
+}
+function fitLogisticRegression(X, y, options = {}) {
+  const C = options.C ?? DEFAULT_C;
+  const maxIter = options.maxIter ?? DEFAULT_MAX_ITER;
+  const tol = options.tol ?? DEFAULT_TOL;
+  const n = X.length;
+  if (n === 0) throw new Error('fitLogisticRegression: empty training set');
+  const d = X[0].length;
+  const size = d + 1;
+  const lambda = 1 / C;
+  const beta = new Array(size).fill(0);
+  let iterations = 0;
+  let converged = false;
+  for (let iter = 0; iter < maxIter; iter++) {
+    iterations = iter + 1;
+    const { g, H } = buildGradientHessian(X, y, beta, d, size, lambda);
+    const delta = solveLinearSystem(H, g, size);
+    let maxStep = 0;
+    for (let j = 0; j < size; j++) {
+      beta[j] -= delta[j];
+      const mag = Math.abs(delta[j]);
+      if (mag > maxStep) maxStep = mag;
+    }
+    if (maxStep < tol) {
+      converged = true;
+      break;
+    }
+  }
+  return {
+    weights: beta.slice(0, d),
+    intercept: beta[d],
+    iterations,
+    converged,
+  };
+}
+function predictProba(model, x) {
+  let z3 = model.intercept;
+  for (let j = 0; j < model.weights.length; j++) {
+    z3 += model.weights[j] * x[j];
+  }
+  return sigmoid(z3);
+}
+function standardizeTrainPredict(X, y, queries, options = {}) {
+  const { scaled, mean, std } = standardizeColumns(X);
+  const standardization = { mean, std };
+  const model = fitLogisticRegression(scaled, y, options);
+  const probabilities = queries.map((q) =>
+    predictProba(model, applyStandardization(q, standardization))
+  );
+  return { model, standardization, probabilities };
+}
+
+// apps/backend/api/src/analytics/pipelines/recommendation.ts
+var MIN_RPE_SESSIONS = 10;
+var SUCCESS_PROB_THRESHOLD = 0.7;
+var INCREMENT_KG = 2.5;
+var DEFAULT_REPS5 = 5;
+var MS_PER_WEEK2 = 7 * 864e5;
+var MS_PER_DAY2 = 864e5;
+function computeRecommendationPerExercise(records) {
+  const bySlot = /* @__PURE__ */ new Map();
+  for (const r of records) {
+    const slot = bySlot.get(r.seriesKey) ?? [];
+    slot.push(r);
+    bySlot.set(r.seriesKey, slot);
+  }
+  const result = /* @__PURE__ */ new Map();
+  for (const [exerciseId, exerciseRecords] of bySlot) {
+    const payload = recommendSlot(exerciseRecords);
+    if (payload !== null) result.set(exerciseId, payload);
+  }
+  return result;
+}
+function recommendSlot(records) {
+  if (records.length === 0) return null;
+  const sorted = [...records].sort(compareByRecordedAtThenIndex);
+  const currentWeight = sorted[sorted.length - 1].weight;
+  const currentDate = sorted[sorted.length - 1].recordedAt;
+  const rpeRecords = sorted.filter((r) => r.rpe !== null);
+  if (rpeRecords.length >= MIN_RPE_SESSIONS) {
+    return mlRecommendation(sorted, rpeRecords, currentWeight, currentDate);
+  }
+  return fallbackRecommendation(sorted, currentWeight);
+}
+function mlRecommendation(allRecords, rpeRecords, currentWeight, currentDate) {
+  const weightOutcomes = /* @__PURE__ */ new Map();
+  for (const r of allRecords) {
+    const bucket = weightOutcomes.get(r.weight) ?? [];
+    bucket.push(r.result === 'success' ? 1 : 0);
+    weightOutcomes.set(r.weight, bucket);
+  }
+  const successRate = (w) => {
+    const outcomes = weightOutcomes.get(w);
+    if (!outcomes || outcomes.length === 0) return 0.5;
+    return outcomes.reduce((a, b) => a + b, 0) / outcomes.length;
+  };
+  const volumeLastWeek = volumeForDate(allRecords, currentDate);
+  const daysSince = daysSinceLast(allRecords, currentDate);
+  const features = [];
+  const labels = [];
+  for (const r of rpeRecords) {
+    features.push([
+      r.weight,
+      successRate(r.weight),
+      r.rpe ?? 0,
+      volumeForDate(allRecords, r.recordedAt),
+      daysSinceFor(allRecords, r.recordedAt),
+    ]);
+    labels.push(r.result === 'success' ? 1 : 0);
+  }
+  if (distinctClassCount(labels) < 2) {
+    return fallbackRecommendation(allRecords, currentWeight);
+  }
+  const srCurrent = successRate(currentWeight);
+  const srNext = successRate(currentWeight + INCREMENT_KG);
+  const xCurrent = [currentWeight, srCurrent, 5, volumeLastWeek, daysSince];
+  const xNext = [currentWeight + INCREMENT_KG, srNext, 5, volumeLastWeek, daysSince];
+  const { probabilities } = standardizeTrainPredict(features, labels, [xCurrent, xNext]);
+  const probCurrent = probabilities[0];
+  const probNext = probabilities[1];
+  const recommend = probNext >= SUCCESS_PROB_THRESHOLD;
+  const recommendedWeight = recommend ? currentWeight + INCREMENT_KG : currentWeight;
+  const confidence = recommend ? probNext : probCurrent;
+  return {
+    currentWeight,
+    recommendedWeight,
+    shouldIncrement: recommend,
+    confidence: pyRound(Math.min(confidence, 0.99), 3),
+    method: 'logistic_regression',
+  };
+}
+function fallbackRecommendation(records, currentWeight) {
+  const lastThree = records.slice(-3);
+  const allSuccess = lastThree.length >= 3 && lastThree.every((r) => r.result === 'success');
+  return {
+    currentWeight,
+    recommendedWeight: allSuccess ? currentWeight + INCREMENT_KG : currentWeight,
+    shouldIncrement: allSuccess,
+    confidence: allSuccess ? 0.7 : 0.5,
+    method: 'consecutive_success',
+  };
+}
+function volumeForDate(records, refDate) {
+  if (!refDate) return 0;
+  const ref = parseInstant(refDate);
+  if (ref === null) return 0;
+  return volumeInWindow(records, new Date(ref.getTime() - MS_PER_WEEK2), ref);
+}
+function volumeInWindow(records, start, end) {
+  let total = 0;
+  for (const r of records) {
+    if (r.recordedAt === null || r.result !== 'success') continue;
+    const dt = parseInstant(r.recordedAt);
+    if (dt === null) continue;
+    if (dt >= start && dt < end) {
+      const reps = r.amrapReps && r.amrapReps > 0 ? r.amrapReps : DEFAULT_REPS5;
+      total += r.weight * reps;
+    }
+  }
+  return total;
+}
+function daysSinceLast(records, currentDate) {
+  if (!currentDate) return 7;
+  const now = parseInstant(currentDate);
+  if (now === null) return 7;
+  for (let i = records.length - 2; i >= 0; i--) {
+    const dt = parseValidInstant(records[i]);
+    if (dt === null) continue;
+    return Math.max(0, Math.floor((now.getTime() - dt.getTime()) / MS_PER_DAY2));
+  }
+  return 7;
+}
+function daysSinceFor(records, refDate) {
+  if (!refDate) return 7;
+  const ref = parseInstant(refDate);
+  if (ref === null) return 7;
+  for (let i = records.length - 1; i >= 0; i--) {
+    const r = records[i];
+    if (r.recordedAt === null || r.recordedAt >= refDate) continue;
+    const dt = parseInstant(r.recordedAt);
+    if (dt === null) continue;
+    return Math.max(0, Math.floor((ref.getTime() - dt.getTime()) / MS_PER_DAY2));
+  }
+  return 7;
+}
+function parseValidInstant(record) {
+  if (record.recordedAt === null) return null;
+  return parseInstant(record.recordedAt);
+}
+
+// apps/backend/api/src/analytics/compute.ts
+async function computeUser(userId) {
+  await withInsightTransaction(userId, async (tx) => {
+    const records = await fetchWorkoutRecords(userId, tx);
+    await deleteComputedInsights(userId, tx);
+    if (records.length > 0) {
+      const volume = computeVolume(records);
+      if (volume !== null) await upsertInsight(userId, 'volume_trend', null, volume, tx);
+      const frequency = computeFrequency(records);
+      if (frequency !== null) await upsertInsight(userId, 'frequency', null, frequency, tx);
+      for (const [exerciseId, payload] of computeE1rmPerExercise(records)) {
+        await upsertInsight(userId, 'e1rm_progression', exerciseId, payload, tx);
+      }
+      for (const [exerciseId, payload] of computeSummaryPerExercise(records)) {
+        await upsertInsight(userId, 'exercise_summary', exerciseId, payload, tx);
+      }
+      for (const [exerciseId, payload] of computePlateauPerExercise(records)) {
+        await upsertInsight(userId, 'plateau_detection', exerciseId, payload, tx);
+      }
+      for (const [exerciseId, payload] of computeForecastPerExercise(records)) {
+        await upsertInsight(userId, 'e1rm_forecast', exerciseId, payload, tx);
+      }
+      for (const [exerciseId, payload] of computeRecommendationPerExercise(records)) {
+        await upsertInsight(userId, 'load_recommendation', exerciseId, payload, tx);
+      }
+    }
+    await upsertInsight(userId, META_INSIGHT_TYPE, null, {}, tx);
+  });
+}
+
 // apps/backend/api/src/services/insights.ts
+async function refreshStaleInsights(userId) {
+  try {
+    if (await hasStaleInsights(userId)) await computeUser(userId);
+  } catch (error) {
+    logger.warn({ err: error, userId }, 'insights: on-read refresh failed');
+  }
+}
 async function getInsights(userId, types) {
   return withUserRole(userId, async (tx) => {
     const conditions = [
@@ -7271,6 +8428,7 @@ var insightsRoutes = new Elysia10({ prefix: '/insights' })
           },
         });
       }
+      await refreshStaleInsights(userId);
       const rows = await getInsights(userId, parsed.value);
       return {
         data: rows.map((r) => ({
@@ -7738,946 +8896,6 @@ async function purgeDeletedUsers() {
     'purge: hard-deleted soft-deleted users past grace window'
   );
   return { purged: deleted.length, cutoff: cutoff.toISOString() };
-}
-
-// apps/backend/api/src/analytics/iso-week.ts
-import { getISOWeek, getISOWeekYear } from 'date-fns';
-function isoWeekKey(date) {
-  const year = getISOWeekYear(date);
-  const week = getISOWeek(date);
-  return `${year}-W${String(week).padStart(2, '0')}`;
-}
-function parseWallClockDate(timestamp2) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(timestamp2);
-  if (!match) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  const date = new Date(year, month - 1, day);
-  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
-    return null;
-  }
-  return date;
-}
-function isoWeekKeyFromTimestamp(timestamp2) {
-  const date = parseWallClockDate(timestamp2);
-  if (date === null) return null;
-  return isoWeekKey(date);
-}
-
-// apps/backend/api/src/analytics/pipelines/round.ts
-function pyRound(value, ndigits) {
-  if (!Number.isFinite(value)) return value;
-  const negative = value < 0 || Object.is(value, -0);
-  const precision = Math.min(100, Math.max(0, ndigits) + 20);
-  const fixed = Math.abs(value).toFixed(precision);
-  const rounded = roundHalfToEvenDecimal(fixed, ndigits);
-  const result = Number(rounded);
-  return negative ? -result : result;
-}
-function roundHalfToEvenDecimal(s, ndigits) {
-  const [intPart, fracPart = ''] = s.split('.');
-  if (ndigits >= fracPart.length) return s;
-  const keptFrac = fracPart.slice(0, ndigits);
-  const dropped = fracPart.slice(ndigits);
-  const digits = (intPart + keptFrac).split('');
-  const firstDropped = dropped.charAt(0);
-  let roundUp;
-  if (firstDropped > '5') {
-    roundUp = true;
-  } else if (firstDropped < '5') {
-    roundUp = false;
-  } else if (/[1-9]/.test(dropped.slice(1))) {
-    roundUp = true;
-  } else {
-    const lastKept = digits[digits.length - 1] ?? '0';
-    roundUp = (lastKept.charCodeAt(0) - 48) % 2 === 1;
-  }
-  if (roundUp) {
-    let i = digits.length - 1;
-    for (; i >= 0; i--) {
-      const d = digits[i] ?? '0';
-      if (d === '9') {
-        digits[i] = '0';
-      } else {
-        digits[i] = String.fromCharCode(d.charCodeAt(0) + 1);
-        break;
-      }
-    }
-    if (i < 0) digits.unshift('1');
-  }
-  const intLen = digits.length - ndigits;
-  const newInt = digits.slice(0, intLen).join('');
-  const newFrac = digits.slice(intLen).join('');
-  return ndigits > 0 ? `${newInt}.${newFrac}` : newInt;
-}
-
-// apps/backend/api/src/analytics/pipelines/volume.ts
-var DEFAULT_REPS = 5;
-function computeVolume(records) {
-  const weekly = /* @__PURE__ */ new Map();
-  for (const r of records) {
-    if (r.result !== 'success') continue;
-    const reps = r.amrapReps && r.amrapReps > 0 ? r.amrapReps : DEFAULT_REPS;
-    const volume = r.weight * reps;
-    if (r.recordedAt === null) continue;
-    const weekKey = isoWeekKeyFromTimestamp(r.recordedAt);
-    if (weekKey === null) continue;
-    weekly.set(weekKey, (weekly.get(weekKey) ?? 0) + volume);
-  }
-  if (weekly.size < 3) return null;
-  const weeks = [...weekly.keys()].sort();
-  const volumes = weeks.map((w) => weekly.get(w) ?? 0);
-  const slope = linearSlope(volumes);
-  const direction = slope > 0.5 ? 'up' : slope < -0.5 ? 'down' : 'flat';
-  return {
-    weeks,
-    volumes,
-    slope: pyRound(slope, 2),
-    direction,
-  };
-}
-function linearSlope(values) {
-  const n = values.length;
-  if (n < 2) return 0;
-  let xMean = 0;
-  let yMean = 0;
-  for (let i = 0; i < n; i++) {
-    xMean += i;
-    yMean += values[i];
-  }
-  xMean /= n;
-  yMean /= n;
-  let num = 0;
-  let den = 0;
-  for (let i = 0; i < n; i++) {
-    num += (i - xMean) * (values[i] - yMean);
-    den += (i - xMean) ** 2;
-  }
-  return den !== 0 ? num / den : 0;
-}
-
-// apps/backend/api/src/analytics/pipelines/time.ts
-var MS_PER_DAY = 864e5;
-function parseInstant(timestamp2) {
-  let s = timestamp2.trim();
-  if (!s.includes('T') && s.includes(' ')) {
-    s = s.replace(' ', 'T');
-  }
-  s = s.replace('Z', '+00:00');
-  s = s.replace(/([+-]\d{2})$/, '$1:00');
-  const ms = Date.parse(s);
-  return Number.isNaN(ms) ? null : new Date(ms);
-}
-function wallClockDateKey(timestamp2) {
-  const date = parseWallClockDate(timestamp2);
-  if (date === null) return null;
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-function daysBetweenDateKeys(a, b) {
-  return Math.round((midnightUtc(b) - midnightUtc(a)) / MS_PER_DAY);
-}
-function shiftDateKey(key, deltaDays) {
-  const shifted = new Date(midnightUtc(key) + deltaDays * MS_PER_DAY);
-  const year = shifted.getUTCFullYear();
-  const month = String(shifted.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(shifted.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-function midnightUtc(dateKey) {
-  const [year, month, day] = dateKey.split('-').map(Number);
-  return Date.UTC(year, month - 1, day);
-}
-
-// apps/backend/api/src/analytics/pipelines/frequency.ts
-function computeFrequency(records) {
-  const dates = /* @__PURE__ */ new Set();
-  for (const r of records) {
-    if (r.recordedAt === null) continue;
-    const key = wallClockDateKey(r.recordedAt);
-    if (key !== null) dates.add(key);
-  }
-  if (dates.size < 3) return null;
-  const sortedDates = [...dates].sort();
-  const first = sortedDates[0];
-  const last = sortedDates[sortedDates.length - 1];
-  const totalWeeks = Math.max(1, daysBetweenDateKeys(first, last) / 7);
-  const sessionsPerWeek = pyRound(sortedDates.length / totalWeeks, 2);
-  const streak = currentStreak(sortedDates);
-  const consistencyPct = consistencyPercentage(sortedDates, first, last);
-  const workoutDates = sortedDates.length > 28 ? sortedDates.slice(-28) : sortedDates;
-  return {
-    sessionsPerWeek,
-    currentStreak: streak,
-    consistencyPct,
-    totalSessions: sortedDates.length,
-    workoutDates,
-  };
-}
-function currentStreak(sortedDateKeys) {
-  if (sortedDateKeys.length === 0) return 0;
-  const present = new Set(sortedDateKeys);
-  let streak = 0;
-  let cursor = sortedDateKeys[sortedDateKeys.length - 1];
-  while (present.has(cursor)) {
-    streak += 1;
-    cursor = shiftDateKey(cursor, -1);
-  }
-  return streak;
-}
-function consistencyPercentage(sortedDateKeys, first, last) {
-  const totalWeeks = Math.max(1, Math.floor((daysBetweenDateKeys(first, last) + 1) / 7));
-  const weeksWithSession = /* @__PURE__ */ new Set();
-  for (const key of sortedDateKeys) {
-    const weekKey = isoWeekKeyFromTimestamp(key);
-    if (weekKey !== null) weeksWithSession.add(weekKey);
-  }
-  return pyRound(Math.min(100, (weeksWithSession.size / totalWeeks) * 100), 1);
-}
-
-// apps/backend/api/src/analytics/epley.ts
-function epley(weight, reps) {
-  if (reps === 1) return weight;
-  return weight * (1 + reps / 30);
-}
-
-// apps/backend/api/src/analytics/pipelines/sort.ts
-function compareByRecordedAtThenIndex(a, b) {
-  const ar = a.recordedAt ?? '';
-  const br = b.recordedAt ?? '';
-  if (ar < br) return -1;
-  if (ar > br) return 1;
-  return a.workoutIndex - b.workoutIndex;
-}
-
-// apps/backend/api/src/analytics/pipelines/e1rm.ts
-var MIN_POINTS = 4;
-var DEFAULT_REPS2 = 5;
-function computeE1rmPerExercise(records) {
-  const bySlot = /* @__PURE__ */ new Map();
-  for (const r of records) {
-    if (r.result !== 'success') continue;
-    const slot = bySlot.get(r.exerciseId) ?? [];
-    slot.push(r);
-    bySlot.set(r.exerciseId, slot);
-  }
-  const result = /* @__PURE__ */ new Map();
-  for (const [exerciseId, exerciseRecords] of bySlot) {
-    const payload = buildSeries(exerciseRecords);
-    if (payload !== null) result.set(exerciseId, payload);
-  }
-  return result;
-}
-function buildSeries(records) {
-  if (records.length < MIN_POINTS) return null;
-  const sorted = [...records].sort(compareByRecordedAtThenIndex);
-  const dates = [];
-  const e1rms = [];
-  for (const r of sorted) {
-    const reps = r.amrapReps && r.amrapReps > 0 ? r.amrapReps : DEFAULT_REPS2;
-    dates.push(formatDate(r.recordedAt, r.workoutIndex));
-    e1rms.push(pyRound(epley(r.weight, reps), 1));
-  }
-  return {
-    dates,
-    e1rms,
-    currentMax: Math.max(...e1rms),
-  };
-}
-function formatDate(timestamp2, workoutIndex) {
-  if (timestamp2 !== null) {
-    const key = wallClockDateKey(timestamp2);
-    if (key !== null) return key;
-  }
-  return `#${workoutIndex + 1}`;
-}
-
-// apps/backend/api/src/analytics/pipelines/summary.ts
-var DEFAULT_REPS3 = 5;
-function computeSummaryPerExercise(records) {
-  const bySlot = /* @__PURE__ */ new Map();
-  for (const r of records) {
-    const slot = bySlot.get(r.exerciseId) ?? [];
-    slot.push(r);
-    bySlot.set(r.exerciseId, slot);
-  }
-  const result = /* @__PURE__ */ new Map();
-  for (const [exerciseId, exerciseRecords] of bySlot) {
-    result.set(exerciseId, summarise(exerciseRecords));
-  }
-  return result;
-}
-function summarise(records) {
-  const totalSets = records.length;
-  let successSets = 0;
-  let totalVolume = 0;
-  const rpeValues = [];
-  for (const r of records) {
-    if (r.result === 'success') {
-      successSets += 1;
-      const reps = r.amrapReps && r.amrapReps > 0 ? r.amrapReps : DEFAULT_REPS3;
-      totalVolume += r.weight * reps;
-    }
-    if (r.rpe !== null) rpeValues.push(r.rpe);
-  }
-  const successRate = totalSets ? pyRound((successSets / totalSets) * 100, 1) : 0;
-  const avgRpe =
-    rpeValues.length > 0
-      ? pyRound(rpeValues.reduce((a, b) => a + b, 0) / rpeValues.length, 1)
-      : null;
-  return {
-    totalSets,
-    successSets,
-    successRate,
-    totalVolume: pyRound(totalVolume, 1),
-    avgRpe,
-  };
-}
-
-// apps/backend/api/src/analytics/stats.ts
-var LANCZOS_G = 7;
-var LANCZOS_COEF = [
-  0.9999999999998099, 676.5203681218851, -1259.1392167224028, 771.3234287776531, -176.6150291621406,
-  12.507343278686905, -0.13857109526572012, 9984369578019572e-21, 15056327351493116e-23,
-];
-function logGamma(x) {
-  if (x < 0.5) {
-    return Math.log(Math.PI / Math.sin(Math.PI * x)) - logGamma(1 - x);
-  }
-  const z3 = x - 1;
-  let a = LANCZOS_COEF[0];
-  const t7 = z3 + LANCZOS_G + 0.5;
-  for (let i = 1; i < LANCZOS_G + 2; i++) {
-    a += LANCZOS_COEF[i] / (z3 + i);
-  }
-  return 0.5 * Math.log(2 * Math.PI) + (z3 + 0.5) * Math.log(t7) - t7 + Math.log(a);
-}
-var BETACF_MAXIT = 300;
-var BETACF_EPS = 3e-14;
-var BETACF_FPMIN = 1e-300;
-function betaContinuedFraction(a, b, x) {
-  const qab = a + b;
-  const qap = a + 1;
-  const qam = a - 1;
-  let c = 1;
-  let d = 1 - (qab * x) / qap;
-  if (Math.abs(d) < BETACF_FPMIN) d = BETACF_FPMIN;
-  d = 1 / d;
-  let h = d;
-  for (let m = 1; m <= BETACF_MAXIT; m++) {
-    const m2 = 2 * m;
-    let aa = (m * (b - m) * x) / ((qam + m2) * (a + m2));
-    d = 1 + aa * d;
-    if (Math.abs(d) < BETACF_FPMIN) d = BETACF_FPMIN;
-    c = 1 + aa / c;
-    if (Math.abs(c) < BETACF_FPMIN) c = BETACF_FPMIN;
-    d = 1 / d;
-    h *= d * c;
-    aa = (-(a + m) * (qab + m) * x) / ((a + m2) * (qap + m2));
-    d = 1 + aa * d;
-    if (Math.abs(d) < BETACF_FPMIN) d = BETACF_FPMIN;
-    c = 1 + aa / c;
-    if (Math.abs(c) < BETACF_FPMIN) c = BETACF_FPMIN;
-    d = 1 / d;
-    const del = d * c;
-    h *= del;
-    if (Math.abs(del - 1) < BETACF_EPS) break;
-  }
-  return h;
-}
-function regularizedIncompleteBeta(x, a, b) {
-  if (x <= 0) return 0;
-  if (x >= 1) return 1;
-  const lbeta = logGamma(a + b) - logGamma(a) - logGamma(b) + a * Math.log(x) + b * Math.log(1 - x);
-  const front = Math.exp(lbeta);
-  if (x < (a + 1) / (a + b + 2)) {
-    return (front * betaContinuedFraction(a, b, x)) / a;
-  }
-  return 1 - (front * betaContinuedFraction(b, a, 1 - x)) / b;
-}
-function studentTCdf(t7, df) {
-  if (!Number.isFinite(t7)) return t7 > 0 ? 1 : 0;
-  if (df <= 0) return Number.NaN;
-  const x = df / (df + t7 * t7);
-  const half = 0.5 * regularizedIncompleteBeta(x, df / 2, 0.5);
-  return t7 > 0 ? 1 - half : half;
-}
-function studentTQuantile(p, df) {
-  if (p <= 0) return -Infinity;
-  if (p >= 1) return Infinity;
-  if (p === 0.5) return 0;
-  if (df <= 0) return Number.NaN;
-  const upper = p > 0.5;
-  const target = upper ? p : 1 - p;
-  let lo = 0;
-  let hi = 1;
-  while (studentTCdf(hi, df) < target && hi < 1e12) {
-    hi *= 2;
-  }
-  for (let i = 0; i < 200; i++) {
-    const mid = (lo + hi) / 2;
-    if (studentTCdf(mid, df) < target) {
-      lo = mid;
-    } else {
-      hi = mid;
-    }
-  }
-  const t7 = (lo + hi) / 2;
-  return upper ? t7 : -t7;
-}
-var LINREGRESS_TINY = 1e-20;
-function linregress(x, y) {
-  const n = x.length;
-  if (n !== y.length) {
-    throw new Error(`linregress: x and y length mismatch (${n} vs ${y.length})`);
-  }
-  if (n < 2) {
-    throw new Error('linregress: need at least two points');
-  }
-  let xMean = 0;
-  let yMean = 0;
-  for (let i = 0; i < n; i++) {
-    xMean += x[i];
-    yMean += y[i];
-  }
-  xMean /= n;
-  yMean /= n;
-  let ssxm = 0;
-  let ssym = 0;
-  let ssxym = 0;
-  for (let i = 0; i < n; i++) {
-    const dx = x[i] - xMean;
-    const dy = y[i] - yMean;
-    ssxm += dx * dx;
-    ssym += dy * dy;
-    ssxym += dx * dy;
-  }
-  ssxm /= n;
-  ssym /= n;
-  ssxym /= n;
-  const slope = ssxm === 0 ? Number.NaN : ssxym / ssxm;
-  const intercept = yMean - slope * xMean;
-  const rDen = Math.sqrt(ssxm * ssym);
-  let r;
-  if (rDen === 0) {
-    r = 0;
-  } else {
-    r = ssxym / rDen;
-    if (r > 1) r = 1;
-    else if (r < -1) r = -1;
-  }
-  let pValue;
-  let stderr;
-  if (n === 2) {
-    pValue = 1;
-    stderr = 0;
-  } else {
-    const df = n - 2;
-    const t7 = r * Math.sqrt(df / ((1 - r + LINREGRESS_TINY) * (1 + r + LINREGRESS_TINY)));
-    pValue = 2 * studentTCdf(-Math.abs(t7), df);
-    stderr = Math.sqrt(((1 - r * r) * ssym) / ssxm / df);
-  }
-  return { slope, intercept, rValue: r, rSquared: r * r, pValue, stderr, n };
-}
-
-// apps/backend/api/src/analytics/pipelines/plateau.ts
-var MIN_POINTS2 = 8;
-var WEEKS_BACK = 8;
-var PLATEAU_SLOPE_THRESHOLD = 0.1;
-var PLATEAU_PVALUE_THRESHOLD = 0.1;
-var MAX_CONFIDENCE = 0.95;
-var MS_PER_WEEK = 7 * 864e5;
-function computePlateauPerExercise(records) {
-  const cutoff = Date.now() - WEEKS_BACK * MS_PER_WEEK;
-  const bySlot = /* @__PURE__ */ new Map();
-  for (const r of records) {
-    if (r.result !== 'success' || r.recordedAt === null) continue;
-    const instant = parseInstant(r.recordedAt);
-    if (instant === null || instant.getTime() < cutoff) continue;
-    const slot = bySlot.get(r.exerciseId) ?? [];
-    slot.push(r);
-    bySlot.set(r.exerciseId, slot);
-  }
-  const result = /* @__PURE__ */ new Map();
-  for (const [exerciseId, exerciseRecords] of bySlot) {
-    const payload = analyzeSlot(exerciseRecords);
-    if (payload !== null) result.set(exerciseId, payload);
-  }
-  return result;
-}
-function analyzeSlot(records) {
-  if (records.length < MIN_POINTS2) return null;
-  const byWeek = /* @__PURE__ */ new Map();
-  for (const r of records) {
-    if (r.recordedAt === null) continue;
-    const weekKey = isoWeekKeyFromTimestamp(r.recordedAt);
-    if (weekKey === null) continue;
-    const bucket = byWeek.get(weekKey) ?? [];
-    bucket.push(r.weight);
-    byWeek.set(weekKey, bucket);
-  }
-  if (byWeek.size < 2) return null;
-  const weeks = [...byWeek.keys()].sort();
-  const weights = weeks.map((w) => Math.max(...(byWeek.get(w) ?? [])));
-  const xs = weeks.map((_, i) => i);
-  const reg = linregress(xs, weights);
-  const slope = reg.slope;
-  const degenerate = slope === 0 && populationStd(weights) === 0;
-  const pValue = degenerate ? 0 : reg.pValue;
-  const rSquared = degenerate ? 0 : reg.rSquared;
-  const isPlateau =
-    slope < PLATEAU_SLOPE_THRESHOLD && (degenerate || pValue > PLATEAU_PVALUE_THRESHOLD);
-  let confidence;
-  if (!isPlateau) {
-    confidence = 0;
-  } else if (degenerate) {
-    confidence = MAX_CONFIDENCE;
-  } else {
-    confidence = Math.min(1 - pValue, MAX_CONFIDENCE);
-  }
-  return {
-    isPlateauing: isPlateau,
-    confidence: pyRound(confidence, 3),
-    slope: pyRound(slope, 3),
-    pValue: pyRound(pValue, 4),
-    rSquared: pyRound(rSquared, 3),
-    weeksAnalyzed: weeks.length,
-    currentWeight: weights[weights.length - 1],
-  };
-}
-function populationStd(values) {
-  const n = values.length;
-  let mean = 0;
-  for (const v of values) mean += v;
-  mean /= n;
-  let sumSq = 0;
-  for (const v of values) {
-    const d = v - mean;
-    sumSq += d * d;
-  }
-  return Math.sqrt(sumSq / n);
-}
-
-// apps/backend/api/src/analytics/pipelines/forecast.ts
-var MIN_WEEKS = 6;
-var R2_THRESHOLD = 0.5;
-var DEFAULT_REPS4 = 5;
-var FALLBACK_T_CRIT = 1.96;
-function computeForecastPerExercise(records) {
-  const bySlot = /* @__PURE__ */ new Map();
-  for (const r of records) {
-    if (r.result !== 'success') continue;
-    const slot = bySlot.get(r.exerciseId) ?? [];
-    slot.push(r);
-    bySlot.set(r.exerciseId, slot);
-  }
-  const result = /* @__PURE__ */ new Map();
-  for (const [exerciseId, exerciseRecords] of bySlot) {
-    const payload = forecastSlot(exerciseRecords);
-    if (payload !== null) result.set(exerciseId, payload);
-  }
-  return result;
-}
-function forecastSlot(records) {
-  const byWeek = /* @__PURE__ */ new Map();
-  for (const r of records) {
-    if (r.recordedAt === null) continue;
-    if (parseInstant(r.recordedAt) === null) continue;
-    const weekKey = isoWeekKeyFromTimestamp(r.recordedAt);
-    if (weekKey === null) continue;
-    const reps = r.amrapReps && r.amrapReps > 0 ? r.amrapReps : DEFAULT_REPS4;
-    const bucket = byWeek.get(weekKey) ?? [];
-    bucket.push(epley(r.weight, reps));
-    byWeek.set(weekKey, bucket);
-  }
-  if (byWeek.size < MIN_WEEKS) return null;
-  const weeks = [...byWeek.keys()].sort().slice(-16);
-  const e1rms = weeks.map((w) => Math.max(...(byWeek.get(w) ?? [])));
-  const n = weeks.length;
-  const xs = weeks.map((_, i) => i);
-  const reg = linregress(xs, e1rms);
-  const rSquared = reg.rSquared;
-  if (rSquared < R2_THRESHOLD) return null;
-  const { slope, intercept } = reg;
-  if (!Number.isFinite(slope) || !Number.isFinite(intercept)) return null;
-  const forecast2w = intercept + slope * (n + 1);
-  const forecast4w = intercept + slope * (n + 3);
-  let xMean = 0;
-  for (const x of xs) xMean += x;
-  xMean /= n;
-  let ssxx = 0;
-  for (const x of xs) ssxx += (x - xMean) ** 2;
-  let sse = 0;
-  for (let i = 0; i < n; i++) {
-    const resid = e1rms[i] - (intercept + slope * xs[i]);
-    sse += resid * resid;
-  }
-  const mse = n > 2 ? sse / (n - 2) : 0;
-  const tCrit = n > 2 ? studentTQuantile(0.975, n - 2) : FALLBACK_T_CRIT;
-  const band = (xNew) => {
-    if (ssxx === 0 || mse === 0) return 0;
-    const sePred = Math.sqrt(mse * (1 + 1 / n + (xNew - xMean) ** 2 / ssxx));
-    return tCrit * sePred;
-  };
-  return {
-    weeks,
-    e1rms: e1rms.map((v) => pyRound(v, 1)),
-    slope: pyRound(slope, 3),
-    rSquared: pyRound(rSquared, 3),
-    forecast2w: pyRound(Math.max(forecast2w, 0), 1),
-    forecast4w: pyRound(Math.max(forecast4w, 0), 1),
-    band2w: pyRound(band(n + 1), 1),
-    band4w: pyRound(band(n + 3), 1),
-  };
-}
-
-// apps/backend/api/src/analytics/logistic.ts
-var DEFAULT_C = 1;
-var DEFAULT_MAX_ITER = 200;
-var DEFAULT_TOL = 1e-10;
-function sigmoid(z3) {
-  if (z3 >= 0) {
-    return 1 / (1 + Math.exp(-z3));
-  }
-  const e = Math.exp(z3);
-  return e / (1 + e);
-}
-function distinctClassCount(y) {
-  return new Set(y).size;
-}
-function standardizeColumns(X) {
-  const n = X.length;
-  if (n === 0) {
-    return { scaled: [], mean: [], std: [] };
-  }
-  const d = X[0].length;
-  const mean = new Array(d).fill(0);
-  for (const row of X) {
-    for (let j = 0; j < d; j++) mean[j] += row[j];
-  }
-  for (let j = 0; j < d; j++) mean[j] /= n;
-  const std = new Array(d).fill(0);
-  for (const row of X) {
-    for (let j = 0; j < d; j++) {
-      const dj = row[j] - mean[j];
-      std[j] += dj * dj;
-    }
-  }
-  for (let j = 0; j < d; j++) {
-    std[j] = Math.sqrt(std[j] / n);
-    if (std[j] === 0) std[j] = 1;
-  }
-  const scaled = X.map((row) => row.map((v, j) => (v - mean[j]) / std[j]));
-  return { scaled, mean, std };
-}
-function applyStandardization(x, s) {
-  return x.map((v, j) => (v - s.mean[j]) / s.std[j]);
-}
-function linearScore(beta, row, d) {
-  let eta = beta[d];
-  for (let j = 0; j < d; j++) eta += beta[j] * row[j];
-  return eta;
-}
-function accumulateSample(g, H, row, d, size, resid, w) {
-  for (let j = 0; j < size; j++) {
-    const aj = j < d ? row[j] : 1;
-    g[j] += resid * aj;
-    const Hj = H[j];
-    for (let k = j; k < size; k++) {
-      const ak = k < d ? row[k] : 1;
-      Hj[k] += w * aj * ak;
-    }
-  }
-}
-function mirrorUpperTriangle(H, size) {
-  for (let j = 0; j < size; j++) {
-    for (let k = j + 1; k < size; k++) {
-      H[k][j] = H[j][k];
-    }
-  }
-}
-function buildGradientHessian(X, y, beta, d, size, lambda) {
-  const g = new Array(size).fill(0);
-  const H = Array.from({ length: size }, () => new Array(size).fill(0));
-  for (let i = 0; i < X.length; i++) {
-    const row = X[i];
-    const p = sigmoid(linearScore(beta, row, d));
-    accumulateSample(g, H, row, d, size, p - y[i], p * (1 - p));
-  }
-  for (let j = 0; j < d; j++) {
-    g[j] += lambda * beta[j];
-    H[j][j] += lambda;
-  }
-  mirrorUpperTriangle(H, size);
-  return { g, H };
-}
-function pivotRowFor(A, col, size) {
-  let pivotRow = col;
-  let pivotMag = Math.abs(A[col][col]);
-  for (let r = col + 1; r < size; r++) {
-    const mag = Math.abs(A[r][col]);
-    if (mag > pivotMag) {
-      pivotMag = mag;
-      pivotRow = r;
-    }
-  }
-  return pivotRow;
-}
-function eliminateColumn(A, b, col, size) {
-  const pivot = A[col][col];
-  if (pivot === 0) return;
-  for (let r = col + 1; r < size; r++) {
-    const factor = A[r][col] / pivot;
-    if (factor === 0) continue;
-    const Ar = A[r];
-    const Acol = A[col];
-    for (let c = col; c < size; c++) Ar[c] -= factor * Acol[c];
-    b[r] -= factor * b[col];
-  }
-}
-function solveLinearSystem(A, b, size) {
-  for (let col = 0; col < size; col++) {
-    const pivotRow = pivotRowFor(A, col, size);
-    if (pivotRow !== col) {
-      const tmpA = A[col];
-      A[col] = A[pivotRow];
-      A[pivotRow] = tmpA;
-      const tmpB = b[col];
-      b[col] = b[pivotRow];
-      b[pivotRow] = tmpB;
-    }
-    eliminateColumn(A, b, col, size);
-  }
-  const z3 = new Array(size).fill(0);
-  for (let i = size - 1; i >= 0; i--) {
-    let sum = b[i];
-    for (let c = i + 1; c < size; c++) sum -= A[i][c] * z3[c];
-    const diag = A[i][i];
-    z3[i] = diag === 0 ? 0 : sum / diag;
-  }
-  return z3;
-}
-function fitLogisticRegression(X, y, options = {}) {
-  const C = options.C ?? DEFAULT_C;
-  const maxIter = options.maxIter ?? DEFAULT_MAX_ITER;
-  const tol = options.tol ?? DEFAULT_TOL;
-  const n = X.length;
-  if (n === 0) throw new Error('fitLogisticRegression: empty training set');
-  const d = X[0].length;
-  const size = d + 1;
-  const lambda = 1 / C;
-  const beta = new Array(size).fill(0);
-  let iterations = 0;
-  let converged = false;
-  for (let iter = 0; iter < maxIter; iter++) {
-    iterations = iter + 1;
-    const { g, H } = buildGradientHessian(X, y, beta, d, size, lambda);
-    const delta = solveLinearSystem(H, g, size);
-    let maxStep = 0;
-    for (let j = 0; j < size; j++) {
-      beta[j] -= delta[j];
-      const mag = Math.abs(delta[j]);
-      if (mag > maxStep) maxStep = mag;
-    }
-    if (maxStep < tol) {
-      converged = true;
-      break;
-    }
-  }
-  return {
-    weights: beta.slice(0, d),
-    intercept: beta[d],
-    iterations,
-    converged,
-  };
-}
-function predictProba(model, x) {
-  let z3 = model.intercept;
-  for (let j = 0; j < model.weights.length; j++) {
-    z3 += model.weights[j] * x[j];
-  }
-  return sigmoid(z3);
-}
-function standardizeTrainPredict(X, y, queries, options = {}) {
-  const { scaled, mean, std } = standardizeColumns(X);
-  const standardization = { mean, std };
-  const model = fitLogisticRegression(scaled, y, options);
-  const probabilities = queries.map((q) =>
-    predictProba(model, applyStandardization(q, standardization))
-  );
-  return { model, standardization, probabilities };
-}
-
-// apps/backend/api/src/analytics/pipelines/recommendation.ts
-var MIN_RPE_SESSIONS = 10;
-var SUCCESS_PROB_THRESHOLD = 0.7;
-var INCREMENT_KG = 2.5;
-var DEFAULT_REPS5 = 5;
-var MS_PER_WEEK2 = 7 * 864e5;
-var MS_PER_DAY2 = 864e5;
-function computeRecommendationPerExercise(records) {
-  const bySlot = /* @__PURE__ */ new Map();
-  for (const r of records) {
-    const slot = bySlot.get(r.exerciseId) ?? [];
-    slot.push(r);
-    bySlot.set(r.exerciseId, slot);
-  }
-  const result = /* @__PURE__ */ new Map();
-  for (const [exerciseId, exerciseRecords] of bySlot) {
-    const payload = recommendSlot(exerciseRecords);
-    if (payload !== null) result.set(exerciseId, payload);
-  }
-  return result;
-}
-function recommendSlot(records) {
-  if (records.length === 0) return null;
-  const sorted = [...records].sort(compareByRecordedAtThenIndex);
-  const currentWeight = sorted[sorted.length - 1].weight;
-  const currentDate = sorted[sorted.length - 1].recordedAt;
-  const rpeRecords = sorted.filter((r) => r.rpe !== null);
-  if (rpeRecords.length >= MIN_RPE_SESSIONS) {
-    return mlRecommendation(sorted, rpeRecords, currentWeight, currentDate);
-  }
-  return fallbackRecommendation(sorted, currentWeight);
-}
-function mlRecommendation(allRecords, rpeRecords, currentWeight, currentDate) {
-  const weightOutcomes = /* @__PURE__ */ new Map();
-  for (const r of allRecords) {
-    const bucket = weightOutcomes.get(r.weight) ?? [];
-    bucket.push(r.result === 'success' ? 1 : 0);
-    weightOutcomes.set(r.weight, bucket);
-  }
-  const successRate = (w) => {
-    const outcomes = weightOutcomes.get(w);
-    if (!outcomes || outcomes.length === 0) return 0.5;
-    return outcomes.reduce((a, b) => a + b, 0) / outcomes.length;
-  };
-  const volumeLastWeek = volumeForDate(allRecords, currentDate);
-  const daysSince = daysSinceLast(allRecords, currentDate);
-  const features = [];
-  const labels = [];
-  for (const r of rpeRecords) {
-    features.push([
-      r.weight,
-      successRate(r.weight),
-      r.rpe ?? 0,
-      volumeForDate(allRecords, r.recordedAt),
-      daysSinceFor(allRecords, r.recordedAt),
-    ]);
-    labels.push(r.result === 'success' ? 1 : 0);
-  }
-  if (distinctClassCount(labels) < 2) {
-    return fallbackRecommendation(allRecords, currentWeight);
-  }
-  const srCurrent = successRate(currentWeight);
-  const srNext = successRate(currentWeight + INCREMENT_KG);
-  const xCurrent = [currentWeight, srCurrent, 5, volumeLastWeek, daysSince];
-  const xNext = [currentWeight + INCREMENT_KG, srNext, 5, volumeLastWeek, daysSince];
-  const { probabilities } = standardizeTrainPredict(features, labels, [xCurrent, xNext]);
-  const probCurrent = probabilities[0];
-  const probNext = probabilities[1];
-  const recommend = probNext >= SUCCESS_PROB_THRESHOLD;
-  const recommendedWeight = recommend ? currentWeight + INCREMENT_KG : currentWeight;
-  const confidence = recommend ? probNext : probCurrent;
-  return {
-    currentWeight,
-    recommendedWeight,
-    shouldIncrement: recommend,
-    confidence: pyRound(Math.min(confidence, 0.99), 3),
-    method: 'logistic_regression',
-  };
-}
-function fallbackRecommendation(records, currentWeight) {
-  const lastThree = records.slice(-3);
-  const allSuccess = lastThree.length >= 3 && lastThree.every((r) => r.result === 'success');
-  return {
-    currentWeight,
-    recommendedWeight: allSuccess ? currentWeight + INCREMENT_KG : currentWeight,
-    shouldIncrement: allSuccess,
-    confidence: allSuccess ? 0.7 : 0.5,
-    method: 'consecutive_success',
-  };
-}
-function volumeForDate(records, refDate) {
-  if (!refDate) return 0;
-  const ref = parseInstant(refDate);
-  if (ref === null) return 0;
-  return volumeInWindow(records, new Date(ref.getTime() - MS_PER_WEEK2), ref);
-}
-function volumeInWindow(records, start, end) {
-  let total = 0;
-  for (const r of records) {
-    if (r.recordedAt === null || r.result !== 'success') continue;
-    const dt = parseInstant(r.recordedAt);
-    if (dt === null) continue;
-    if (dt >= start && dt < end) {
-      const reps = r.amrapReps && r.amrapReps > 0 ? r.amrapReps : DEFAULT_REPS5;
-      total += r.weight * reps;
-    }
-  }
-  return total;
-}
-function daysSinceLast(records, currentDate) {
-  if (!currentDate) return 7;
-  const now = parseInstant(currentDate);
-  if (now === null) return 7;
-  for (let i = records.length - 2; i >= 0; i--) {
-    const dt = parseValidInstant(records[i]);
-    if (dt === null) continue;
-    return Math.max(0, Math.floor((now.getTime() - dt.getTime()) / MS_PER_DAY2));
-  }
-  return 7;
-}
-function daysSinceFor(records, refDate) {
-  if (!refDate) return 7;
-  const ref = parseInstant(refDate);
-  if (ref === null) return 7;
-  for (let i = records.length - 1; i >= 0; i--) {
-    const r = records[i];
-    if (r.recordedAt === null || r.recordedAt >= refDate) continue;
-    const dt = parseInstant(r.recordedAt);
-    if (dt === null) continue;
-    return Math.max(0, Math.floor((ref.getTime() - dt.getTime()) / MS_PER_DAY2));
-  }
-  return 7;
-}
-function parseValidInstant(record) {
-  if (record.recordedAt === null) return null;
-  return parseInstant(record.recordedAt);
-}
-
-// apps/backend/api/src/analytics/compute.ts
-async function computeUser(userId) {
-  await withInsightTransaction(userId, async (tx) => {
-    const records = await fetchWorkoutRecords(userId, tx);
-    await deleteComputedInsights(userId, tx);
-    if (records.length > 0) {
-      const volume = computeVolume(records);
-      if (volume !== null) await upsertInsight(userId, 'volume_trend', null, volume, tx);
-      const frequency = computeFrequency(records);
-      if (frequency !== null) await upsertInsight(userId, 'frequency', null, frequency, tx);
-      for (const [exerciseId, payload] of computeE1rmPerExercise(records)) {
-        await upsertInsight(userId, 'e1rm_progression', exerciseId, payload, tx);
-      }
-      for (const [exerciseId, payload] of computeSummaryPerExercise(records)) {
-        await upsertInsight(userId, 'exercise_summary', exerciseId, payload, tx);
-      }
-      for (const [exerciseId, payload] of computePlateauPerExercise(records)) {
-        await upsertInsight(userId, 'plateau_detection', exerciseId, payload, tx);
-      }
-      for (const [exerciseId, payload] of computeForecastPerExercise(records)) {
-        await upsertInsight(userId, 'e1rm_forecast', exerciseId, payload, tx);
-      }
-      for (const [exerciseId, payload] of computeRecommendationPerExercise(records)) {
-        await upsertInsight(userId, 'load_recommendation', exerciseId, payload, tx);
-      }
-    }
-    await upsertInsight(userId, META_INSIGHT_TYPE, null, {}, tx);
-  });
 }
 
 // apps/backend/api/src/routes/internal.ts

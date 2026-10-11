@@ -6,6 +6,7 @@ import { DEFAULT_BAR_KG } from '@gzclp/domain/barbell';
 import { localizedConfigFieldLabel } from '@/lib/catalog-display';
 import { OneRmCalculator } from './one-rm-calculator';
 import { PlateBreakdown } from './plate-breakdown';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 type WeightField = ProgramDefinition['configFields'][number] & { type: 'weight' };
 
@@ -34,8 +35,11 @@ export function StepWeights({
   onContinue,
 }: StepWeightsProps): ReactNode {
   const { t } = useTranslation();
+  const { unit, toDisplay, format } = useUnitPreference();
   const [index, setIndex] = useState(0);
   const [calculatorOpen, setCalculatorOpen] = useState(false);
+
+  const formatOrDash = (v: number | undefined): string => (v === undefined ? '—' : format(v));
 
   const field = fields[index];
   if (field === undefined) return null;
@@ -64,9 +68,7 @@ export function StepWeights({
         <p className="mb-2 font-mono text-2xs font-bold uppercase tracking-[0.08em] text-accent-deep">
           {t('onboarding.weights.lift_counter', { index: index + 1, total: fields.length })}
         </p>
-        <h2 className="font-display mb-3 text-[40px] leading-[0.9] tracking-[0.03em] text-title sm:text-[52px]">
-          {label}
-        </h2>
+        <h2 className="mb-3 type-display-sm sm:type-display text-title">{label}</h2>
         <p className="mb-6 max-w-[560px] text-[15px] leading-relaxed text-muted">
           {field.hint ?? t('onboarding.weights.subtitle')}
         </p>
@@ -88,24 +90,24 @@ export function StepWeights({
             type="button"
             aria-label={t('onboarding.weights.decrease', { lift: label })}
             onClick={() => commit(roundToNearest((current ?? field.min) - field.step, field.step))}
-            className="h-14 w-14 border border-rule bg-card font-mono text-xl text-muted transition-colors hover:bg-surface-2 hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+            className="h-14 w-14 border border-rule bg-card rounded-control font-mono text-xl text-muted transition-colors hover:bg-surface-2 hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
           >
             &minus;
           </button>
-          <span className="flex min-w-[160px] items-baseline justify-center gap-2 border border-rule bg-card px-5 py-2">
+          <span className="flex min-w-[160px] items-baseline justify-center gap-2 border border-rule bg-card rounded-control px-5 py-2">
             <span
               data-testid="start-weight-value"
               className="font-display text-[44px] leading-none tracking-[0.01em] text-accent tabular-nums"
             >
-              {current ?? '—'}
+              {current !== undefined ? toDisplay(current) : '—'}
             </span>
-            <span className="font-mono text-sm font-semibold text-muted">kg</span>
+            <span className="font-mono text-sm font-semibold text-muted">{unit}</span>
           </span>
           <button
             type="button"
             aria-label={t('onboarding.weights.increase', { lift: label })}
             onClick={() => commit(roundToNearest((current ?? field.min) + field.step, field.step))}
-            className="h-14 w-14 border border-rule bg-card font-mono text-xl text-muted transition-colors hover:bg-surface-2 hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+            className="h-14 w-14 border border-rule bg-card rounded-control font-mono text-xl text-muted transition-colors hover:bg-surface-2 hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
           >
             +
           </button>
@@ -114,7 +116,11 @@ export function StepWeights({
         <div className="mb-6">
           <PlateBreakdown weight={current ?? 0} />
           <p className="mt-1 font-mono text-2xs text-info">
-            {t('onboarding.weights.range', { min: field.min, max: MAX_WEIGHT_KG })}
+            {t('onboarding.weights.range', {
+              min: toDisplay(field.min),
+              max: toDisplay(MAX_WEIGHT_KG),
+              unit,
+            })}
           </p>
         </div>
 
@@ -125,7 +131,7 @@ export function StepWeights({
             onClick={advance}
             disabled={current === undefined}
             style={{ boxShadow: 'var(--shadow-pressed-steel)' }}
-            className="bg-accent px-7 py-3.5 font-mono text-xs font-bold uppercase tracking-[0.08em] text-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+            className="type-button rounded-control bg-accent px-7 py-3.5 text-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
           >
             {isLast ? t('onboarding.weights.finish') : t('onboarding.weights.next_lift')}
           </button>
@@ -134,7 +140,7 @@ export function StepWeights({
               type="button"
               data-testid="start-open-calculator"
               onClick={() => setCalculatorOpen(true)}
-              className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-muted underline-offset-4 hover:text-main hover:underline cursor-pointer"
+              className="type-button text-muted underline-offset-4 hover:text-main hover:underline cursor-pointer"
             >
               {t('onboarding.weights.open_calculator')}
             </button>
@@ -146,14 +152,14 @@ export function StepWeights({
               commit(Math.max(field.min, DEFAULT_BAR_KG));
               advance();
             }}
-            className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-muted underline-offset-4 hover:text-main hover:underline cursor-pointer"
+            className="type-button text-muted underline-offset-4 hover:text-main hover:underline cursor-pointer"
           >
             {t('onboarding.weights.unknown')}
           </button>
           <button
             type="button"
             onClick={() => (index === 0 ? onBack() : setIndex((i) => i - 1))}
-            className="ml-auto font-mono text-[11px] uppercase tracking-[0.06em] text-info hover:text-main cursor-pointer"
+            className="type-button ml-auto text-info hover:text-main cursor-pointer"
           >
             {t('onboarding.back')}
           </button>
@@ -176,7 +182,7 @@ export function StepWeights({
                 {localizedConfigFieldLabel(t, f.key, f.label)}
               </span>
               <span className="shrink-0 font-mono text-[12.5px] tabular-nums">
-                {values[f.key] !== undefined ? `${values[f.key]} kg` : '—'}
+                {formatOrDash(values[f.key])}
               </span>
             </li>
           ))}

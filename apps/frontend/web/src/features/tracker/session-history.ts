@@ -1,4 +1,36 @@
-import type { GenericWorkoutRow } from '@gzclp/domain/types';
+import { isWorkoutComplete } from '@gzclp/domain/generic-stats';
+import type { GenericSlotRow, GenericWorkoutRow } from '@gzclp/domain/types';
+
+/** A slot is finished only once its AMRAP follow-up (if any) has been answered. */
+export function isSlotResolved(slot: GenericSlotRow): boolean {
+  if (slot.result === undefined) return false;
+  const needsAmrap =
+    slot.result === 'success' &&
+    slot.isAmrap &&
+    slot.amrapReps === undefined &&
+    slot.setLogs === undefined;
+  return !needsAmrap;
+}
+
+export function isWorkoutResolved(workout: GenericWorkoutRow): boolean {
+  return workout.slots.length > 0 && workout.slots.every(isSlotResolved);
+}
+
+/**
+ * The tracker moves its "current" day on to the next pending one as soon as a
+ * day resolves, so the day just finished is the one right before it (or the
+ * last day once the whole program is done). That is the day whose completion
+ * screen is worth showing; older days are plain history.
+ */
+export function isLatestFinishedDay(
+  rows: readonly GenericWorkoutRow[],
+  workout: GenericWorkoutRow,
+  currentDayIndex: number
+): boolean {
+  if (!isWorkoutResolved(workout)) return false;
+  const latestFinished = currentDayIndex >= 0 ? currentDayIndex - 1 : rows.length - 1;
+  return workout.index === latestFinished;
+}
 
 export interface PreviousLiftLine {
   readonly slotId: string;
@@ -40,7 +72,7 @@ export function findPreviousSameDay(
   for (let i = index - 1; i >= 0; i--) {
     const row = rows[i];
     if (row === undefined || row.dayName !== current.dayName) continue;
-    if (row.slots.length === 0 || !row.slots.every((s) => s.result !== undefined)) continue;
+    if (!isWorkoutComplete(row)) continue;
 
     return {
       index: i,
@@ -81,7 +113,7 @@ export function workoutVolume(row: GenericWorkoutRow): number {
   for (const slot of row.slots) {
     if (slot.weight <= 0) continue;
     if (slot.setLogs !== undefined && slot.setLogs.length > 0) {
-      for (const set of slot.setLogs) volume += slot.weight * set.reps;
+      for (const set of slot.setLogs) volume += (set.weight ?? slot.weight) * set.reps;
       continue;
     }
     if (slot.result !== 'success') continue;

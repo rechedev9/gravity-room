@@ -8,7 +8,7 @@ import {
   JetBrainsMono_700Bold,
 } from '@expo-google-fonts/jetbrains-mono';
 
-import { colors } from './design';
+import { colors } from '@gzclp/design-tokens';
 
 export function FontProvider({ children }: PropsWithChildren) {
   const [loaded, error] = useFonts({

@@ -38,7 +38,7 @@ export function ProfileBanner({
 
   return (
     <>
-      <div className="bg-card border border-rule shadow-card mb-6 relative overflow-hidden">
+      <div className="bg-card rounded-card border border-rule shadow-card mb-6 relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-[0.03]"
           style={{ background: 'linear-gradient(135deg, var(--color-accent) 0%, transparent 60%)' }}
@@ -53,7 +53,7 @@ export function ProfileBanner({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3 mb-1">
               {isActive && (
-                <span className="shrink-0 font-mono text-2xs tracking-widest uppercase px-2 py-0.5 bg-ok-bg border border-ok-ring text-ok">
+                <span className="shrink-0 font-mono text-2xs tracking-widest uppercase px-2 py-0.5 bg-ok-bg border border-ok-ring rounded-chip text-ok">
                   {t('profile.banner.badge_active')}
                 </span>
               )}
@@ -66,9 +66,7 @@ export function ProfileBanner({
                 </span>
               )}
             </div>
-            <p className="font-display text-2xl sm:text-3xl text-title leading-none truncate">
-              {activeProgramName}
-            </p>
+            <p className="type-title sm:type-display-sm text-title truncate">{activeProgramName}</p>
             {isEmpty ? (
               <p className="text-xs text-muted mt-1.5">
                 {t('profile.banner.first_workout_message')}
@@ -141,7 +139,7 @@ export function ProfileBanner({
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
               onSelectInstance(e.target.value || undefined)
             }
-            className="w-full bg-card border border-rule text-sm text-title px-4 py-3 pr-10 font-mono appearance-none cursor-pointer focus:outline-none focus:border-accent transition-colors"
+            className="w-full bg-card rounded-control border border-rule text-sm text-title px-4 py-3 pr-10 font-mono appearance-none cursor-pointer focus:outline-none focus:border-accent transition-colors"
             aria-label={t('profile.banner.program_selector_label')}
           >
             {allPrograms.map((p) => (

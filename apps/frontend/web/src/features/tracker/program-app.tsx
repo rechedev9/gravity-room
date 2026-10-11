@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { findFirstPendingIndex, isWorkoutComplete } from '@gzclp/domain/generic-stats';
 import type { ResultValue } from '@gzclp/domain/types';
 import { useProgram } from '@/hooks/use-program';
 import { useGuestProgram } from '@/hooks/use-guest-program';
@@ -20,6 +21,7 @@ import { generateProgramCsv, downloadCsv } from '@/lib/csv-export';
 import { localizedProgramName } from '@/lib/catalog-display';
 import { useProgramCompletion } from '@/hooks/use-program-completion';
 import { ToastContainer } from '@/components/toast';
+import { useConfirmProgramReplacement } from '@/features/programs/use-confirm-program-replacement';
 import { AppSkeleton } from '@/components/app-skeleton';
 import { GraduationPanel } from './graduation-panel';
 import { ProgramCompletionScreen } from './program-completion-screen';
@@ -29,6 +31,7 @@ import { SetupForm } from './setup-form';
 import { TestWeightModal } from './test-weight-modal';
 import { RestTimer } from './rest-timer';
 import { plannedConfirmableSets, restSecondsForRole } from './rest-timer-policy';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 const MAX_BACKUP_FILE_BYTES = 1_048_576;
 
@@ -39,6 +42,7 @@ interface ProgramAppProps {
   readonly onBackToDashboard?: () => void;
   readonly onProgramReset?: () => void;
   readonly onGoToProfile?: () => void;
+  readonly onSwitchProgram?: () => void;
 }
 
 export function ProgramApp({
@@ -48,8 +52,10 @@ export function ProgramApp({
   onBackToDashboard,
   onProgramReset,
   onGoToProfile,
+  onSwitchProgram,
 }: ProgramAppProps): React.ReactNode {
   const { t } = useTranslation();
+  const { unit, format } = useUnitPreference();
   const { user, loading: authLoading } = useAuth();
   const { isGuest } = useGuest();
 
@@ -112,25 +118,20 @@ export function ProgramApp({
   });
 
   const { toast } = useToast();
+  const { confirmReplacement, dialog: replaceDialog } = useConfirmProgramReplacement();
   const [editingWeights, setEditingWeights] = useState(false);
   const [navExpanded, setNavExpanded] = useState(false);
   /** Active rest between sets — null when no countdown is running. `id` forces remount. */
   const [rest, setRest] = useState<{ readonly seconds: number; readonly id: number } | null>(null);
   const workoutsPerWeek = definition?.workoutsPerWeek ?? 4;
   const totalWorkouts = definition?.totalWorkouts ?? 0;
-  const { completedCount, firstPendingIdx } = useMemo(() => {
-    let completed = 0;
-    let firstPending = -1;
-    for (const row of rows) {
-      const allDone = row.slots.every((s) => s.result !== undefined);
-      if (allDone) {
-        completed += 1;
-      } else if (firstPending < 0) {
-        firstPending = row.index;
-      }
-    }
-    return { completedCount: completed, firstPendingIdx: firstPending };
+  const { completedDayIndices, firstPendingIdx } = useMemo(() => {
+    return {
+      completedDayIndices: new Set(rows.filter(isWorkoutComplete).map((row) => row.index)),
+      firstPendingIdx: findFirstPendingIndex(rows),
+    };
   }, [rows]);
+  const completedCount = completedDayIndices.size;
 
   const dayNav = useDayNavigation({ totalWorkouts, firstPendingIdx, config });
   const graduation = useGraduation({
@@ -158,11 +159,15 @@ export function ProgramApp({
         })
     : undefined;
 
-  const selectedWorkout = rows[dayNav.selectedDayIndex];
-  const isDayComplete = selectedWorkout
-    ? selectedWorkout.slots.every((s) => s.result !== undefined)
-    : false;
+  // A fresh setup ends the active program; ask first. Editing weights of the
+  // program already running goes through updateConfig and never lands here.
+  const startProgram = async (newConfig: Record<string, number | string>): Promise<void> => {
+    const nextName = definition ? localizedProgramName(t, definition.id, definition.name) : '';
+    if (!(await confirmReplacement(nextName))) return;
+    await generateProgram(newConfig);
+  };
 
+  const selectedWorkout = rows[dayNav.selectedDayIndex];
   const mutenroshiBlocksCompletion =
     graduation.isMutenroshi && !graduation.graduationState.allPassed;
 
@@ -188,7 +193,7 @@ export function ProgramApp({
     if (!slot) return;
     const isPr = detectGenericPersonalRecord(rows, workoutIndex, slotId, value);
     if (isPr) {
-      toast({ message: `${slot.exerciseName} ${slot.weight} kg`, variant: 'pr' });
+      toast({ message: `${slot.exerciseName} ${format(slot.weight)}`, variant: 'pr' });
     } else {
       const resultLabel = value === 'success' ? t('common.success') : t('common.failed');
       toast({
@@ -309,7 +314,7 @@ export function ProgramApp({
       return;
     }
     if (!definition || rows.length === 0) return;
-    const csv = generateProgramCsv(rows, workoutsPerWeek);
+    const csv = generateProgramCsv({ rows, workoutsPerWeek, unit });
     const date = new Date().toISOString().slice(0, 10);
     const filenameBase = localizedProgramName(t, definition.id, definition.name);
     downloadCsv(csv, `${filenameBase}-${date}.csv`);
@@ -341,7 +346,7 @@ export function ProgramApp({
           <button
             type="button"
             onClick={handleResetAll}
-            className="px-5 py-2.5 text-xs font-bold cursor-pointer bg-btn text-btn-text border-2 border-btn-ring hover:bg-btn-active hover:text-btn-active-text transition-colors"
+            className="rounded-control px-5 py-2.5 text-xs font-bold cursor-pointer bg-btn text-btn-text border-2 border-btn-ring hover:bg-btn-active hover:text-btn-active-text transition-colors"
           >
             {t('tracker.delete_and_return')}
           </button>
@@ -366,43 +371,51 @@ export function ProgramApp({
   return (
     <>
       {config && rows.length > 0 && (
-        <div className="sticky top-0 z-50">
-          <SessionChrome
-            definition={definition}
-            config={config}
-            dayIndex={dayNav.selectedDayIndex}
-            totalDays={totalWorkouts}
-            dayName={selectedWorkout?.dayName ?? ''}
-            isCurrentDay={dayNav.selectedDayIndex === firstPendingIdx}
-            doneSlots={doneSlots}
-            totalSlots={selectedWorkout?.slots.length ?? 0}
-            completedDays={completedCount}
-            navExpanded={navExpanded}
-            onToggleNav={() => setNavExpanded((x) => !x)}
-            onEditWeights={() => setEditingWeights(true)}
-            isFinishing={isFinishing}
-            onFinish={handleFinishProgram}
-            onReset={handleResetAll}
-            onExportCsv={handleExportCsv}
-            canUseBackup={!isGuest}
-            onExportBackup={exportData}
-            onImportBackup={handleImportBackup}
-            webMcpSupported={webMcpSupported}
-            webMcpEnabled={webMcpEnabled}
-            onEnableWebMcp={() => setWebMcpEnabled(true)}
-            onDisableWebMcp={() => setWebMcpEnabled(false)}
-          />
-        </div>
+        <SessionChrome
+          definition={definition}
+          config={config}
+          dayIndex={dayNav.selectedDayIndex}
+          totalDays={totalWorkouts}
+          dayName={selectedWorkout?.dayName ?? ''}
+          isCurrentDay={dayNav.selectedDayIndex === firstPendingIdx}
+          currentDayIndex={firstPendingIdx}
+          workoutsPerWeek={workoutsPerWeek}
+          completedDayIndices={completedDayIndices}
+          doneSlots={doneSlots}
+          totalSlots={selectedWorkout?.slots.length ?? 0}
+          completedDays={completedCount}
+          navExpanded={navExpanded}
+          canUndo={undoHistory.length > 0}
+          onUndo={undoLast}
+          onSelectDay={dayNav.handleSelectDay}
+          onPrevDay={dayNav.handlePrevDay}
+          onNextDay={dayNav.handleNextDay}
+          onGoToCurrent={dayNav.handleGoToCurrent}
+          onToggleNav={() => setNavExpanded((x) => !x)}
+          onEditWeights={() => setEditingWeights(true)}
+          onSwitchProgram={onSwitchProgram}
+          isFinishing={isFinishing}
+          onFinish={handleFinishProgram}
+          onReset={handleResetAll}
+          onExportCsv={handleExportCsv}
+          canUseBackup={!isGuest}
+          onExportBackup={exportData}
+          onImportBackup={handleImportBackup}
+          webMcpSupported={webMcpSupported}
+          webMcpEnabled={webMcpEnabled}
+          onEnableWebMcp={() => setWebMcpEnabled(true)}
+          onDisableWebMcp={() => setWebMcpEnabled(false)}
+        />
       )}
 
-      <div className="max-w-[1300px] mx-auto px-3 sm:px-5 pb-24">
+      <div className="max-w-[1300px] mx-auto px-5 sm:px-6 pb-24">
         {config && rows.length > 0 ? (
           editingWeights && (
             <SetupForm
               definition={definition}
               initialConfig={config}
               isGenerating={isGenerating}
-              onGenerate={generateProgram}
+              onGenerate={startProgram}
               onUpdateConfig={(cfg) => {
                 updateConfig(cfg);
                 setEditingWeights(false);
@@ -418,7 +431,7 @@ export function ProgramApp({
             definition={definition}
             initialConfig={config}
             isGenerating={isGenerating}
-            onGenerate={generateProgram}
+            onGenerate={startProgram}
             onUpdateConfig={updateConfig}
             statusNote={jawStatusNote}
             activeGroup={jawContext?.group}
@@ -447,18 +460,13 @@ export function ProgramApp({
             selectedWorkout={selectedWorkout}
             selectedDayIndex={dayNav.selectedDayIndex}
             currentDayIndex={firstPendingIdx}
-            totalWorkouts={totalWorkouts}
-            isDayComplete={isDayComplete}
+            completedDayIndices={completedDayIndices}
             viewMode={dayNav.viewMode}
             workoutsPerWeek={workoutsPerWeek}
             resultTimestamps={resultTimestamps}
             navExpanded={navExpanded}
-            rest={rest}
-            onSkipRest={dismissRest}
             onCloseNav={() => setNavExpanded(false)}
-            onPrevDay={dayNav.handlePrevDay}
             onNextDay={dayNav.handleNextDay}
-            onGoToCurrent={dayNav.handleGoToCurrent}
             onSelectDay={dayNav.handleSelectDay}
             onToggleView={dayNav.handleToggleView}
             onGoToProfile={onGoToProfile}
@@ -485,9 +493,7 @@ export function ProgramApp({
         onCancel={testWeight.handleTestWeightCancel}
       />
 
-      {/* The compact session hosts rest inside the current-lift card; the
-          detailed table has no hero, so it keeps the floating bar. */}
-      {rest !== null && dayNav.viewMode === 'detailed' ? (
+      {rest !== null ? (
         <RestTimer
           key={rest.id}
           seconds={rest.seconds}
@@ -497,6 +503,7 @@ export function ProgramApp({
       ) : null}
 
       <ToastContainer />
+      {replaceDialog}
 
       {completionData && definition && (
         <ProgramCompletionScreen

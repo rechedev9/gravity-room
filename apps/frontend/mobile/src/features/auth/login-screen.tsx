@@ -15,7 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '../../shell/auth-provider';
-import { colors, spacing, type } from '../../shell/design';
+import { type } from '../../shell/design';
+import { colors, spacing } from '@gzclp/design-tokens';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
 import { Kicker } from '../../ui/kicker';
@@ -397,6 +398,7 @@ const styles = StyleSheet.create({
     ...type.kicker,
   },
   input: {
+    ...type.body,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.rule,
@@ -425,6 +427,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   errorBannerText: {
+    ...type.body,
     color: colors.textError,
     fontSize: 13,
   },
@@ -443,10 +446,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.header,
   },
   formMessageErrorText: {
+    ...type.body,
     color: colors.textError,
     fontSize: 13,
   },
   formMessageSuccessText: {
+    ...type.body,
     color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 20,

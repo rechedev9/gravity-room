@@ -157,7 +157,7 @@ function HeaderCta({
   if (hasActiveProgram) {
     return (
       <Link to="/app" className={linkClasses}>
-        {t('catalog.program_preview.cta_view_dashboard')}
+        {t('catalog.program_preview.cta_go_home')}
       </Link>
     );
   }

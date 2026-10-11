@@ -76,6 +76,10 @@ test.describe('Program Lifecycle — Guest Mode', () => {
     await expect(dialog).toBeVisible();
     await dialog.getByRole('button', { name: 'Finalizar' }).click();
 
+    const summary = page.getByTestId('program-completion-screen');
+    await expect(summary).toBeVisible();
+    await summary.getByRole('button').last().click();
+
     await backToCatalog(page);
 
     await programCard(page, 'GZCLP').getByRole('button', { name: 'Iniciar Programa' }).click();

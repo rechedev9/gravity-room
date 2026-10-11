@@ -12,6 +12,7 @@ import {
   MAX_SET_LOG_WEIGHT,
   SetLogEntryInputSchema,
 } from '@gzclp/domain/schemas/instance';
+import { MAX_SET_LOG_ITEMS, MAX_SLOT_ID_CHARS } from '@gzclp/domain/schemas/instance';
 import { MAX_TOTAL_WORKOUTS } from '@gzclp/domain/schemas/program-definition';
 import type { SetLogEntry } from '@gzclp/domain/types';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
@@ -199,8 +200,6 @@ async function syncCompletedAt(
 // ---------------------------------------------------------------------------
 
 const MAX_RESULT_WORKOUT_INDEX = MAX_TOTAL_WORKOUTS - 1;
-const MAX_SET_LOG_ITEMS = 20;
-const MAX_SLOT_ID_LENGTH = 50;
 
 function assertWorkoutIndexInRange(workoutIndex: number): void {
   if (
@@ -213,7 +212,7 @@ function assertWorkoutIndexInRange(workoutIndex: number): void {
 }
 
 function assertSlotIdValid(slotId: string): void {
-  if (slotId.length < 1 || slotId.length > MAX_SLOT_ID_LENGTH) {
+  if (slotId.length < 1 || slotId.length > MAX_SLOT_ID_CHARS) {
     throw new ApiError(400, `Invalid slotId: ${slotId}`, 'INVALID_DATA');
   }
 }

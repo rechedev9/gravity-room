@@ -1,4 +1,9 @@
-import type { GenericProgramDetail, SetLogEntry } from '@gzclp/domain';
+import {
+  applyUndoEntry as applyUndoEntryToResults,
+  buildUndoEntry as buildUndoEntryFromResults,
+  type GenericProgramDetail,
+  type SetLogEntry,
+} from '@gzclp/domain';
 
 type SlotResult = GenericProgramDetail['results'][string][string];
 type UndoEntry = GenericProgramDetail['undoHistory'][number];
@@ -99,58 +104,12 @@ export function buildUndoEntry(
   workoutIndex: number,
   slotId: string
 ): UndoEntry {
-  const currentSlot = detail.results[String(workoutIndex)]?.[slotId];
-
-  return {
-    i: workoutIndex,
-    slotId,
-    ...(currentSlot?.result !== undefined ? { prev: currentSlot.result } : {}),
-    ...(currentSlot?.rpe !== undefined ? { prevRpe: currentSlot.rpe } : {}),
-    ...(currentSlot?.amrapReps !== undefined ? { prevAmrapReps: currentSlot.amrapReps } : {}),
-    ...(currentSlot?.setLogs !== undefined ? { prevSetLogs: currentSlot.setLogs } : {}),
-  };
+  return buildUndoEntryFromResults(detail.results, workoutIndex, slotId);
 }
 
 export function applyUndoEntry(
   detail: GenericProgramDetail,
   entry: UndoEntry
 ): GenericProgramDetail {
-  if (entry.prev === undefined) {
-    return removeSlotResult(detail, entry.i, entry.slotId);
-  }
-
-  return patchSlotMetrics(detail, entry.i, entry.slotId, {
-    result: entry.prev,
-    amrapReps: entry.prevAmrapReps,
-    rpe: entry.prevRpe,
-    setLogs: entry.prevSetLogs,
-  });
-}
-
-function removeSlotResult(
-  detail: GenericProgramDetail,
-  workoutIndex: number,
-  slotId: string
-): GenericProgramDetail {
-  const workoutKey = String(workoutIndex);
-  const currentWorkout = detail.results[workoutKey] ?? {};
-  const nextWorkout = { ...currentWorkout };
-  delete nextWorkout[slotId];
-
-  if (Object.keys(nextWorkout).length === 0) {
-    const nextResults = { ...detail.results };
-    delete nextResults[workoutKey];
-    return {
-      ...detail,
-      results: nextResults,
-    };
-  }
-
-  return {
-    ...detail,
-    results: {
-      ...detail.results,
-      [workoutKey]: nextWorkout,
-    },
-  };
+  return { ...detail, results: applyUndoEntryToResults(detail.results, entry) };
 }

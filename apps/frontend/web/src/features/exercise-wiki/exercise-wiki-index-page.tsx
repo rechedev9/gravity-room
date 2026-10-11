@@ -113,7 +113,7 @@ export function ExerciseWikiIndexPage({
               data-testid="exercise-card"
               to={`${linkBase}/$slug`}
               params={{ slug: a.slug[lang] }}
-              className="flex h-full items-start gap-3 border border-rule rounded-sm px-4 py-3 hover:border-accent transition-colors"
+              className="flex h-full items-start gap-3 border border-rule rounded-control px-4 py-3 hover:border-accent transition-colors"
             >
               <BodyDiagram
                 primary={a.primaryMuscles}
@@ -135,7 +135,7 @@ export function ExerciseWikiIndexPage({
       <Link
         data-testid="versus-cta"
         to={inApp ? '/app/exercises/versus' : `${publicBase}/versus`}
-        className="group relative block overflow-hidden border border-rule rounded-[var(--radius-base)] bg-card px-5 py-5 hover:border-accent transition-colors shadow-[var(--shadow-card)]"
+        className="group relative block overflow-hidden border border-rule rounded-card bg-card px-5 py-5 hover:border-accent transition-colors shadow-[var(--shadow-card)]"
       >
         <span
           className="pointer-events-none absolute -right-2 top-1/2 -translate-y-1/2 font-display text-7xl text-accent/10 select-none group-hover:text-accent/20 transition-colors"
@@ -167,7 +167,7 @@ export function ExerciseWikiIndexPage({
       ) : (
         <Link
           to="/app/exercises"
-          className="block border border-rule rounded-sm bg-card px-5 py-5 hover:border-accent transition-colors"
+          className="block border border-rule rounded-card bg-card px-5 py-5 hover:border-accent transition-colors"
         >
           <span className="block font-display text-xl text-title">{copy.catalogCta.title}</span>
           <span className="block text-sm text-muted mt-1">{copy.catalogCta.body}</span>

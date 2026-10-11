@@ -10,6 +10,8 @@ export interface SyncStatusValue {
   readonly offline: boolean;
   readonly readError: boolean;
   readonly visible: boolean;
+  /** Wall-clock time of the last flush that finished without a failure, this session. */
+  readonly lastSyncedAt?: number | null | undefined;
   readonly retry: () => void;
 }
 
@@ -21,6 +23,7 @@ export function SyncStatusProvider({ children }: PropsWithChildren) {
   const ownerId = user?.id;
   const [status, setStatus] = useState<SyncStatus | null>(null);
   const [readError, setReadError] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   useEffect(() => {
     if (!ownerId) return;
     let active = true;
@@ -42,7 +45,9 @@ export function SyncStatusProvider({ children }: PropsWithChildren) {
       if (owner === ownerId) refresh();
     });
     const attempted = subscribeSyncAttempts((attempt) => {
-      if (attempt.ownerId === ownerId) refresh();
+      if (attempt.ownerId !== ownerId) return;
+      if (!attempt.failed) setLastSyncedAt(Date.now());
+      refresh();
     });
     const requested = syncRequests.subscribe((owner) => {
       if (owner === ownerId) refresh();
@@ -69,6 +74,7 @@ export function SyncStatusProvider({ children }: PropsWithChildren) {
         offline: isOffline,
         readError,
         visible: isOffline || readError || (status?.total ?? 0) > 0,
+        lastSyncedAt,
         retry,
       }}
     >

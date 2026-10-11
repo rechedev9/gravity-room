@@ -35,7 +35,7 @@ function DayTile({ row, state, onSelect }: DayTileProps): ReactNode {
       onClick={onSelect}
       aria-label={label}
       aria-current={state === 'selected' ? 'true' : undefined}
-      className={`
+      className={`rounded-control 
         flex flex-col items-center justify-center
         min-h-[44px] min-w-[44px] px-2 py-1.5
         text-xs font-mono tabular-nums
@@ -101,7 +101,7 @@ export function WeekView({
           disabled={activeWeek <= 0}
           onClick={() => selectWeek(activeWeek - 1)}
           aria-label={t('calendar_navigator.week_prev_aria')}
-          className="flex h-11 w-11 items-center justify-center border border-rule bg-card text-sm font-bold text-muted transition-colors hover:border-rule-light hover:text-main disabled:cursor-not-allowed disabled:opacity-30"
+          className="rounded-control flex h-11 w-11 items-center justify-center border border-rule bg-card text-sm font-bold text-muted transition-colors hover:border-rule-light hover:text-main disabled:cursor-not-allowed disabled:opacity-30"
         >
           &larr;
         </button>
@@ -109,7 +109,7 @@ export function WeekView({
           value={activeWeek}
           onChange={(event) => selectWeek(Number(event.currentTarget.value))}
           aria-label={t('calendar_navigator.week_select_aria')}
-          className="h-11 min-w-40 cursor-pointer border border-rule bg-card px-3 font-mono text-[11px] font-bold uppercase tracking-[0.04em] text-main focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="rounded-control h-11 min-w-40 cursor-pointer border border-rule bg-card px-3 font-mono text-[11px] font-bold uppercase tracking-[0.04em] text-main focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           {weekChips.map((weekIdx) => {
             const firstDayOfWeek = weekIdx * safeWpw + 1;
@@ -130,7 +130,7 @@ export function WeekView({
           disabled={activeWeek >= numWeeks - 1}
           onClick={() => selectWeek(activeWeek + 1)}
           aria-label={t('calendar_navigator.week_next_aria')}
-          className="flex h-11 w-11 items-center justify-center border border-rule bg-card text-sm font-bold text-muted transition-colors hover:border-rule-light hover:text-main disabled:cursor-not-allowed disabled:opacity-30"
+          className="rounded-control flex h-11 w-11 items-center justify-center border border-rule bg-card text-sm font-bold text-muted transition-colors hover:border-rule-light hover:text-main disabled:cursor-not-allowed disabled:opacity-30"
         >
           &rarr;
         </button>

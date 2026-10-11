@@ -10,7 +10,6 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   FlatList,
   Pressable,
@@ -21,11 +20,13 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { CatalogEntry, ProgramDefinition } from '@gzclp/domain';
 
-import { colors, type } from '../../shell/design';
+import { type } from '../../shell/design';
+import { colors } from '@gzclp/design-tokens';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
 import { Kicker } from '../../ui/kicker';
 import { Screen } from '../../ui/screen';
+import { useConfirmDialog } from '../../ui/confirm-dialog';
 import {
   type ProgramSummary,
   listProgramSummaries,
@@ -53,31 +54,6 @@ function mergeProgramSummary(
   return [nextProgram, ...programs.filter((program) => program.id !== nextProgram.id)];
 }
 
-/** Native confirm dialog as a promise; dismissing counts as cancel. */
-function confirmDialog(input: {
-  readonly title: string;
-  readonly message: string;
-  readonly cancel: string;
-  readonly confirm: string;
-  readonly destructive?: boolean;
-}): Promise<boolean> {
-  return new Promise((resolve) => {
-    Alert.alert(
-      input.title,
-      input.message,
-      [
-        { text: input.cancel, style: 'cancel', onPress: () => resolve(false) },
-        {
-          text: input.confirm,
-          ...(input.destructive ? { style: 'destructive' as const } : {}),
-          onPress: () => resolve(true),
-        },
-      ],
-      { cancelable: true, onDismiss: () => resolve(false) }
-    );
-  });
-}
-
 type ProgramsScreenProps = {
   readonly onExplorePrograms?: () => void;
   readonly mode?: 'all' | 'instances' | 'catalog';
@@ -91,6 +67,7 @@ export function ProgramsScreen({
 }: ProgramsScreenProps = {}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { confirm: confirmDialog, dialog: confirmation } = useConfirmDialog();
   const summaryQuery = useProgramSummaries(mode !== 'catalog');
   const programs = summaryQuery.data?.programs ?? [];
   const loading = mode !== 'catalog' && summaryQuery.isPending;
@@ -271,6 +248,7 @@ export function ProgramsScreen({
   if (mode === 'catalog')
     return (
       <>
+        {confirmation}
         <CatalogBrowser
           entries={catalog}
           loading={catalogLoading}
@@ -285,22 +263,26 @@ export function ProgramsScreen({
 
   if (mode === 'instances')
     return (
-      <MyPlans
-        programs={programs}
-        loading={loading}
-        error={error}
-        syncNotice={deleteError ?? syncNotice}
-        onRetry={handleRetry}
-        onOpen={onOpenProgram}
-        onExplore={onExplorePrograms}
-        onDelete={(program) => {
-          void handleDeleteProgram(program);
-        }}
-      />
+      <>
+        {confirmation}
+        <MyPlans
+          programs={programs}
+          loading={loading}
+          error={error}
+          syncNotice={deleteError ?? syncNotice}
+          onRetry={handleRetry}
+          onOpen={onOpenProgram}
+          onExplore={onExplorePrograms}
+          onDelete={(program) => {
+            void handleDeleteProgram(program);
+          }}
+        />
+      </>
     );
 
   return (
     <Screen>
+      {confirmation}
       {startingWeightsSheet}
       <Kicker>{t('programs.eyebrow')}</Kicker>
       <Text accessibilityRole="header" style={styles.title}>
@@ -435,11 +417,13 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   error: {
+    ...type.body,
     color: colors.textError,
     fontSize: 16,
     textAlign: 'center',
   },
   syncNotice: {
+    ...type.body,
     color: colors.warn,
     fontSize: 14,
     lineHeight: 20,
@@ -449,9 +433,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   cardTitle: {
-    color: colors.textPrimary,
+    ...type.title,
     fontSize: 18,
-    fontWeight: '600',
   },
   cardMeta: {
     ...type.body,

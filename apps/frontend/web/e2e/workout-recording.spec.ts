@@ -32,7 +32,7 @@ test.describe('Workout recording', () => {
     await page.keyboard.press('s');
 
     // Toast should appear with success message
-    await expect(page.getByText('#1: Sentadilla T1 — Éxito')).toBeVisible();
+    await expect(page.getByText('#1: Sentadilla T1 · Éxito')).toBeVisible();
 
     // Badge ✓ should appear as an undo button
     await expect(tierUndoButton(page, 'T1', 'éxito')).toBeVisible();
@@ -53,7 +53,7 @@ test.describe('Workout recording', () => {
     await tierOutcomeButton(page, 'T2', 'fallo').click();
 
     // Toast should appear with fail message
-    await expect(page.getByText('#1: Press Banca T2 — Fallo')).toBeVisible();
+    await expect(page.getByText('#1: Press Banca T2 · Fallo')).toBeVisible();
 
     // Badge ✗ should appear as an undo button
     await expect(tierUndoButton(page, 'T2', 'fallo')).toBeVisible();

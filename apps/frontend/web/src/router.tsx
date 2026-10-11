@@ -3,6 +3,7 @@ import {
   createRootRouteWithContext,
   createRoute,
   createRouter,
+  Navigate,
   redirect,
 } from '@tanstack/react-router';
 import { lazyWithRetry } from '@/lib/lazy-with-retry';
@@ -15,7 +16,8 @@ import { ProfileSkeleton } from '@/features/profile/profile-skeleton';
 import { RootLayout } from '@/components/root-layout';
 import { RouteErrorFallback } from '@/components/route-error-fallback';
 import { useAuth } from '@/contexts/auth-context';
-import { readStoredIsGuest } from '@/contexts/guest-context';
+import { readStoredIsGuest, useGuest } from '@/contexts/guest-context';
+import { ensureLocale } from '@/lib/i18n';
 import type { UserInfo } from '@gzclp/domain/schemas/user';
 
 // ---------------------------------------------------------------------------
@@ -105,6 +107,9 @@ const StartPage = lazyWithRetry(() =>
 const ProgramsPage = lazyWithRetry(() =>
   import('@/features/programs/programs-page').then((m) => ({ default: m.ProgramsPage }))
 );
+const ExplorePage = lazyWithRetry(() =>
+  import('@/features/programs/explore-page').then((m) => ({ default: m.ExplorePage }))
+);
 const TrackerPage = lazyWithRetry(() =>
   import('@/features/tracker/tracker-page').then((m) => ({ default: m.TrackerPage }))
 );
@@ -168,11 +173,36 @@ const AppShell = lazyWithRetry(() =>
 // AppLayout wrapped with TrackerProvider
 // ---------------------------------------------------------------------------
 
+/**
+ * True once auth has resolved and there is neither a session nor guest mode.
+ * readStoredIsGuest() covers the same-tick race: the landing guest CTA writes
+ * the flag and navigates before the router context (and React state) update.
+ */
+function isUnauthenticated(auth: {
+  readonly user: UserInfo | null;
+  readonly loading: boolean;
+  readonly isGuest: boolean;
+}): boolean {
+  return !auth.loading && auth.user === null && !auth.isGuest && !readStoredIsGuest();
+}
+
 function AppLayoutWithTracker(): React.ReactNode {
-  const { loading } = useAuth();
+  const { user, loading } = useAuth();
+  const { isGuest } = useGuest();
   // Show skeleton while session restore is in progress so the app chrome
   // (sidebar, header) doesn't flash before authentication is confirmed.
   if (loading) return <AppSkeleton />;
+  // beforeLoad cannot see a session that resolves after the first load (it runs
+  // once, while loading is still true), so a cold load, an expired session and a
+  // mid-session invalidation are all redirected from here instead.
+  if (isUnauthenticated({ user, loading, isGuest })) {
+    return (
+      <>
+        <AppSkeleton />
+        <Navigate to="/login" replace />
+      </>
+    );
+  }
   // AppShell is lazy-loaded (keeps motion off the public path); Suspense shows
   // the same skeleton during the brief chunk fetch.
   return (
@@ -186,6 +216,15 @@ function AppLayoutWithTracker(): React.ReactNode {
 // Route tree
 // ---------------------------------------------------------------------------
 
+// Localized public pages read copy through i18n.getFixedT(routeLang), but only the
+// detected locale bundle is loaded at boot. Await the route's own bundle first so
+// /en/* renders English for a Spanish browser (and the prerender, whatever its locale).
+function loadLocale(lang: 'es' | 'en'): () => Promise<void> {
+  return async () => {
+    await ensureLocale(lang);
+  };
+}
+
 const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: RootLayout,
   errorComponent: RouteErrorFallback,
@@ -194,6 +233,7 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
 const landingRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
+  loader: loadLocale('es'),
   pendingComponent: LandingSkeleton,
   component: LandingPage,
 });
@@ -201,6 +241,7 @@ const landingRoute = createRoute({
 const landingEnRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/en',
+  loader: loadLocale('en'),
   pendingComponent: LandingSkeleton,
   component: LandingPageEn,
 });
@@ -265,6 +306,7 @@ const programPreviewRoute = createRoute({
 const programIndexEsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/programas',
+  loader: loadLocale('es'),
   pendingComponent: ContentPageSkeleton,
   component: ProgramIndexPageEs,
 });
@@ -272,6 +314,7 @@ const programIndexEsRoute = createRoute({
 const programIndexEnRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/en/programs',
+  loader: loadLocale('en'),
   pendingComponent: ContentPageSkeleton,
   component: ProgramIndexPageEn,
 });
@@ -279,6 +322,7 @@ const programIndexEnRoute = createRoute({
 const programComparisonEsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/programas/gzclp-vs-stronglifts',
+  loader: loadLocale('es'),
   pendingComponent: ContentPageSkeleton,
   component: ProgramComparisonPageEs,
 });
@@ -286,6 +330,7 @@ const programComparisonEsRoute = createRoute({
 const programComparisonEnRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/en/programs/gzclp-vs-stronglifts',
+  loader: loadLocale('en'),
   pendingComponent: ContentPageSkeleton,
   component: ProgramComparisonPageEn,
 });
@@ -293,6 +338,7 @@ const programComparisonEnRoute = createRoute({
 const programProgressionEsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/programas/progresion-automatica',
+  loader: loadLocale('es'),
   pendingComponent: ContentPageSkeleton,
   component: ProgramProgressionPageEs,
 });
@@ -300,6 +346,7 @@ const programProgressionEsRoute = createRoute({
 const programProgressionEnRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/en/programs/automatic-progression',
+  loader: loadLocale('en'),
   pendingComponent: ContentPageSkeleton,
   component: ProgramProgressionPageEn,
 });
@@ -307,6 +354,7 @@ const programProgressionEnRoute = createRoute({
 const ejerciciosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/ejercicios',
+  loader: loadLocale('es'),
   pendingComponent: ContentPageSkeleton,
   component: ExerciseWikiIndexPageEs,
 });
@@ -314,6 +362,7 @@ const ejerciciosRoute = createRoute({
 const ejerciciosArticleRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/ejercicios/$slug',
+  loader: loadLocale('es'),
   pendingComponent: ContentPageSkeleton,
   component: ExerciseArticlePageEs,
 });
@@ -321,6 +370,7 @@ const ejerciciosArticleRoute = createRoute({
 const exercisesEnRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/en/exercises',
+  loader: loadLocale('en'),
   pendingComponent: ContentPageSkeleton,
   component: ExerciseWikiIndexPageEn,
 });
@@ -328,6 +378,7 @@ const exercisesEnRoute = createRoute({
 const exercisesEnArticleRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/en/exercises/$slug',
+  loader: loadLocale('en'),
   pendingComponent: ContentPageSkeleton,
   component: ExerciseArticlePageEn,
 });
@@ -335,6 +386,7 @@ const exercisesEnArticleRoute = createRoute({
 const ejerciciosVersusRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/ejercicios/versus',
+  loader: loadLocale('es'),
   pendingComponent: ContentPageSkeleton,
   component: ExerciseVersusPageEs,
 });
@@ -342,6 +394,7 @@ const ejerciciosVersusRoute = createRoute({
 const exercisesEnVersusRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/en/exercises/versus',
+  loader: loadLocale('en'),
   pendingComponent: ContentPageSkeleton,
   component: ExerciseVersusPageEn,
 });
@@ -363,14 +416,7 @@ const appLayoutRoute = createRoute({
   id: 'app-layout',
   component: AppLayoutWithTracker,
   beforeLoad: ({ context }) => {
-    // readStoredIsGuest() covers the same-tick race: the landing guest CTA
-    // writes the flag and navigates here before the router context updates.
-    if (
-      !context.auth.loading &&
-      context.auth.user === null &&
-      !context.auth.isGuest &&
-      !readStoredIsGuest()
-    ) {
+    if (isUnauthenticated(context.auth)) {
       throw redirect({ to: '/login', replace: true });
     }
   },
@@ -404,6 +450,13 @@ const programsRoute = createRoute({
   path: '/app/programs',
   pendingComponent: DashboardSkeleton,
   component: ProgramsPage,
+});
+
+const exploreRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/app/explore',
+  pendingComponent: DashboardSkeleton,
+  component: ExplorePage,
 });
 
 const trackerIndexRoute = createRoute({
@@ -490,6 +543,7 @@ const routeTree = rootRoute.addChildren([
     dashboardRedirectRoute,
     startRoute,
     programsRoute,
+    exploreRoute,
     trackerIndexRoute,
     trackerProgramRoute,
     insightsRoute,

@@ -65,8 +65,8 @@ export function JumpForm({ rows, context, onSelectDay }: JumpFormProps): ReactNo
         aria-labelledby={jumpLabelId}
         aria-invalid={jumpError}
         aria-describedby={jumpError ? `${jumpInputId}-error` : undefined}
-        placeholder={`1–${rows.length}`}
-        className={`
+        placeholder={`1-${rows.length}`}
+        className={`rounded-control 
           w-20 px-2 py-1.5 text-xs font-mono tabular-nums
           border bg-card text-main
           focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
@@ -76,7 +76,7 @@ export function JumpForm({ rows, context, onSelectDay }: JumpFormProps): ReactNo
       <button
         type="submit"
         aria-label={t('calendar_navigator.jump_button_aria')}
-        className="
+        className="rounded-control 
           text-xs font-bold px-3 py-1.5 min-h-[44px]
           border-2 border-rule bg-card text-muted
           hover:bg-hover-row hover:text-main hover:border-rule-light

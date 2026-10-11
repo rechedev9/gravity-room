@@ -41,8 +41,7 @@ export function tierUndoButton(page: Page, tier: Tier, outcome: TierOutcome): Lo
 async function isHeroTier(page: Page, tier: Tier): Promise<boolean> {
   const heroCard = page.getByTestId('current-lift-card');
   if (!(await heroCard.isVisible({ timeout: 1_000 }).catch(() => false))) return false;
-  const tierText = await heroCard.locator('span').first().innerText();
-  return tierText.trim().toUpperCase() === tier;
+  return (await heroCard.getAttribute('data-tier')) === tier;
 }
 
 /**
@@ -120,8 +119,8 @@ export function programCard(page: Page, name: string) {
 /**
  * Navigates to the tracker view via the dashboard UI.
  * Requires a seeded active program to be present (seedProgram must be called first).
- * Gate: waits for 'Día N' text (DayNavigator) to confirm tracker data is fully loaded,
- * not just the progressbar (which only requires config, not the catalog definition).
+ * Gate: waits for the session chrome (day counter band) to confirm tracker data is fully
+ * loaded, not just the progressbar (which only requires config, not the catalog definition).
  */
 export async function navigateToTracker(page: Page): Promise<void> {
   await page.goto('/app');
@@ -130,17 +129,14 @@ export async function navigateToTracker(page: Page): Promise<void> {
     .first();
   await expect(continueLink).toBeVisible({ timeout: 10_000 });
   await continueLink.click();
-  await expect(page.getByText(/^Día \d+$/).first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('session-chrome')).toBeVisible({ timeout: 10_000 });
 }
 
 /**
  * Assert the selected tracker day using the session chrome band.
  * The day number and the "/ total" count render in separate spans
  * (see `session-chrome.tsx`), so match each structurally instead of
- * relying on a single text node containing both. The chrome also carries a
- * separate `dayName` span ("Día N") that only differs from the identity
- * pill ("DÍA N") by case — an unanchored case-insensitive match would hit
- * both, so this stays case-sensitive to pin down the identity pill alone.
+ * relying on a single text node containing both.
  */
 export async function expectSelectedDay(page: Page, day: number): Promise<void> {
   const chrome = page.getByTestId('session-chrome');
@@ -192,7 +188,9 @@ export async function ensureCompactView(page: Page): Promise<void> {
  */
 export async function navigateToGzclpSetup(page: Page): Promise<void> {
   await page.goto('/app/programs');
-  await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('heading', { name: 'GZCLP' }).first()).toBeVisible({
+    timeout: 10_000,
+  });
   await programCard(page, 'GZCLP').getByRole('button', { name: 'Iniciar Programa' }).click();
   await expect(page.getByText('Pesos Iniciales (kg)')).toBeVisible({ timeout: 10_000 });
 }
@@ -215,7 +213,9 @@ export async function enterGuestMode(page: Page): Promise<void> {
  */
 export async function navigateToPrograms(page: Page): Promise<void> {
   await page.locator('a[href="/app/programs"]').first().click();
-  await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('heading', { name: 'GZCLP' }).first()).toBeVisible({
+    timeout: 10_000,
+  });
 }
 
 /** Enter guest mode, start a program by name, and generate with default weights. */
@@ -227,7 +227,18 @@ export async function guestWithProgram(page: Page, name: string): Promise<void> 
     timeout: 10_000,
   });
   await page.getByRole('button', { name: 'Generar Programa' }).click();
-  await expect(page.getByText(/^Día \d+$/).first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('session-chrome')).toBeVisible({ timeout: 10_000 });
+}
+
+/**
+ * Reveals the email/password form on /login. With email as the only method it is open
+ * from the start; next to a social provider it sits behind a disclosure button.
+ */
+export async function openEmailForm(page: Page): Promise<void> {
+  const field = page.getByLabel(/correo|email/i);
+  const toggle = page.getByRole('button', { name: /continuar con email|continue with email/i });
+  await expect(field.or(toggle).first()).toBeVisible({ timeout: 10_000 });
+  if (await toggle.isVisible()) await toggle.click();
 }
 
 /** Dismiss cookie consent banner if present — call before clicking buttons near the bottom of long pages. */

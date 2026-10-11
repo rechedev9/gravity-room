@@ -40,7 +40,7 @@ export function ZoneHint({ zone, className = '' }: ZoneHintProps): React.ReactNo
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
           transition={{ duration: 0.18 }}
-          className={`flex items-start gap-2 bg-card border border-rule rounded-lg px-3 py-2.5 text-xs text-muted ${className}`}
+          className={`flex items-start gap-2 bg-card border border-rule rounded-control px-3 py-2.5 text-xs text-muted ${className}`}
           aria-label={t('mentor_tour.zone_hint.aria_label')}
         >
           {/* Sensei badge */}

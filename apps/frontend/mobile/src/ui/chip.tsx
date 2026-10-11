@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
-import { colors, fonts, radii } from '../shell/design';
+import { colors, fonts, radii } from '@gzclp/design-tokens';
 
 type Props = {
   readonly children: string;
@@ -15,7 +15,12 @@ export function Chip({ children, selected = false, disabled = false, onPress }: 
       accessibilityState={{ selected, disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={[styles.base, selected ? styles.selected : null, disabled ? styles.disabled : null]}
+      style={({ pressed }) => [
+        styles.base,
+        selected ? styles.selected : null,
+        pressed && !selected ? styles.pressed : null,
+        disabled ? styles.disabled : null,
+      ]}
     >
       <Text style={[styles.label, selected ? styles.selectedLabel : null]}>{children}</Text>
     </Pressable>
@@ -36,5 +41,6 @@ const styles = StyleSheet.create({
   label: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.textMuted },
   selected: { backgroundColor: colors.surface2 },
   selectedLabel: { color: colors.textPrimary },
+  pressed: { backgroundColor: colors.card },
   disabled: { opacity: 0.35 },
 });

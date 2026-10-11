@@ -33,9 +33,9 @@ export function computeRecommendationPerExercise(
 ): Map<string, LoadRecommendationPayload> {
   const bySlot = new Map<string, WorkoutRecord[]>();
   for (const r of records) {
-    const slot = bySlot.get(r.exerciseId) ?? [];
+    const slot = bySlot.get(r.seriesKey) ?? [];
     slot.push(r);
-    bySlot.set(r.exerciseId, slot);
+    bySlot.set(r.seriesKey, slot);
   }
 
   const result = new Map<string, LoadRecommendationPayload>();

@@ -24,9 +24,9 @@ export function computeE1rmPerExercise(
   const bySlot = new Map<string, WorkoutRecord[]>();
   for (const r of records) {
     if (r.result !== 'success') continue;
-    const slot = bySlot.get(r.exerciseId) ?? [];
+    const slot = bySlot.get(r.seriesKey) ?? [];
     slot.push(r);
-    bySlot.set(r.exerciseId, slot);
+    bySlot.set(r.seriesKey, slot);
   }
 
   const result = new Map<string, E1rmProgressionPayload>();

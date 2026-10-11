@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/cn';
 import { CornerTicks } from '@/components/corner-ticks';
 import { buttonClassName } from '@/components/button';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 export interface NextSet {
   readonly weight: number;
@@ -48,9 +49,9 @@ function EmptyHero(): React.ReactNode {
   const { t } = useTranslation();
 
   return (
-    <section className="bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-elevated)] p-8 sm:p-10 text-center">
+    <section className="bg-card border border-rule rounded-card shadow-[var(--shadow-elevated)] p-8 sm:p-10 text-center">
       <p className="chalk-stamp text-label">{t('dashboard.next_set.no_program')}</p>
-      <h1 className="font-display text-5xl sm:text-7xl text-main my-4">
+      <h1 className="type-display-sm sm:type-display text-main my-4">
         {t('dashboard.next_set.choose_forge')}
       </h1>
       <p className="text-muted mb-6">{t('dashboard.next_set.empty_body')}</p>
@@ -65,10 +66,10 @@ function DayOneHero({ instance }: { readonly instance: ProgramInstance }): React
   const { t } = useTranslation();
 
   return (
-    <section className="relative bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-card)] p-6 sm:p-8">
+    <section className="relative bg-card border border-rule rounded-card shadow-[var(--shadow-card)] p-6 sm:p-8">
       <CornerTicks />
       <p className="chalk-stamp">{instance.name.toUpperCase()}</p>
-      <h1 className="font-display text-4xl sm:text-6xl text-main my-3">
+      <h1 className="type-display-sm sm:type-display text-main my-3">
         {t('dashboard.next_set.day_one')}
       </h1>
       <p className="text-muted mb-6">{t('dashboard.next_set.day_one_body')}</p>
@@ -87,11 +88,12 @@ interface FullHeroProps {
 
 function FullHero({ instance, nextWorkout: nw, nextSet: ns }: FullHeroProps): React.ReactNode {
   const { t } = useTranslation();
+  const { format, toDisplay } = useUnitPreference();
 
   return (
     <section
       className={cn(
-        'relative bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-card)] p-5 sm:p-7',
+        'relative bg-card border border-rule rounded-card shadow-[var(--shadow-card)] p-5 sm:p-7',
         'transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out-expo)] hover:border-rule-light'
       )}
     >
@@ -114,7 +116,7 @@ function FullHero({ instance, nextWorkout: nw, nextSet: ns }: FullHeroProps): Re
       </header>
       <p className="chalk-stamp mt-5 text-label">{t('dashboard.next_set.next_set')}</p>
       <h1 className="font-display-data text-5xl sm:text-6xl text-accent leading-none tabular-nums my-2">
-        {ns.weight} kg × {ns.reps}
+        {format(ns.weight)} × {ns.reps}
       </h1>
       <p className="text-sm text-muted">{ns.label}</p>
       <div className="flex flex-wrap gap-2 mt-5">
@@ -129,9 +131,9 @@ function FullHero({ instance, nextWorkout: nw, nextSet: ns }: FullHeroProps): Re
       {instance.lastSet && (
         <p className="mt-5 pt-4 border-t border-rule text-xs text-muted">
           {t('dashboard.next_set.last_set', {
-            weight: instance.lastSet.weight,
+            weight: toDisplay(instance.lastSet.weight),
             reps: instance.lastSet.reps,
-            delta: instance.lastSet.deltaFromStart,
+            delta: format(instance.lastSet.deltaFromStart),
           })}
         </p>
       )}

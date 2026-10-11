@@ -27,7 +27,7 @@ export function StatBlock({
   return (
     <div
       className={cn(
-        'flex flex-col gap-1 rounded-[var(--radius-base)] border border-rule bg-card px-5 py-4',
+        'flex flex-col gap-1 rounded-card border border-rule bg-card px-5 py-4',
         className
       )}
     >

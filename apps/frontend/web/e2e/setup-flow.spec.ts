@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { authenticateOnly, navigateToGzclpSetup, navigateToTracker } from './helpers/seed';
+import {
+  authenticateOnly,
+  expectSelectedDay,
+  navigateToGzclpSetup,
+  navigateToTracker,
+} from './helpers/seed';
 
 test.describe('Setup flow', () => {
   test.beforeEach(async ({ page }) => {
@@ -10,7 +15,7 @@ test.describe('Setup flow', () => {
   test('renders setup form with correct defaults', async ({ page }) => {
     await expect(page.getByText('Pesos Iniciales (kg)')).toBeVisible();
 
-    // GZCLP weight fields default to the field minimum (2.5 kg) when no initialConfig
+    // GZCLP weight fields start at the field minimum (2.5 kg), the domain default
     await expect(page.locator('#weight-squat')).toHaveValue('2.5');
     await expect(page.locator('#weight-bench')).toHaveValue('2.5');
     await expect(page.locator('#weight-deadlift')).toHaveValue('2.5');
@@ -19,8 +24,8 @@ test.describe('Setup flow', () => {
     await expect(page.locator('#weight-dbrow')).toHaveValue('2.5');
   });
 
-  test('+/- buttons adjust weight by 0.5', async ({ page }) => {
-    // GZCLP step is 2.5 kg; starting from default min of 2.5
+  test('+/- buttons adjust weight by one step', async ({ page }) => {
+    // GZCLP step is 2.5 kg; starting from the 2.5 kg default
     const squatInput = page.locator('#weight-squat');
     await expect(squatInput).toHaveValue('2.5');
 
@@ -42,18 +47,18 @@ test.describe('Setup flow', () => {
   test('Generate Program creates program and shows Día 1', async ({ page }) => {
     await page.getByRole('button', { name: 'Generar Programa' }).click();
 
-    await expect(page.getByText('Día 1', { exact: true }).first()).toBeVisible();
+    await expectSelectedDay(page, 1);
     await expect(page.getByRole('progressbar').last()).toBeVisible();
   });
 
   test('program is persisted after setup', async ({ page }) => {
     await page.getByRole('button', { name: 'Generar Programa' }).click();
-    await expect(page.getByText('Día 1', { exact: true }).first()).toBeVisible();
+    await expectSelectedDay(page, 1);
 
     // Reload — must navigate back to tracker (reload resets URL to dashboard)
     await page.reload();
     await page.waitForLoadState('networkidle'); // wait for auth/refresh to complete
     await navigateToTracker(page);
-    await expect(page.getByText('Día 1', { exact: true }).first()).toBeVisible();
+    await expectSelectedDay(page, 1);
   });
 });

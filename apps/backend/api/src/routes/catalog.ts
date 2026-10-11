@@ -7,20 +7,26 @@ import { listPrograms, getProgramDefinition, previewDefinition } from '../servic
 import { jwtPlugin, resolveUserId } from '../middleware/auth-guard';
 import { requestLogger } from '../middleware/request-logger';
 import { rateLimit } from '../middleware/rate-limit';
+import {
+  MAX_PROGRAM_CONFIG_KEYS,
+  MAX_PROGRAM_CONFIG_WEIGHT,
+  MAX_PROGRAM_ID_CHARS,
+} from '@gzclp/domain/schemas/instance';
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 import { ApiError } from '../middleware/error-handler';
 import { isRecord } from '@gzclp/domain/type-guards';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 
 const HOUR_MS = 3_600_000;
-const MAX_PROGRAM_ID_CHARS = 50;
-const MAX_PREVIEW_CONFIG_KEYS = 100;
 const security = [{ bearerAuth: [] }];
 
 const previewConfigSchema = t.Record(
   t.String({ maxLength: 30 }),
-  t.Union([t.Number({ minimum: 0, maximum: 10000 }), t.String({ maxLength: 100 })]),
-  { maxProperties: MAX_PREVIEW_CONFIG_KEYS }
+  t.Union([
+    t.Number({ minimum: 0, maximum: MAX_PROGRAM_CONFIG_WEIGHT }),
+    t.String({ maxLength: 100 }),
+  ]),
+  { maxProperties: MAX_PROGRAM_CONFIG_KEYS }
 );
 
 function parseMixedConfig(raw: unknown): Record<string, number | string> | undefined {

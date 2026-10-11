@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { isCycleDayName } from '@/lib/catalog-display';
 
 interface DayNavigatorProps {
   readonly selectedDayIndex: number;
@@ -8,7 +9,6 @@ interface DayNavigatorProps {
   readonly dayName: string;
   readonly isDayComplete: boolean;
   readonly showKeyboardHints?: boolean;
-  readonly compact?: boolean;
   readonly onPrev: () => void;
   readonly onNext: () => void;
   readonly onGoToCurrent: () => void;
@@ -21,7 +21,6 @@ export function DayNavigator({
   dayName,
   isDayComplete,
   showKeyboardHints = false,
-  compact = false,
   onPrev,
   onNext,
   onGoToCurrent,
@@ -30,19 +29,19 @@ export function DayNavigator({
   const showGoToCurrent = selectedDayIndex !== currentDayIndex && currentDayIndex !== -1;
 
   return (
-    <div className={compact ? 'flex flex-col gap-2' : 'flex flex-col gap-2 mb-6'}>
-      <div className={compact ? 'flex flex-wrap items-center gap-2' : 'flex items-center gap-4'}>
+    <div className="mb-6 flex flex-col gap-2">
+      <div className="flex items-center gap-4">
         <button
           type="button"
           onClick={onPrev}
           disabled={selectedDayIndex <= 0}
           aria-label={t('tracker.day_navigator.prev_aria')}
-          className="text-xs font-bold px-4 py-2.5 min-h-[44px] border border-rule bg-card text-muted disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-main hover:border-rule-light active:scale-95"
+          className="text-xs font-bold px-4 py-2.5 min-h-[44px] border border-rule bg-card rounded-control text-muted disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-main hover:border-rule-light active:scale-95"
         >
           &larr;<span className="hidden sm:inline"> {t('tracker.day_navigator.prev_button')}</span>
         </button>
 
-        <div className={compact ? 'hidden' : 'flex-1 flex flex-col items-center gap-2'}>
+        <div className="flex flex-1 flex-col items-center gap-2">
           <div className="flex items-center gap-2">
             <span
               className="font-display text-main"
@@ -56,9 +55,11 @@ export function DayNavigator({
           </div>
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-main uppercase tracking-wide">
-                {dayName}
-              </span>
+              {!isCycleDayName(dayName) && (
+                <span className="text-xs font-semibold text-main uppercase tracking-wide">
+                  {dayName}
+                </span>
+              )}
               <span
                 role="img"
                 aria-label={
@@ -92,20 +93,10 @@ export function DayNavigator({
           onClick={onNext}
           disabled={selectedDayIndex >= totalDays - 1}
           aria-label={t('tracker.day_navigator.next_aria')}
-          className="text-xs font-bold px-4 py-2.5 min-h-[44px] border border-rule bg-card text-muted disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-main hover:border-rule-light active:scale-95"
+          className="text-xs font-bold px-4 py-2.5 min-h-[44px] border border-rule bg-card rounded-control text-muted disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-main hover:border-rule-light active:scale-95"
         >
           <span className="hidden sm:inline">{t('tracker.day_navigator.next_button')} </span>&rarr;
         </button>
-
-        {compact && showGoToCurrent && (
-          <button
-            type="button"
-            onClick={onGoToCurrent}
-            className="ml-auto min-h-[44px] px-3 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-accent hover:underline cursor-pointer"
-          >
-            {t('tracker.day_navigator.go_to_current')}
-          </button>
-        )}
       </div>
 
       {showKeyboardHints && (

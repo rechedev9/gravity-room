@@ -17,14 +17,14 @@ const TONE_CLASSES: Record<TagTone, string> = {
 };
 
 /**
- * Tag — small machined status chip. Mono caps, 1px square-ish border.
- * Tone carries state colour (gold for the scarce signal, ok/fail for outcomes).
+ * Tag — small status pill in the mono meta voice. Tone carries state colour (gold for the
+ * scarce signal, ok/fail for outcomes).
  */
 export function Tag({ children, tone = 'default', className }: TagProps): ReactNode {
   return (
     <span
       className={cn(
-        'inline-block whitespace-nowrap rounded-[1px] border px-2 py-[3px] font-mono text-[9px] font-bold uppercase tracking-[0.08em]',
+        'inline-block whitespace-nowrap rounded-chip border px-2.5 py-[3px] font-mono text-[10px] font-bold uppercase tracking-[0.08em]',
         TONE_CLASSES[tone],
         className
       )}

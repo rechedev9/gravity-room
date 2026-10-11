@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  deriveResultFromPrescriptionLogs,
   deriveResultFromSetLogs,
   deriveResultFromSetLogsSimple,
 } from '@gzclp/domain/generic-engine';
-import type { GenericWorkoutRow, ResultValue, SetLogEntry } from '@gzclp/domain/types';
+import type {
+  GenericSlotRow,
+  GenericWorkoutRow,
+  ResultValue,
+  SetLogEntry,
+} from '@gzclp/domain/types';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
+import { plannedConfirmableSets } from '@/features/tracker/rest-timer-policy';
 import { restoreSetLogs, saveSetLogs } from '@/lib/set-logs-storage';
 
 // ---------------------------------------------------------------------------
@@ -132,7 +139,7 @@ export function useSetLogging(
         // Check if all sets are logged — auto-derive result
         const row = rows[workoutIndex];
         const slot = row?.slots.find((s) => s.slotId === slotId);
-        if (slot && updated.length >= slot.sets) {
+        if (slot && updated.length >= plannedConfirmableSets(slot)) {
           // All sets logged — derive result and submit
           const derivedResult = deriveResult(updated, slot, definition, workoutIndex, slotId);
 
@@ -192,11 +199,15 @@ export function useSetLogging(
 
 function deriveResult(
   setLogs: readonly SetLogEntry[],
-  slot: { readonly sets: number; readonly reps: number },
+  slot: Pick<GenericSlotRow, 'sets' | 'reps' | 'prescriptions'>,
   definition: ProgramDefinition | undefined,
   workoutIndex: number,
   slotId: string
 ): ResultValue {
+  if (slot.prescriptions !== undefined && slot.prescriptions.length > 0) {
+    return deriveResultFromPrescriptionLogs(setLogs, slot.prescriptions) ?? 'success';
+  }
+
   if (definition === undefined) {
     return deriveResultFromSetLogsSimple(setLogs, slot.reps) ?? 'success';
   }

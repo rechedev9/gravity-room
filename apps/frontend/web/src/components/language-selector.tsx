@@ -47,7 +47,7 @@ export function LanguageSelector({ className }: { readonly className?: string })
   return (
     <div
       className={cn(
-        'flex items-center gap-1 rounded-md bg-[var(--color-card,var(--color-sidebar-active))] border border-rule p-0.5',
+        'flex items-center gap-1 rounded-[calc(var(--radius-control)+4px)] bg-[var(--color-card,var(--color-sidebar-active))] border border-rule p-1',
         className
       )}
       role="radiogroup"
@@ -67,7 +67,7 @@ export function LanguageSelector({ className }: { readonly className?: string })
           onClick={() => void handleChange(lang.code)}
           onKeyDown={(event) => handleKeyDown(event, index)}
           className={cn(
-            'min-h-11 min-w-11 px-2 py-1 text-[10px] font-bold rounded-sm transition-all cursor-pointer',
+            'type-button min-h-11 min-w-11 px-2 py-1 rounded-control transition-[background-color,color] cursor-pointer',
             currentLang === lang.code ? 'bg-accent text-on-accent' : 'text-muted hover:text-main'
           )}
         >

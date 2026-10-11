@@ -44,6 +44,16 @@ function computeSlotVolume(slot: GenericSlotRow): number {
   return slot.weight * slot.sets * slot.reps;
 }
 
+/** A workout is complete when it has slots and every one has a result; no slots means not complete. */
+export function isWorkoutComplete(row: Pick<GenericWorkoutRow, 'slots'>): boolean {
+  return row.slots.length > 0 && row.slots.every((slot) => slot.result !== undefined);
+}
+
+/** Position of the first workout that is not complete, or -1 when every one is. */
+export function findFirstPendingIndex(rows: readonly Pick<GenericWorkoutRow, 'slots'>[]): number {
+  return rows.findIndex((row) => !isWorkoutComplete(row));
+}
+
 export function extractAllGenericStats(
   definition: ProgramDefinition,
   rows: readonly GenericWorkoutRow[],

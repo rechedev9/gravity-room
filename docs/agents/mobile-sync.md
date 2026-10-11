@@ -6,7 +6,7 @@ responsibilities explicit when changing the mobile app:
 | Module in `src/lib/sync`       | Owns                                                                       |
 | ------------------------------ | -------------------------------------------------------------------------- |
 | `mutation-queue-repository.ts` | Durable rows, owner partitions, deduplication, paging and acknowledgements |
-| `mutation-request.ts`          | Pure envelope validation, path encoding, method and body serialization     |
+| `mutation-request.ts`          | Pure envelope validation; path and method from the shared request builders |
 | `mutation-sync-service.ts`     | Authorized delivery, cancellation, retained failures, backoff and draining |
 | `foreground-sync.ts`           | App foreground lifecycle, retry timer and session recovery                 |
 | `sync-events.ts`               | Owner-scoped notifications after durable operations                        |

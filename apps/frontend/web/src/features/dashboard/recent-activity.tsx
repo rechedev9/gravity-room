@@ -1,3 +1,4 @@
+import { isWorkoutComplete } from '@gzclp/domain/generic-stats';
 import { useTranslation } from 'react-i18next';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
@@ -19,7 +20,7 @@ export function RecentActivity({
   const recent: GenericWorkoutRow[] = [];
   for (let i = rows.length - 1; i >= 0 && recent.length < 5; i--) {
     const row = rows[i];
-    if (row.slots.every((s) => s.result !== undefined)) {
+    if (isWorkoutComplete(row)) {
       recent.push(row);
     }
   }

@@ -39,9 +39,9 @@ export function computePlateauPerExercise(
     if (r.result !== 'success' || r.recordedAt === null) continue;
     const instant = parseInstant(r.recordedAt);
     if (instant === null || instant.getTime() < cutoff) continue;
-    const slot = bySlot.get(r.exerciseId) ?? [];
+    const slot = bySlot.get(r.seriesKey) ?? [];
     slot.push(r);
-    bySlot.set(r.exerciseId, slot);
+    bySlot.set(r.seriesKey, slot);
   }
 
   const result = new Map<string, PlateauDetectionPayload>();

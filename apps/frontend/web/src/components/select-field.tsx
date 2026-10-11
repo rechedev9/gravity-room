@@ -38,7 +38,7 @@ export function SelectField({
         onBlur={(e) => onBlur(fieldKey, e.target.value)}
         aria-invalid={fieldError ? 'true' : undefined}
         aria-describedby={fieldError ? errorId : undefined}
-        className={`w-full h-11 px-3 border-2 bg-card text-main text-sm cursor-pointer focus:outline-none transition-colors ${
+        className={`w-full h-11 px-3 border-2 rounded-control bg-card text-main text-sm cursor-pointer focus:outline-none transition-colors ${
           fieldError
             ? 'border-error-line focus:border-error-line'
             : isValid

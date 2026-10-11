@@ -134,7 +134,7 @@ export function ExerciseCatalogBrowser({ lang }: ExerciseCatalogBrowserProps): R
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder={t('exerciseCatalog.searchPlaceholder')}
-            className="w-full h-11 px-4 border-2 border-rule bg-card text-main text-sm focus:outline-none focus:border-accent transition-colors"
+            className="w-full h-11 px-4 border-2 border-rule bg-card rounded-control text-main text-sm focus:outline-none focus:border-accent transition-colors"
             autoComplete="off"
           />
         </div>
@@ -217,7 +217,7 @@ export function ExerciseCatalogBrowser({ lang }: ExerciseCatalogBrowserProps): R
 
       {/* Results */}
       {exercisesQuery.isError ? (
-        <div className="border border-rule bg-card px-4 py-8 text-center space-y-3">
+        <div className="border border-rule bg-card rounded-card px-4 py-8 text-center space-y-3">
           <p className="text-sm text-muted">{t('exerciseCatalog.error.title')}</p>
           <button
             type="button"
@@ -230,11 +230,14 @@ export function ExerciseCatalogBrowser({ lang }: ExerciseCatalogBrowserProps): R
       ) : exercisesQuery.isLoading ? (
         <ul className="space-y-2" aria-hidden="true">
           {Array.from({ length: 6 }).map((_, i) => (
-            <li key={i} className="h-[4.5rem] border border-rule bg-card animate-pulse" />
+            <li
+              key={i}
+              className="h-[4.5rem] border border-rule bg-card rounded-card animate-pulse"
+            />
           ))}
         </ul>
       ) : pageInfo.total === 0 ? (
-        <div className="border border-rule bg-card px-4 py-10 text-center space-y-1">
+        <div className="border border-rule bg-card rounded-card px-4 py-10 text-center space-y-1">
           <p className="text-main font-display text-xl">{t('exerciseCatalog.empty.title')}</p>
           <p className="text-sm text-muted">{t('exerciseCatalog.empty.hint')}</p>
         </div>
@@ -263,7 +266,7 @@ export function ExerciseCatalogBrowser({ lang }: ExerciseCatalogBrowserProps): R
             type="button"
             onClick={() => setOffset((o) => Math.max(0, o - CATALOG_PAGE_SIZE))}
             disabled={!pageInfo.hasPrev}
-            className="font-mono text-[11px] tracking-wider uppercase px-4 py-2 border border-rule bg-card text-main enabled:hover:border-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="type-button px-4 py-2 border border-rule bg-card rounded-control text-main enabled:hover:border-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {t('exerciseCatalog.pagination.prev')}
           </button>
@@ -277,7 +280,7 @@ export function ExerciseCatalogBrowser({ lang }: ExerciseCatalogBrowserProps): R
             type="button"
             onClick={() => setOffset((o) => o + CATALOG_PAGE_SIZE)}
             disabled={!pageInfo.hasNext}
-            className="font-mono text-[11px] tracking-wider uppercase px-4 py-2 border border-rule bg-card text-main enabled:hover:border-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="type-button px-4 py-2 border border-rule bg-card rounded-control text-main enabled:hover:border-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {t('exerciseCatalog.pagination.next')}
           </button>
@@ -320,7 +323,7 @@ function CatalogSelect({
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full h-10 px-2 border-2 border-rule bg-card text-main text-sm cursor-pointer focus:outline-none focus:border-accent transition-colors"
+        className="w-full h-10 px-2 border-2 border-rule bg-card rounded-control text-main text-sm cursor-pointer focus:outline-none focus:border-accent transition-colors"
       >
         <option value="">{allLabel}</option>
         {options.map((opt) => (
@@ -343,7 +346,7 @@ interface ExerciseRowProps {
 
 function AttributeBadge({ children }: { readonly children: ReactNode }): ReactNode {
   return (
-    <span className="font-mono text-[10px] tracking-wider uppercase px-2 py-0.5 border border-rule-light bg-body text-muted">
+    <span className="font-mono text-[10px] tracking-wider uppercase px-2 py-0.5 border border-rule-light rounded-chip bg-body text-muted">
       {children}
     </span>
   );
@@ -367,7 +370,7 @@ function ExerciseRow({
       : null;
 
   return (
-    <li className="border border-rule bg-card">
+    <li className="border border-rule bg-card rounded-card">
       <button
         type="button"
         onClick={onToggle}

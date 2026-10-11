@@ -116,7 +116,7 @@ export function DeleteAccountDialog({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
-        className="modal-box bg-card border border-rule p-6 max-w-sm w-[calc(100%-2rem)] shadow-dialog"
+        className="modal-box bg-card rounded-card border border-rule p-6 max-w-sm w-[calc(100%-2rem)] shadow-dialog"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleDialogKeyDown}
       >
@@ -139,7 +139,7 @@ export function DeleteAccountDialog({
           placeholder={confirmWord}
           aria-invalid={showError}
           aria-describedby={showError ? `${descriptionId} ${errorId}` : descriptionId}
-          className="w-full px-3 py-2 text-xs bg-body border border-rule text-main placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+          className="w-full px-3 py-2 text-xs bg-body rounded-control border border-rule text-main placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent"
           autoComplete="off"
           spellCheck={false}
           disabled={loading}

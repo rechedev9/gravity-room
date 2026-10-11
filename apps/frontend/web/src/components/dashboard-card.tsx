@@ -20,7 +20,7 @@ export function DashboardCard({
   return (
     <section
       className={cn(
-        'bg-card border border-rule rounded-[var(--radius-base)]',
+        'bg-card border border-rule rounded-card',
         interactive &&
           'transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out-expo)] hover:border-rule-light',
         className

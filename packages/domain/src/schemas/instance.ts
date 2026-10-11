@@ -4,6 +4,11 @@ import { MAX_TOTAL_WORKOUTS } from './program-definition';
 export const MAX_REPS = 999;
 /** Heaviest weight a single set log may carry; shared by the API route, service and clients. */
 export const MAX_SET_LOG_WEIGHT = 10_000;
+/** Heaviest value a numeric program config field (a starting weight) may hold. */
+export const MAX_PROGRAM_CONFIG_WEIGHT = 10_000;
+export const MAX_SET_LOG_ITEMS = 20;
+export const MAX_SLOT_ID_CHARS = 50;
+export const MAX_PROGRAM_ID_CHARS = 50;
 
 const ResultValueSchema = z.enum(['success', 'fail']);
 

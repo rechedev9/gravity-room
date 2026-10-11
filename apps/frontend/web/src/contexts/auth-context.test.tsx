@@ -82,8 +82,10 @@ vi.mock('@/lib/api-functions', async () => {
   };
 });
 
+import { ApiError } from '@gzclp/api-client/api-error';
 import { AuthProvider, getAuthSessionIdentity, useAuth } from './auth-context';
 import { SESSION_INVALIDATED_EVENT } from '@/lib/auth-events';
+import { markSessionSignedOut } from '@/lib/session-hint';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -188,6 +190,47 @@ describe('AuthProvider', () => {
       await waitFor(() => {
         expect(result.current.user?.id).toBe('social-user');
       });
+      expect(mockRefreshAccessToken).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips the refresh call after a recent signed-out result', async () => {
+      const first = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(first.result.current.loading).toBe(false));
+      expect(mockRefreshAccessToken).toHaveBeenCalledTimes(1);
+      first.unmount();
+
+      testQueryClient.clear();
+      const second = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(second.result.current.loading).toBe(false));
+
+      expect(second.result.current.user).toBeNull();
+      expect(mockRefreshAccessToken).toHaveBeenCalledTimes(1);
+    });
+
+    it('still refreshes on the social callback despite a signed-out hint', async () => {
+      markSessionSignedOut();
+      window.history.replaceState({}, '', '/auth/callback?provider=github');
+      mockRefreshAccessToken.mockResolvedValue({
+        accessToken: fakeJwt({ sub: 'social-user', email: 'social@example.com' }),
+        user: { id: 'social-user', email: 'social@example.com' },
+      });
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await waitFor(() => expect(result.current.user?.id).toBe('social-user'));
+      expect(mockRefreshAccessToken).toHaveBeenCalledTimes(1);
+    });
+
+    it('refreshes once the signed-out hint is older than its TTL', async () => {
+      markSessionSignedOut(Date.now() - 7 * 60 * 60 * 1000);
+      mockRefreshAccessToken.mockResolvedValue({
+        accessToken: fakeJwt({ sub: 'cookie-user', email: 'cookie@example.com' }),
+        user: { id: 'cookie-user', email: 'cookie@example.com' },
+      });
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await waitFor(() => expect(result.current.user?.id).toBe('cookie-user'));
       expect(mockRefreshAccessToken).toHaveBeenCalledTimes(1);
     });
 
@@ -361,6 +404,34 @@ describe('AuthProvider', () => {
         ok: false,
         code: 'NETWORK_ERROR',
         message: 'Failed to fetch',
+      });
+    });
+
+    it('keeps the server code and derives one from the status when the body has none', async () => {
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      const attempt = async (error: ApiError): Promise<unknown> => {
+        mockApiFetch.mockImplementation((path: string) =>
+          path === '/auth/login' ? Promise.reject(error) : Promise.reject(new Error('Unauthorized'))
+        );
+        let outcome: unknown = null;
+        await act(async () => {
+          outcome = await result.current.signInWithEmail('test@example.com', 'password');
+        });
+        return outcome;
+      };
+
+      expect(await attempt(new ApiError('Locked', 403, 'EMAIL_NOT_VERIFIED'))).toMatchObject({
+        code: 'EMAIL_NOT_VERIFIED',
+      });
+      expect(await attempt(new ApiError('API error: 429', 429))).toMatchObject({
+        code: 'RATE_LIMITED',
+      });
+      expect(await attempt(new ApiError('API error: 502', 502))).toMatchObject({
+        code: 'generic',
       });
     });
   });

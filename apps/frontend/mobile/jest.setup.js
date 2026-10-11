@@ -13,6 +13,14 @@ jest.mock('expo-localization', () => ({
   getLocales: () => [{ languageCode: 'en', languageTag: 'en-US' }],
 }));
 
+// Notification permission is a native concern; screens only see the resolved state.
+jest.mock('./src/lib/rest/rest-alerts-access', () => ({
+  ensureRestAlertChannel: jest.fn(async () => undefined),
+  readRestAlertsAccess: jest.fn(async () => 'unsupported'),
+  requestRestAlertsAccess: jest.fn(async () => 'unsupported'),
+  openRestAlertsSettings: jest.fn(async () => undefined),
+}));
+
 jest.mock('expo-font', () => ({
   useFonts: () => [true, null],
   loadAsync: jest.fn(async () => undefined),

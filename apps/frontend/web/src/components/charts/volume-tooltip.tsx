@@ -6,22 +6,29 @@ export function formatVolLabel(kg: number): string {
 }
 
 interface VolumeTooltipProps {
+  readonly unit?: string;
   readonly active?: boolean;
   readonly payload?: Array<{ value: number; payload: { x: string } }>;
 }
 
-export function VolumeTooltip({ active, payload }: VolumeTooltipProps): React.ReactElement | null {
+export function VolumeTooltip({
+  active,
+  payload,
+  unit = 'kg',
+}: VolumeTooltipProps): React.ReactElement | null {
   if (!active || !payload?.length) return null;
   return (
     <div
-      className="rounded border px-2 py-1.5 text-xs shadow-lg whitespace-nowrap"
+      className="rounded-md border px-2 py-1.5 text-xs shadow-lg whitespace-nowrap"
       style={{
         backgroundColor: 'var(--color-card)',
         borderColor: 'var(--color-rule)',
         color: 'var(--color-tooltip-text)',
       }}
     >
-      <span className="font-bold">{formatVolLabel(payload[0].value)} kg</span>
+      <span className="font-bold">
+        {formatVolLabel(payload[0].value)} {unit}
+      </span>
       <span className="ml-1 text-[var(--color-muted)]">{payload[0].payload.x}</span>
     </div>
   );

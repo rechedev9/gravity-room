@@ -99,7 +99,7 @@ function ChecklistPopover({ dismissed, onMark, onClose, onDismissAll, t }: Check
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -6, scale: 0.97 }}
       transition={{ duration: 0.15 }}
-      className="absolute left-0 top-full mt-1 z-50 w-56 bg-card border border-rule rounded-lg shadow-lg overflow-hidden"
+      className="absolute left-0 top-full mt-1 z-50 w-56 bg-card border border-rule rounded-control shadow-lg overflow-hidden"
     >
       {/* Header */}
       <div className="px-3 pt-3 pb-2 border-b border-rule flex items-center justify-between gap-2">
@@ -269,7 +269,7 @@ export function HomeMentorWidget() {
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
-          className="flex flex-col gap-2 px-3 py-2 bg-accent/5 border border-accent/20 rounded-lg text-xs sm:flex-row sm:items-center sm:gap-3"
+          className="flex flex-col gap-2 px-3 py-2 bg-accent/5 border border-accent/20 rounded-control text-xs sm:flex-row sm:items-center sm:gap-3"
         >
           <div className="flex flex-1 items-start gap-2 min-w-0">
             <span

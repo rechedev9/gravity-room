@@ -10,12 +10,22 @@ import {
 import { SESSION_INVALIDATED_EVENT } from '@/lib/auth-events';
 import { apiFetch, fetchMe } from '@/lib/api-core';
 import { ApiError } from '@gzclp/api-client/api-error';
+import { authErrorCode } from '@gzclp/api-client/auth-error-code';
 import { isRecord } from '@gzclp/domain/type-guards';
 import { parseUserSafe } from '@gzclp/domain/schemas/user';
 import type { UserInfo } from '@gzclp/domain/schemas/user';
 import { setUser as sentrySetUser } from '@/lib/sentry';
 import { trackEvent } from '@/lib/analytics';
 import { queryKeys } from '@/lib/query-keys';
+import { useWeightUnitAccountSync } from '@/hooks/use-weight-unit-account-sync';
+import {
+  isRecentlySignedOut,
+  markSessionSignedIn,
+  markSessionSignedOut,
+  signedInHereSince,
+  signedInSince,
+  snapshotSessionHint,
+} from '@/lib/session-hint';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -58,7 +68,9 @@ interface AuthActions {
 
 /** Normalizes a caught error into an ActionResult, preserving the API error code. */
 function errorResult(err: unknown): ActionResult {
-  if (err instanceof ApiError) return { ok: false, code: err.code, message: err.message };
+  if (err instanceof ApiError) {
+    return { ok: false, code: authErrorCode(err.status, err.code), message: err.message };
+  }
   if (
     err instanceof TypeError ||
     (err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError'))
@@ -110,10 +122,26 @@ const DEV_AUTH_SECRET = import.meta.env.VITE_DEV_AUTH_SECRET ?? 'e2e-dev-secret-
 // Session restore
 // ---------------------------------------------------------------------------
 
-async function restoreSession(): Promise<UserInfo | null> {
+// The social redirect lands here with a brand-new refresh cookie that no
+// sign-in handler in this tab has seen, so a "signed out" hint must not apply.
+function isSocialCallbackPath(): boolean {
+  return window.location.pathname.startsWith('/auth/callback');
+}
+
+async function restoreSession(queryClient: QueryClient): Promise<UserInfo | null> {
+  if (isRecentlySignedOut() && !isSocialCallbackPath()) {
+    activeAuthSessionIdentity = null;
+    return null;
+  }
+  const hint = snapshotSessionHint();
   const refreshed = await refreshAccessToken();
+  // A sign-in finished while this restore was in flight: its user is the session.
+  if (signedInHereSince(hint)) {
+    return queryClient.getQueryData<UserInfo | null>(SESSION_QUERY_KEY) ?? null;
+  }
   if (!refreshed) {
     activeAuthSessionIdentity = null;
+    if (!signedInSince(hint)) markSessionSignedOut();
     return null;
   }
   try {
@@ -122,6 +150,7 @@ async function restoreSession(): Promise<UserInfo | null> {
     // the payload is missing/unexpected (e.g. an older API without the field).
     const user = parseUserSafe(refreshed.user) ?? (await fetchMe());
     beginAuthSession(user.id);
+    markSessionSignedIn();
     sentrySetUser({ id: user.id });
     return user;
   } catch (err: unknown) {
@@ -160,6 +189,7 @@ function applySignInResponse(
 
   setAccessToken(data.accessToken);
   beginAuthSession(userInfo.id);
+  markSessionSignedIn();
   // A successful sign-in starts a new refresh-token lifecycle. A previous
   // successful sign-out deliberately blocked refresh rotation, so release
   // that block before this account's access token can expire.
@@ -183,6 +213,7 @@ function applySignInResponse(
 async function clearAuthenticatedClientState(queryClient: QueryClient): Promise<void> {
   setAccessToken(null);
   activeAuthSessionIdentity = null;
+  markSessionSignedOut();
   try {
     await queryClient.cancelQueries();
   } catch (err: unknown) {
@@ -214,7 +245,7 @@ export function AuthProvider({
   const queryClient = useQueryClient();
   const session = useQuery({
     queryKey: SESSION_QUERY_KEY,
-    queryFn: restoreSession,
+    queryFn: () => restoreSession(queryClient),
     staleTime: Infinity,
     gcTime: Infinity,
     retry: false,
@@ -222,6 +253,7 @@ export function AuthProvider({
 
   const user = session.data ?? null;
   const loading = session.isPending;
+  useWeightUnitAccountSync(user);
 
   useEffect(() => {
     const handleSessionInvalidated = (): void => {

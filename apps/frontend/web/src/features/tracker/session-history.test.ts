@@ -4,6 +4,7 @@ import {
   daysBetween,
   findNextScheduled,
   findPreviousSameDay,
+  isLatestFinishedDay,
   workoutVolume,
 } from './session-history';
 
@@ -142,9 +143,14 @@ describe('findNextScheduled', () => {
 describe('workoutVolume', () => {
   it.each([
     {
-      name: 'sums logged sets at the slot weight',
+      name: 'falls back to the slot weight for logged sets without a weight',
       slots: [slot({ setLogs: [{ reps: 3 }, { reps: 3 }, { reps: 5 }] })],
       expected: 1100,
+    },
+    {
+      name: 'counts the weight each logged set was lifted at, not the planned one',
+      slots: [slot({ setLogs: [{ reps: 5, weight: 140 }, { reps: 3 }] })],
+      expected: 1000,
     },
     {
       name: 'expands the prescription when only a slot-level success exists',
@@ -163,5 +169,29 @@ describe('workoutVolume', () => {
     },
   ])('$name', ({ slots, expected }) => {
     expect(workoutVolume(row(0, 'A1', slots))).toBe(expected);
+  });
+});
+
+describe('isLatestFinishedDay', () => {
+  const done = (index: number): GenericWorkoutRow =>
+    row(index, 'A1', [slot({ result: 'success', isAmrap: false })]);
+  const open = (index: number): GenericWorkoutRow =>
+    row(index, 'A1', [slot({ result: undefined })]);
+
+  it('is the day right before the pending one, once the program has moved on', () => {
+    const rows = [done(0), done(1), open(2)];
+    expect(isLatestFinishedDay(rows, rows[1], 2)).toBe(true);
+    expect(isLatestFinishedDay(rows, rows[0], 2)).toBe(false);
+  });
+
+  it('is the last day when nothing is pending any more', () => {
+    const rows = [done(0), done(1)];
+    expect(isLatestFinishedDay(rows, rows[1], -1)).toBe(true);
+    expect(isLatestFinishedDay(rows, rows[0], -1)).toBe(false);
+  });
+
+  it('is never a day that still has an unanswered AMRAP', () => {
+    const pendingAmrap = row(0, 'A1', [slot({ result: 'success', amrapReps: undefined })]);
+    expect(isLatestFinishedDay([pendingAmrap, open(1)], pendingAmrap, 1)).toBe(false);
   });
 });

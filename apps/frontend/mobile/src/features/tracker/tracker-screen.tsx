@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { requireLiveQuery } from '../../lib/programs/program-queries';
 import {
   computeGenericProgram,
+  findFirstPendingIndex,
+  isWorkoutComplete,
   ProgramDefinitionSchema,
   type GenericProgramDetail,
   type ProgramDefinition,
@@ -30,22 +32,29 @@ import { commitTrackerEdit } from '../../lib/tracker/commit-tracker-edit';
 import { flushQueuedMutations } from '../../lib/sync/mutation-sync-service';
 import { applyUndoEntry, buildUndoEntry, patchSlotMetrics, slotStateEqual } from './tracker-state';
 import { TrackerSlotCard } from './tracker-slot-card';
-import { appendSetLog, nextSetIndex, popSetLog, slotLogKey } from './tracker-set-logging';
-import { colors, spacing, type } from '../../shell/design';
+import {
+  appendSetLog,
+  draftsAfterUndo,
+  nextSetIndex,
+  popSetLog,
+  slotLogKey,
+  withMissedSet,
+} from './tracker-set-logging';
+import { type } from '../../shell/design';
+import { colors, spacing } from '@gzclp/design-tokens';
 import { useRestTimer } from '../../shell/rest-timer-provider';
 import { restSecondsForRole } from '../../lib/rest/rest-timer';
 import { Chip } from '../../ui/chip';
 import { Card } from '../../ui/card';
-import {
-  firstPendingWorkout,
-  isWorkoutComplete,
-  recordedWorkoutVolume,
-} from './workout-navigation';
+import { heroRevealTarget, recordedWorkoutVolume, workoutScrollTarget } from './workout-navigation';
 import { Button } from '../../ui/button';
 import { classifyTrackerLoadFailure, type TrackerLoadFailure } from './tracker-load-error';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { IconButton } from '../../ui/icon-button';
 import { Screen } from '../../ui/screen';
+import { EdgeFade } from '../../ui/edge-fade';
+import { distinctDayLabel } from './day-label';
+import { RestAlertsInvitation } from '../settings/rest-alerts-invitation';
 
 type TrackerScreenProps = {
   readonly isFocused?: boolean;
@@ -81,7 +90,9 @@ export function TrackerScreen({
   const [loadFailure, setLoadFailure] = useState<TrackerLoadFailure | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const syncStatus = useSyncStatus();
-  const [syncNotice, setSyncNotice] = useState<'cached' | 'draft_failed' | null>(null);
+  const [syncNotice, setSyncNotice] = useState<
+    'cached' | 'draft_failed' | 'fail_not_counted' | null
+  >(null);
   const [selectedWorkoutIndex, setSelectedWorkoutIndex] = useState(0);
   const [draftLogs, setDraftLogs] = useState<Readonly<Record<string, readonly SetLogEntry[]>>>({});
   const detailRef = useRef<GenericProgramDetail | null>(null);
@@ -93,6 +104,21 @@ export function TrackerScreen({
   const onTemplateUnavailableRef = useRef(onTemplateUnavailable);
   onTemplateUnavailableRef.current = onTemplateUnavailable;
   const alignWorkoutRef = useRef(true);
+  const viewportHeightRef = useRef(0);
+  const scrollYRef = useRef(0);
+  const weekScrollRef = useRef<ScrollView>(null);
+  const weekOffsetsRef = useRef<Record<number, number>>({});
+  const weekScrolledRef = useRef(false);
+  const weekMetricsRef = useRef({ viewport: 0, content: 0, x: 0 });
+  const [weekOverflow, setWeekOverflow] = useState(false);
+  const slotBoundsRef = useRef<Record<string, { readonly top: number; readonly bottom: number }>>(
+    {}
+  );
+  const heroBoundsRef = useRef<{
+    readonly key: string;
+    readonly top: number;
+    readonly bottom: number;
+  } | null>(null);
 
   // The bootstrap keeps cached rows when the first flush or fetch fails (for
   // example a token refresh race on cold start). Once the outbox is idle and
@@ -217,7 +243,7 @@ export function TrackerScreen({
             cachedDetail.config,
             cachedDetail.results
           );
-          const pending = firstPendingWorkout(cachedRows);
+          const pending = findFirstPendingIndex(cachedRows);
           if (initialLoad)
             setSelectedWorkoutIndex(pending >= 0 ? pending : Math.max(0, cachedRows.length - 1));
         }
@@ -283,7 +309,7 @@ export function TrackerScreen({
               freshDetail.config,
               freshDetail.results
             );
-            const pending = firstPendingWorkout(freshRows);
+            const pending = findFirstPendingIndex(freshRows);
             setSelectedWorkoutIndex(pending >= 0 ? pending : Math.max(0, freshRows.length - 1));
           }
 
@@ -333,8 +359,9 @@ export function TrackerScreen({
   const selectedRow = rows[selectedWorkoutIndex];
   const workoutsPerWeek = definition?.workoutsPerWeek ?? 3;
   const weekIndex = Math.floor(selectedWorkoutIndex / workoutsPerWeek);
-  const firstPendingIdx = firstPendingWorkout(rows);
+  const firstPendingIdx = findFirstPendingIndex(rows);
   const completed = selectedRow !== undefined && isWorkoutComplete(selectedRow);
+  const dayLabel = selectedRow ? distinctDayLabel(selectedRow.dayName) : null;
   const previews = useMemo(() => {
     if (!completed || !selectedRow) return [];
     return selectedRow.slots.flatMap((slot) => {
@@ -357,22 +384,35 @@ export function TrackerScreen({
       return;
     }
 
+    // A manual fail with sets in progress keeps them: the missed set closes the slot, which is
+    // how the domain reads a failure. Without a fail it would derive success from the sets
+    // alone, so any other manual result is ignored while sets are in progress.
+    const draftSets = draftLogsRef.current[slotLogKey(workoutIndex, slotId)] ?? [];
+    const slotRow = rows[workoutIndex]?.slots.find((slot) => slot.slotId === slotId);
+    let failNotCounted = false;
+    if (setLogs === undefined && draftSets.length > 0) {
+      if (result !== 'fail' || slotRow === undefined) return;
+      setLogs = withMissedSet(draftSets, slotRow.weight);
+    }
+
     if (setLogs !== undefined && definition !== null) {
       const loggedDetail = patchSlotMetrics(currentDetail, workoutIndex, slotId, {
         result,
         setLogs: [...setLogs],
       });
-      result =
-        computeGenericProgram(definition, loggedDetail.config, loggedDetail.results)[
-          workoutIndex
-        ]?.slots.find((slot) => slot.slotId === slotId)?.result ?? result;
+      const derived = computeGenericProgram(definition, loggedDetail.config, loggedDetail.results)[
+        workoutIndex
+      ]?.slots.find((slot) => slot.slotId === slotId)?.result;
+      if (result === 'fail' && derived === 'success' && draftSets.length > 0) {
+        // The progression set sits among the lifted sets and passed, so the domain reads a
+        // success. Keep what was lifted, without the invented miss, and tell the lifter.
+        setLogs = draftSets;
+        result = 'success';
+        failNotCounted = true;
+      } else {
+        result = derived ?? result;
+      }
     }
-
-    if (
-      setLogs === undefined &&
-      (draftLogsRef.current[slotLogKey(workoutIndex, slotId)]?.length ?? 0) > 0
-    )
-      return;
 
     // Mirror the logged AMRAP into the existing API metric used by analytics.
     // The domain-computed slot determines whether this exercise has an AMRAP.
@@ -435,7 +475,9 @@ export function TrackerScreen({
       setDetailState(completedDetail);
     setDraftLogsState(nextDraftLogs);
 
-    setSyncNotice(null);
+    // A recorded result ends the exercise, so its rest is over.
+    restTimer.skip();
+    setSyncNotice(failNotCounted ? 'fail_not_counted' : null);
   }
 
   async function handleConfirmSet(
@@ -464,9 +506,6 @@ export function TrackerScreen({
     }
 
     await handleMarkResult(workoutIndex, slotId, 'success', nextLogs);
-    if (detailRef.current?.results[String(workoutIndex)]?.[slotId]?.result !== undefined) {
-      restTimer.skip();
-    }
   }
 
   async function persistSlotUpdate(
@@ -626,6 +665,21 @@ export function TrackerScreen({
 
     const previousDetail = currentDetail;
     const restoredDetail = applyUndoEntry(currentDetail, currentUndoEntry);
+    // Undoing a result that closed a slot with logged sets reopens it where the lifter was.
+    const closingSlot =
+      currentDetail.results[String(currentUndoEntry.i)]?.[currentUndoEntry.slotId];
+    const reopenedSlot =
+      restoredDetail.results[String(currentUndoEntry.i)]?.[currentUndoEntry.slotId];
+    const reopenedDraft =
+      reopenedSlot?.result === undefined && closingSlot?.setLogs !== undefined
+        ? draftsAfterUndo({
+            logs: closingSlot.setLogs,
+            result: closingSlot.result,
+            sets: rows[currentUndoEntry.i]?.slots.find(
+              (slot) => slot.slotId === currentUndoEntry.slotId
+            )?.sets,
+          })
+        : [];
     const nextDetail = {
       ...restoredDetail,
       undoHistory: currentDetail.undoHistory.slice(0, -1),
@@ -649,26 +703,94 @@ export function TrackerScreen({
       return;
     }
 
+    if (reopenedDraft.length > 0) {
+      try {
+        await persistDraftLogs({
+          ...draftLogsRef.current,
+          [slotLogKey(currentUndoEntry.i, currentUndoEntry.slotId)]: reopenedDraft,
+        });
+      } catch {
+        setSyncNotice('draft_failed');
+        return;
+      }
+    }
+
     setSyncNotice(null);
   }
 
   const heroSlotId =
     selectedRow?.slots.find((slot) => slot.result === undefined)?.slotId ??
     selectedRow?.slots[0]?.slotId;
+  const heroKey = `${selectedWorkoutIndex}:${heroSlotId}`;
   const canUndo = (detail?.undoHistory.length ?? 0) > 0;
 
   useEffect(() => {
     alignWorkoutRef.current = true;
   }, [selectedWorkoutIndex, completed]);
 
+  function updateWeekOverflow(patch: Partial<typeof weekMetricsRef.current>): void {
+    const metrics = Object.assign(weekMetricsRef.current, patch);
+    setWeekOverflow(metrics.content - metrics.viewport - metrics.x > 4);
+  }
+
+  // Keep the selected week chip on screen; a long plan has dozens of weeks.
+  function revealWeek(week: number): void {
+    const offset = weekOffsetsRef.current[week];
+    if (offset === undefined) return;
+    weekScrollRef.current?.scrollTo({
+      x: Math.max(0, offset - spacing.screenX),
+      animated: weekScrolledRef.current,
+    });
+    weekScrolledRef.current = true;
+  }
+
+  useEffect(() => {
+    revealWeek(weekIndex);
+  }, [weekIndex, selectedRow !== undefined]);
+
+  // Open every workout at its header. Only an active exercise that would sit
+  // below the fold pulls the view down, and only far enough to show it.
   function alignWorkoutScroll(): void {
     if (!alignWorkoutRef.current) return;
+    const viewportHeight = viewportHeightRef.current;
+    const heroBounds = heroBoundsRef.current?.key === heroKey ? heroBoundsRef.current : null;
+    if (viewportHeight === 0 || (!completed && heroBounds === null)) return;
     alignWorkoutRef.current = false;
-    if (completed) {
-      scrollRef.current?.scrollTo({ y: 0, animated: false });
-      return;
-    }
-    scrollRef.current?.scrollToEnd({ animated: false });
+    const y =
+      completed || heroBounds === null
+        ? 0
+        : workoutScrollTarget({
+            viewportHeight,
+            heroTop: heroBounds.top,
+            heroBottom: heroBounds.bottom,
+            margin: spacing.screenX,
+          });
+    scrollRef.current?.scrollTo({ y, animated: false });
+  }
+
+  // The next exercise becomes the hero without a layout change of its own.
+  useEffect(() => {
+    const bounds = slotBoundsRef.current[heroKey];
+    if (bounds === undefined) return;
+    heroBoundsRef.current = { key: heroKey, ...bounds };
+    revealHero();
+  }, [heroKey]);
+
+  // Keep the active exercise in view as it grows with each logged set and when the rest
+  // banner shrinks the viewport.
+  function revealHero(): void {
+    if (alignWorkoutRef.current) return;
+    const bounds = heroBoundsRef.current;
+    const viewportHeight = viewportHeightRef.current;
+    if (bounds?.key !== heroKey || viewportHeight === 0) return;
+    const y = heroRevealTarget({
+      scrollY: scrollYRef.current,
+      viewportHeight,
+      heroTop: bounds.top,
+      heroBottom: bounds.bottom,
+      margin: spacing.screenX,
+    });
+    if (y !== null) scrollRef.current?.scrollTo({ y, animated: true });
   }
 
   if (loading) {
@@ -722,6 +844,15 @@ export function TrackerScreen({
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
         onContentSizeChange={alignWorkoutScroll}
+        scrollEventThrottle={32}
+        onScroll={(event) => {
+          scrollYRef.current = event.nativeEvent.contentOffset.y;
+        }}
+        onLayout={(event) => {
+          viewportHeightRef.current = event.nativeEvent.layout.height;
+          alignWorkoutScroll();
+          revealHero();
+        }}
       >
         <View style={styles.chrome}>
           <View style={{ flex: 1, gap: 2 }}>
@@ -730,7 +861,7 @@ export function TrackerScreen({
               accessibilityRole="button"
               accessibilityLabel={t('tracker.back_programs')}
               onPress={onBack}
-              style={styles.programPicker}
+              style={({ pressed }) => [styles.programPicker, pressed && styles.pressedLight]}
             >
               <Text style={styles.programName}>{detail.name}</Text>
               <Ionicons accessible={false} name="chevron-down" size={18} color={colors.textMuted} />
@@ -738,6 +869,7 @@ export function TrackerScreen({
           </View>
           <IconButton
             name="arrow-undo-outline"
+            caption={t('tracker.undo')}
             label={t('tracker.undo_accessibility')}
             disabled={!canUndo || pendingLocalEdits > 0}
             onPress={() => {
@@ -756,27 +888,43 @@ export function TrackerScreen({
             })}
           </Text>
           <Text style={styles.date}>
-            <Text>{selectedRow.dayName}</Text> ·{' '}
+            {dayLabel === null ? null : <Text>{dayLabel}</Text>}
+            {dayLabel === null ? '' : ' · '}
             {new Date(
               detail.completedDates[String(selectedWorkoutIndex)] ?? Date.now()
             ).toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' })}
           </Text>
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 4 }}
-        >
-          {Array.from({ length: Math.ceil(rows.length / workoutsPerWeek) }, (_, week) => (
-            <Chip
-              key={week}
-              selected={week === weekIndex}
-              onPress={() => setSelectedWorkoutIndex(week * workoutsPerWeek)}
-            >
-              {t('tracker.week', { week: week + 1 })}
-            </Chip>
-          ))}
-        </ScrollView>
+        <View>
+          <ScrollView
+            ref={weekScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 4 }}
+            scrollEventThrottle={32}
+            onLayout={(event) => updateWeekOverflow({ viewport: event.nativeEvent.layout.width })}
+            onContentSizeChange={(width) => updateWeekOverflow({ content: width })}
+            onScroll={(event) => updateWeekOverflow({ x: event.nativeEvent.contentOffset.x })}
+          >
+            {Array.from({ length: Math.ceil(rows.length / workoutsPerWeek) }, (_, week) => (
+              <View
+                key={week}
+                onLayout={(event) => {
+                  weekOffsetsRef.current[week] = event.nativeEvent.layout.x;
+                  if (week === weekIndex) revealWeek(week);
+                }}
+              >
+                <Chip
+                  selected={week === weekIndex}
+                  onPress={() => setSelectedWorkoutIndex(week * workoutsPerWeek)}
+                >
+                  {t('tracker.week', { week: week + 1 })}
+                </Chip>
+              </View>
+            ))}
+          </ScrollView>
+          {weekOverflow ? <EdgeFade edge="right" size={36} /> : null}
+        </View>
         <View style={styles.daySelector}>
           <IconButton
             name="chevron-back"
@@ -798,7 +946,11 @@ export function TrackerScreen({
                   accessibilityLabel={t('tracker.day', { day: day + 1 })}
                   accessibilityState={{ selected: row.index === selectedWorkoutIndex }}
                   onPress={() => setSelectedWorkoutIndex(row.index)}
-                  style={[styles.day, row.index === selectedWorkoutIndex && styles.daySelected]}
+                  style={({ pressed }) => [
+                    styles.day,
+                    row.index === selectedWorkoutIndex && styles.daySelected,
+                    pressed && row.index !== selectedWorkoutIndex && styles.pressedLight,
+                  ]}
                 >
                   <Text
                     style={[
@@ -848,6 +1000,7 @@ export function TrackerScreen({
         {syncNotice && (syncNotice !== 'cached' || !syncStatus?.visible) ? (
           <Text style={styles.syncNotice}>{t(`tracker.notices.${syncNotice}`)}</Text>
         ) : null}
+        <RestAlertsInvitation />
         {completed ? (
           <Card>
             <Text style={styles.title}>{t('tracker.day_complete')}</Text>
@@ -861,8 +1014,10 @@ export function TrackerScreen({
               <View key={preview.slotId} style={styles.previewRow}>
                 <Text style={styles.previewName}>{preview.name}</Text>
                 <Text style={styles.previewValue}>
-                  {t('tracker.weight', { weight: preview.weight })} ·{' '}
-                  {t('tracker.sets_reps', { sets: preview.sets, reps: preview.reps })}
+                  {preview.isBodyweight === true
+                    ? t('tracker.bodyweight')
+                    : t('tracker.weight', { weight: preview.weight })}{' '}
+                  · {t('tracker.sets_reps', { sets: preview.sets, reps: preview.reps })}
                 </Text>
               </View>
             ))}
@@ -880,38 +1035,58 @@ export function TrackerScreen({
           </Card>
         ) : null}
         {selectedRow.slots.map((slot) => (
-          <TrackerSlotCard
-            key={slot.slotId}
-            slot={slot}
-            variant={slot.slotId === heroSlotId ? 'hero' : 'queue'}
-            workoutIndex={selectedRow.index}
-            draftLogs={
-              slot.result === undefined
-                ? draftLogs[slotLogKey(selectedRow.index, slot.slotId)]
-                : undefined
-            }
-            onConfirmSet={(workoutIndexValue, slotIdValue, entry) => {
-              return enqueueLocalEdit(() =>
-                handleConfirmSet(workoutIndexValue, slotIdValue, entry)
-              );
+          <View
+            key={`${selectedRow.index}:${slot.slotId}`}
+            onLayout={(event) => {
+              const { y, height } = event.nativeEvent.layout;
+              slotBoundsRef.current[`${selectedRow.index}:${slot.slotId}`] = {
+                top: y,
+                bottom: y + height,
+              };
+              if (slot.slotId !== heroSlotId) return;
+              heroBoundsRef.current = { key: heroKey, top: y, bottom: y + height };
+              alignWorkoutScroll();
+              revealHero();
             }}
-            onUndoSet={(workoutIndexValue, slotIdValue) => {
-              void enqueueLocalEdit(() => handleUndoDraft(workoutIndexValue, slotIdValue));
-            }}
-            onMarkResult={(workoutIndexValue, slotIdValue, result) => {
-              enqueueLocalEdit(() => handleMarkResult(workoutIndexValue, slotIdValue, result));
-            }}
-            onMetricChange={(workoutIndexValue, slotIdValue, metric, _currentValue, direction) => {
-              void enqueueLocalEdit(() =>
-                handleMetricChange(workoutIndexValue, slotIdValue, metric, direction)
-              );
-            }}
-            onClearMetric={(workoutIndexValue, slotIdValue, metric) => {
-              void enqueueLocalEdit(() =>
-                handleClearMetric(workoutIndexValue, slotIdValue, metric)
-              );
-            }}
-          />
+          >
+            <TrackerSlotCard
+              slot={slot}
+              variant={slot.slotId === heroSlotId ? 'hero' : 'queue'}
+              workoutIndex={selectedRow.index}
+              draftLogs={
+                slot.result === undefined
+                  ? draftLogs[slotLogKey(selectedRow.index, slot.slotId)]
+                  : undefined
+              }
+              onConfirmSet={(workoutIndexValue, slotIdValue, entry) => {
+                return enqueueLocalEdit(() =>
+                  handleConfirmSet(workoutIndexValue, slotIdValue, entry)
+                );
+              }}
+              onUndoSet={(workoutIndexValue, slotIdValue) => {
+                void enqueueLocalEdit(() => handleUndoDraft(workoutIndexValue, slotIdValue));
+              }}
+              onMarkResult={(workoutIndexValue, slotIdValue, result) => {
+                enqueueLocalEdit(() => handleMarkResult(workoutIndexValue, slotIdValue, result));
+              }}
+              onMetricChange={(
+                workoutIndexValue,
+                slotIdValue,
+                metric,
+                _currentValue,
+                direction
+              ) => {
+                void enqueueLocalEdit(() =>
+                  handleMetricChange(workoutIndexValue, slotIdValue, metric, direction)
+                );
+              }}
+              onClearMetric={(workoutIndexValue, slotIdValue, metric) => {
+                void enqueueLocalEdit(() =>
+                  handleClearMetric(workoutIndexValue, slotIdValue, metric)
+                );
+              }}
+            />
+          </View>
         ))}
       </ScrollView>
     </Screen>
@@ -944,6 +1119,7 @@ const styles = StyleSheet.create({
     ...type.body,
   },
   syncNotice: {
+    ...type.body,
     color: colors.warn,
     fontSize: 14,
     lineHeight: 20,
@@ -956,7 +1132,8 @@ const styles = StyleSheet.create({
   },
   previewName: { ...type.body, fontSize: 14, lineHeight: 20, flex: 1 },
   previewValue: { ...type.body, color: colors.textPrimary, fontSize: 14, lineHeight: 20 },
-  eyebrow: { ...type.body, fontSize: 13, lineHeight: 18 },
+  eyebrow: { ...type.kicker, color: colors.textSecondary },
+  pressedLight: { opacity: 0.6 },
   programPicker: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 8 },
   programName: { ...type.displaySm, flexShrink: 1 },
   sessionMeta: {

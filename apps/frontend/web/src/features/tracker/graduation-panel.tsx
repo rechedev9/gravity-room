@@ -2,6 +2,7 @@ import type { GraduationTarget, GraduationState } from '@gzclp/domain/graduation
 import { useTranslation } from 'react-i18next';
 import { computeEpley1RM } from '@gzclp/domain/graduation';
 import { roundToNearest } from '@gzclp/domain/generic-engine';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 interface GraduationPanelProps {
   readonly targets: readonly GraduationTarget[];
@@ -31,6 +32,7 @@ export function GraduationPanel({
   onDismiss,
 }: GraduationPanelProps): React.ReactNode {
   const { t } = useTranslation();
+  const { format } = useUnitPreference();
   const rounding = typeof config.rounding === 'string' ? parseFloat(config.rounding) : 2.5;
 
   // Compute Epley 1RM estimates for each target
@@ -53,11 +55,11 @@ export function GraduationPanel({
 
   return (
     <div
-      className="bg-card border border-rule p-4 sm:p-6 card"
+      className="bg-card rounded-card border border-rule p-4 sm:p-6 card"
       data-testid="graduation-panel"
       data-graduation={achieved.allPassed ? 'complete' : 'pending'}
     >
-      <h3 className="font-display text-xl text-title mb-1">
+      <h3 className="type-title text-title mb-1">
         {achieved.allPassed
           ? t('tracker.graduation.completed_title')
           : t('tracker.graduation.pending_title')}
@@ -80,7 +82,7 @@ export function GraduationPanel({
           return (
             <div
               key={target.exercise}
-              className={`flex items-center gap-3 p-3 border-2 rounded-sm transition-colors ${
+              className={`flex items-center gap-3 p-3 border-2 rounded-control transition-colors ${
                 done ? 'border-ok-ring bg-ok-bg/30' : 'border-rule bg-transparent'
               }`}
             >
@@ -92,13 +94,13 @@ export function GraduationPanel({
                   {t(EXERCISE_LABELS[target.exercise] ?? target.exercise)}
                 </p>
                 <p className="text-[12px] text-muted">
-                  {t(REP_CRITERIA[target.exercise] ?? target.description)} @ {target.targetWeight}{' '}
-                  kg
+                  {t(REP_CRITERIA[target.exercise] ?? target.description)} @{' '}
+                  {format(target.targetWeight)}
                 </p>
               </div>
               {done && estimatedOneRMs[target.exercise] !== undefined && (
                 <span className="text-[11px] font-bold text-ok whitespace-nowrap">
-                  1RM: ~{estimatedOneRMs[target.exercise]} kg
+                  1RM: ~{format(estimatedOneRMs[target.exercise])}
                 </span>
               )}
             </div>
@@ -117,12 +119,12 @@ export function GraduationPanel({
             {Object.entries(estimatedOneRMs).map(([exercise, oneRM]) => (
               <div
                 key={exercise}
-                className="px-3 py-2 bg-header/10 border border-rule rounded-sm text-center"
+                className="px-3 py-2 bg-header/10 border border-rule rounded-control text-center"
               >
                 <p className="text-[11px] font-bold uppercase text-muted">
                   {t(EXERCISE_LABELS[exercise] ?? exercise)}
                 </p>
-                <p className="font-display text-lg text-accent">{oneRM} kg</p>
+                <p className="font-display text-lg text-accent">{format(oneRM)}</p>
               </div>
             ))}
           </div>
@@ -130,13 +132,13 @@ export function GraduationPanel({
           <div className="flex gap-3">
             <button
               onClick={handleStartJaw}
-              className="flex-1 py-3.5 border-none bg-header text-title text-base font-bold cursor-pointer hover:opacity-85 transition-opacity"
+              className="rounded-control flex-1 py-3.5 border-none bg-header text-title text-base font-bold cursor-pointer hover:opacity-85 transition-opacity"
             >
               {t('tracker.graduation.start_jaw')}
             </button>
             <button
               onClick={onDismiss}
-              className="py-3.5 px-4 border-2 border-rule bg-card text-muted text-sm font-bold cursor-pointer hover:bg-hover-row hover:text-main transition-colors"
+              className="py-3.5 px-4 border-2 border-rule bg-card rounded-control text-muted text-sm font-bold cursor-pointer hover:bg-hover-row hover:text-main transition-colors"
             >
               {t('tracker.graduation.keep_training')}
             </button>

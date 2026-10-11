@@ -1,80 +1,22 @@
-import { useState, useCallback, useEffect } from 'react';
 import { Outlet, useRouterState } from '@tanstack/react-router';
-import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AppSidebar } from './app-sidebar';
-import { SidebarTrigger } from './sidebar-trigger';
 import { MobileBottomNav } from './mobile-bottom-nav';
 import { EASE_OUT_EXPO } from '@/lib/motion-easing';
 
-// Typed as Record<string, string | undefined> so the lookup result is string | undefined,
-// making the ?? fallback in getPageTitle semantically correct rather than dead code.
-const ROUTE_LABELS: Record<string, string | undefined> = {
-  '/app': 'navigation.home',
-  '/app/tracker': 'navigation.tracker',
-  '/app/insights': 'navigation.insights',
-  '/app/programs': 'navigation.programs',
-  '/app/profile': 'navigation.profile',
-};
-
-function getPageTitle(pathname: string, t: ReturnType<typeof useTranslation>['t']): string {
-  // Match tracker subroutes
-  if (pathname.startsWith('/app/tracker')) return t('navigation.tracker');
-  const key = ROUTE_LABELS[pathname];
-  return key ? t(key) : 'Gravity Room';
-}
-
 export function AppLayout(): React.ReactNode {
-  const { t } = useTranslation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const reduced = useReducedMotion();
   const routeDuration = reduced ? 0 : 0.18;
 
-  const closeSidebar = useCallback((): void => {
-    setSidebarOpen(false);
-  }, []);
-
-  const toggleSidebar = useCallback((): void => {
-    setSidebarOpen((prev) => !prev);
-  }, []);
-
-  // Close mobile sidebar on route change
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [pathname]);
-
-  // The modal drawer is mobile-only. Clear its state when the viewport crosses
-  // into the desktop layout so the hidden drawer cannot leave page content inert.
-  useEffect(() => {
-    const desktopMedia = window.matchMedia('(min-width: 1024px)');
-    const handleBreakpointChange = (event: MediaQueryListEvent): void => {
-      if (event.matches) setSidebarOpen(false);
-    };
-
-    if (desktopMedia.matches) setSidebarOpen(false);
-    desktopMedia.addEventListener('change', handleBreakpointChange);
-    return (): void => {
-      desktopMedia.removeEventListener('change', handleBreakpointChange);
-    };
-  }, []);
-
-  const pageTitle = getPageTitle(pathname, t);
-
   return (
     <div className="flex min-h-dvh bg-body">
-      <AppSidebar isOpen={sidebarOpen} onClose={closeSidebar} />
+      <AppSidebar />
 
-      <div className="flex-1 flex flex-col min-w-0" inert={sidebarOpen ? true : undefined}>
-        {/* Top bar — mobile only trigger + page title */}
-        <header className="flex items-center gap-3 px-4 py-3 bg-header border-b border-rule shadow-[0_1px_8px_rgba(0,0,0,0.4)] lg:hidden sticky top-0 z-40">
-          <SidebarTrigger isOpen={sidebarOpen} onToggle={toggleSidebar} />
-          <span className="text-sm font-bold text-title tracking-tight">{pageTitle}</span>
-        </header>
-
-        {/* pb reserves space for MobileBottomNav on small screens */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* The padding reserves the phone tab bar so the last card never sits under it. */}
         <main
-          className="flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0"
+          className="flex-1 pb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom))] lg:pb-0"
           tabIndex={-1}
         >
           <AnimatePresence mode="wait">

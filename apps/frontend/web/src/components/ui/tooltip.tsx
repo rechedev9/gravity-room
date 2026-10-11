@@ -17,7 +17,7 @@ export function TooltipContent({
       <TooltipPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          'bg-tooltip-bg text-tooltip-text border border-rule px-2 py-1 text-xs rounded shadow-elevated z-50',
+          'bg-tooltip-bg text-tooltip-text border border-rule px-2 py-1 text-xs rounded-md shadow-elevated z-50',
           'data-[state=delayed-open]:animate-[tooltip-enter_var(--duration-instant)_var(--ease-standard)]',
           'data-[state=instant-open]:animate-[tooltip-enter_var(--duration-instant)_var(--ease-standard)]',
           'data-[state=closed]:animate-[tooltip-exit_var(--duration-instant)_var(--ease-standard)]',

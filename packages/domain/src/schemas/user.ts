@@ -10,11 +10,15 @@
  * truth — without the runtime dependency.
  */
 
+import { isWeightUnit, type WeightUnit } from '../weight-unit';
+
 export interface UserInfo {
   readonly id: string;
   readonly email: string;
   readonly name?: string;
   readonly avatarUrl?: string;
+  /** Absent when talking to an API that predates the account-level unit. */
+  readonly weightUnit?: WeightUnit;
 }
 
 /**
@@ -45,11 +49,16 @@ export function parseUserSafe(data: unknown): UserInfo | null {
   const avatarUrl = readOptionalString(source, 'avatarUrl');
   if (!avatarUrl.ok) return null;
 
+  // An unknown unit is dropped rather than rejecting the whole user, so a
+  // newer API can add units without locking older clients out.
+  const weightUnit = isWeightUnit(source['weightUnit']) ? source['weightUnit'] : undefined;
+
   return {
     id,
     email,
     ...(name.value !== undefined ? { name: name.value } : {}),
     ...(avatarUrl.value !== undefined ? { avatarUrl: avatarUrl.value } : {}),
+    ...(weightUnit !== undefined ? { weightUnit } : {}),
   };
 }
 

@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { colors } from '@gzclp/design-tokens';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/cn';
 import type { ThemeId } from '@/lib/theme-preference';
@@ -15,7 +16,7 @@ const THEME_META: readonly {
     labelKey: 'theme_selector.gold',
     hintKey: 'theme_selector.gold_hint',
     // Warm iron + gold — matches the forged-iron signature.
-    swatch: 'linear-gradient(135deg, oklch(0.14 0.01 70) 45%, oklch(0.8 0.145 84) 45%)',
+    swatch: `linear-gradient(135deg, ${colors.card} 45%, ${colors.accent} 45%)`,
   },
   {
     id: 'classic-light',
@@ -66,7 +67,7 @@ export function ThemeSelector({ className, compact = false }: ThemeSelectorProps
   return (
     <div
       className={cn(
-        'flex items-center gap-1 rounded-md bg-[var(--color-card,var(--color-sidebar-active))] border border-rule p-0.5',
+        'flex items-center gap-1 rounded-[calc(var(--radius-control)+4px)] bg-[var(--color-card,var(--color-sidebar-active))] border border-rule p-1',
         className
       )}
       role="radiogroup"
@@ -95,7 +96,7 @@ export function ThemeSelector({ className, compact = false }: ThemeSelectorProps
             onClick={() => setTheme(item.id)}
             onKeyDown={(event) => handleKeyDown(event, index)}
             className={cn(
-              'flex items-center justify-center gap-1.5 min-h-11 rounded-sm transition-all cursor-pointer',
+              'flex items-center justify-center gap-1.5 min-h-11 rounded-control transition-[background-color,color] cursor-pointer',
               compact ? 'min-w-0 flex-1 px-2 py-1.5' : 'min-w-11 px-2.5 py-1',
               selected
                 ? 'bg-accent text-on-accent ring-1 ring-accent'

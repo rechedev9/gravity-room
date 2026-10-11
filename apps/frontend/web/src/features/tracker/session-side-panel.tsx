@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { SlotOutcomeComparison } from '@gzclp/domain/progression-preview';
 import { localizedExerciseName } from '@/lib/catalog-display';
 import { formatDaysAgo } from '@/features/home/format-days-ago';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 import type { PreviousSession } from './session-history';
 
 export interface SessionSidePanelProps {
@@ -23,11 +24,7 @@ const SHORTCUT_KEYS = [
 ] as const;
 
 function PanelHeading({ children }: { readonly children: ReactNode }): ReactNode {
-  return (
-    <h3 className="mb-3 font-mono text-2xs font-bold uppercase tracking-[0.08em] text-info">
-      {children}
-    </h3>
-  );
+  return <h3 className="type-kicker mb-3 text-label">{children}</h3>;
 }
 
 /**
@@ -42,6 +39,7 @@ export function SessionSidePanel({
   onGoToProfile,
 }: SessionSidePanelProps): ReactNode {
   const { t } = useTranslation();
+  const { format } = useUnitPreference();
 
   const failNote =
     failPreview !== null
@@ -51,18 +49,18 @@ export function SessionSidePanel({
             scheme: `${failPreview.next.sets}×${failPreview.next.reps}`,
           })
         : failPreview.weightDelta < 0
-          ? t('tracker.session_panel.fail_deload', { weight: failPreview.next.weight })
-          : t('tracker.session_panel.fail_hold', { weight: failPreview.next.weight })
+          ? t('tracker.session_panel.fail_deload', { weight: format(failPreview.next.weight) })
+          : t('tracker.session_panel.fail_hold', { weight: format(failPreview.next.weight) })
       : null;
 
   return (
     <aside
       data-testid="session-side-panel"
       aria-label={t('tracker.session_panel.aria')}
-      className="flex flex-col gap-6 border-rule bg-header p-5 xl:border-l"
+      className="mt-3 flex flex-col gap-3 xl:mt-0"
     >
       {previous !== null && (
-        <div>
+        <div className="rounded-card border border-rule bg-card p-4">
           <PanelHeading>
             {previousDaysAgo !== null
               ? t('tracker.session_panel.previous_with_age', {
@@ -84,7 +82,7 @@ export function SessionSidePanel({
                     line.result === 'fail' ? 'text-fail' : 'text-ok'
                   }`}
                 >
-                  {line.weight > 0 ? `${line.weight} · ` : ''}
+                  {line.weight > 0 ? `${format(line.weight)} · ` : ''}
                   {line.repsSummary}
                 </span>
               </li>
@@ -94,18 +92,23 @@ export function SessionSidePanel({
       )}
 
       {failNote !== null && (
-        <div className="border border-rule bg-card px-4 py-3.5" data-testid="session-fail-preview">
+        <div
+          className="rounded-card border border-rule bg-card p-4"
+          data-testid="session-fail-preview"
+        >
           <PanelHeading>{t('tracker.session_panel.fail_title')}</PanelHeading>
-          <p className="m-0 text-[12.5px] leading-relaxed text-muted">{failNote}</p>
+          <p className="m-0 text-sm leading-relaxed text-muted">{failNote}</p>
         </div>
       )}
 
-      <div className="hidden lg:block">
+      <div className="hidden rounded-card border border-rule bg-card p-4 lg:block">
         <PanelHeading>{t('tracker.session_panel.keyboard')}</PanelHeading>
         <ul className="flex flex-col gap-2">
           {SHORTCUT_KEYS.map(({ key, labelKey }) => (
             <li key={key} className="font-mono text-[11px] text-muted">
-              <kbd className="mr-2 border border-rule-light px-1.5 py-0.5 not-italic">{key}</kbd>
+              <kbd className="mr-2 rounded-[6px] border border-rule-light px-1.5 py-0.5 not-italic">
+                {key}
+              </kbd>
               {t(labelKey)}
             </li>
           ))}
@@ -113,15 +116,13 @@ export function SessionSidePanel({
       </div>
 
       {onGoToProfile && (
-        <div className="mt-auto border-t border-rule pt-4">
-          <button
-            type="button"
-            onClick={onGoToProfile}
-            className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-muted transition-colors hover:text-main cursor-pointer"
-          >
-            {t('tracker.session_panel.stats_link')}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onGoToProfile}
+          className="type-button min-h-11 self-start rounded-control px-1 text-muted cursor-pointer transition-colors hover:text-main"
+        >
+          {t('tracker.session_panel.stats_link')}
+        </button>
       )}
     </aside>
   );

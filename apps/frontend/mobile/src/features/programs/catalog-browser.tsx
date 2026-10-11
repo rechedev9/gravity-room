@@ -11,8 +11,17 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import type { CatalogEntry } from '@gzclp/domain';
-import { colors, spacing, type } from '../../shell/design';
+import {
+  CATALOG_LEVEL_FILTERS,
+  filterCatalogEntries,
+  hasCatalogFilters,
+  pickFeaturedEntry,
+  type CatalogLevelFilter,
+} from '@gzclp/domain/catalog-filter';
+import { type } from '../../shell/design';
+import { colors, spacing } from '@gzclp/design-tokens';
 import { Screen } from '../../ui/screen';
+import { ScreenHeader } from '../../ui/screen-header';
 import { Chip } from '../../ui/chip';
 import { Sheet } from '../../ui/sheet';
 import { Button } from '../../ui/button';
@@ -27,30 +36,15 @@ type Props = {
   readonly onStart: (entry: CatalogEntry) => Promise<boolean>;
 };
 
-function normalizeSearch(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLocaleLowerCase();
-}
-
 export function CatalogBrowser({ entries, loading, error, creatingId, onRetry, onStart }: Props) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
-  const [level, setLevel] = useState('all');
+  const [level, setLevel] = useState<CatalogLevelFilter>('all');
   const [selected, setSelected] = useState<CatalogEntry | null>(null);
-  const normalizedSearch = normalizeSearch(search);
-  const filtered = entries.filter(
-    (entry) =>
-      (level === 'all' || entry.level === level) &&
-      normalizeSearch(`${entry.name} ${entry.description}`).includes(normalizedSearch)
-  );
-  const hasFilters = level !== 'all' || normalizedSearch.length > 0;
-  const featured =
-    normalizedSearch === '' && level === 'all'
-      ? entries.find((entry) => entry.id === 'gzclp')
-      : undefined;
+  const query = { search, level };
+  const filtered = filterCatalogEntries({ entries, query });
+  const hasFilters = hasCatalogFilters(query);
+  const featured = pickFeaturedEntry(entries, query);
   const label = (entry: CatalogEntry) => t('discovery.open', { name: entry.name });
   const metadata = (entry: CatalogEntry) =>
     `${t('discovery.frequency', { count: entry.workoutsPerWeek })} · ${t(`discovery.level.${entry.level}`)}`;
@@ -65,11 +59,11 @@ export function CatalogBrowser({ entries, loading, error, creatingId, onRetry, o
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        <Text style={styles.brand}>GRAVITY ROOM</Text>
-        <Text accessibilityRole="header" style={styles.title}>
-          {t('discovery.title')}
-        </Text>
-        <Text style={styles.subtitle}>{t('discovery.subtitle')}</Text>
+        <ScreenHeader
+          eyebrow="GRAVITY ROOM"
+          title={t('discovery.title')}
+          subtitle={t('discovery.subtitle')}
+        />
         <View style={styles.search}>
           <Ionicons accessible={false} name="search-outline" size={20} color={colors.textMuted} />
           <TextInput
@@ -97,7 +91,7 @@ export function CatalogBrowser({ entries, loading, error, creatingId, onRetry, o
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filters}
         >
-          {['all', 'beginner', 'intermediate', 'advanced'].map((value) => (
+          {CATALOG_LEVEL_FILTERS.map((value) => (
             <Chip key={value} selected={level === value} onPress={() => setLevel(value)}>
               {t(`discovery.level.${value}`)}
             </Chip>
@@ -115,7 +109,7 @@ export function CatalogBrowser({ entries, loading, error, creatingId, onRetry, o
             accessibilityRole="button"
             accessibilityLabel={label(featured)}
             onPress={() => setSelected(featured)}
-            style={styles.featured}
+            style={({ pressed }) => [styles.featured, pressed && styles.pressed]}
           >
             <ProgramArtwork
               programId={featured.id}
@@ -236,8 +230,6 @@ export function CatalogBrowser({ entries, loading, error, creatingId, onRetry, o
 
 const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: spacing.tabClearance, gap: 14 },
-  brand: { ...type.kicker, color: colors.accent, letterSpacing: 3, marginBottom: 6 },
-  title: { ...type.display, fontSize: 34, lineHeight: 38, maxWidth: 310 },
   subtitle: { ...type.body, fontSize: 14, lineHeight: 21 },
   search: {
     flexDirection: 'row',

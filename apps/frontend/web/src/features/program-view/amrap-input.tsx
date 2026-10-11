@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { computeEpley1RM } from '@gzclp/domain/graduation';
 import { roundToNearest } from '@gzclp/domain/generic-engine';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 interface AmrapInputProps {
   readonly value: number | undefined;
@@ -28,6 +29,7 @@ export function AmrapInput({
   result,
 }: AmrapInputProps): React.ReactNode {
   const { t } = useTranslation();
+  const { format } = useUnitPreference();
   const isCard = variant === 'card';
   const current = value ?? 0;
 
@@ -62,7 +64,7 @@ export function AmrapInput({
           onClick={decrement}
           disabled={current <= MIN_REPS}
           aria-label={t('tracker.amrap_input.decrement_label')}
-          className={`${btnBase} font-bold border-2 border-r-0 border-rule bg-card text-btn-text cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-title active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default`}
+          className={`${btnBase} font-bold border-2 border-r-0 rounded-l-control border-rule bg-card text-btn-text cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-title active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default`}
         >
           &minus;
         </button>
@@ -78,14 +80,14 @@ export function AmrapInput({
           onClick={increment}
           disabled={current >= MAX_REPS}
           aria-label={t('tracker.amrap_input.increment_label')}
-          className={`${btnBase} font-bold border-2 border-l-0 border-rule bg-card text-btn-text cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-title active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default`}
+          className={`${btnBase} font-bold border-2 border-l-0 rounded-r-control border-rule bg-card text-btn-text cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-title active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default`}
         >
           +
         </button>
       </div>
       {showEstimate && (
         <span className="text-[10px] text-muted mt-0.5 block text-center">
-          {t('tracker.amrap_input.estimated_1rm_prefix')} {estimate1RM(weight, value)} kg
+          {t('tracker.amrap_input.estimated_1rm_prefix')} {format(estimate1RM(weight, value))}
         </span>
       )}
     </div>

@@ -18,6 +18,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { relations, desc, sql } from 'drizzle-orm';
 import { MAX_REPS } from '@gzclp/domain/schemas/instance';
+import type { WeightUnit } from '@gzclp/domain/weight-unit';
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -58,6 +59,8 @@ export const users = pgTable(
     authVersion: integer('auth_version').notNull().default(0),
     name: varchar({ length: 100 }),
     avatarUrl: text('avatar_url'),
+    /** Display unit for weights ('kg' | 'lbs'); stored weights are always kg. */
+    weightUnit: varchar('weight_unit', { length: 3 }).$type<WeightUnit>().notNull().default('kg'),
     /**
      * Soft-delete timestamp. When set, the user is in a 30-day grace period
      * before `purge-deleted-users.ts` hard-deletes (CASCADE) the row and all
@@ -82,6 +85,7 @@ export const users = pgTable(
     uniqueIndex('users_email_active_uq')
       .on(table.email)
       .where(sql`${table.deletedAt} IS NULL`),
+    check('chk_users_weight_unit', sql`${table.weightUnit} IN ('kg', 'lbs')`),
   ]
 );
 

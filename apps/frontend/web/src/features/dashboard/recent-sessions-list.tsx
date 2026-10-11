@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { localizedDayName } from '@/lib/catalog-display';
 
 interface SessionRow {
   readonly dateLabel: string;
@@ -18,18 +19,16 @@ export function RecentSessionsList({ sessions }: RecentSessionsListProps): React
 
   if (sessions.length === 0) {
     return (
-      <section className="bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-card)] p-6 text-center">
+      <section className="bg-card border border-rule rounded-card shadow-[var(--shadow-card)] p-6 text-center">
         <p className="chalk-stamp text-label">{t('dashboard.recent_sessions.title')}</p>
-        <p className="text-main font-display text-2xl mt-3">
-          {t('dashboard.recent_sessions.empty_title')}
-        </p>
+        <p className="text-main type-title mt-3">{t('dashboard.recent_sessions.empty_title')}</p>
         <p className="text-muted text-sm mt-1">{t('dashboard.recent_sessions.empty_body')}</p>
       </section>
     );
   }
 
   return (
-    <section className="bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-card)] p-5 sm:p-6">
+    <section className="bg-card border border-rule rounded-card shadow-[var(--shadow-card)] p-5 sm:p-6">
       <div className="mb-3 flex items-center justify-between gap-4">
         <p className="chalk-stamp">{t('dashboard.recent_sessions.title')}</p>
         <span className="font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
@@ -54,7 +53,9 @@ export function RecentSessionsList({ sessions }: RecentSessionsListProps): React
                   <span className="font-mono text-[11px] text-muted">{s.dateLabel}</span>
                 )}
               </div>
-              <p className="mt-1 truncate font-medium text-main">{s.dayName}</p>
+              <p className="mt-1 truncate font-medium text-main">
+                {localizedDayName(t, s.dayName)}
+              </p>
               {s.exerciseNames.length > 0 && (
                 <p className="mt-0.5 truncate text-xs text-muted">{s.exerciseNames.join(' + ')}</p>
               )}

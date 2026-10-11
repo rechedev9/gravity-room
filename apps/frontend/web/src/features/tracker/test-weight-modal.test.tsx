@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { writeWeightUnit } from '@/lib/weight-unit';
 import { TestWeightModal } from './test-weight-modal';
 
 // Polyfill dialog methods for happy-dom if missing
@@ -19,6 +20,8 @@ beforeAll(() => {
 // ---------------------------------------------------------------------------
 
 describe('TestWeightModal', () => {
+  afterEach(() => writeWeightUnit('kg'));
+
   const baseProps = {
     isOpen: true,
     liftName: 'Sentadilla',
@@ -76,6 +79,17 @@ describe('TestWeightModal', () => {
 
       expect(onConfirm).toHaveBeenCalledTimes(1);
       expect(onConfirm).toHaveBeenCalledWith(135);
+    });
+
+    it('stores the prefilled kilograms when a lbs lifter confirms without editing', () => {
+      writeWeightUnit('lbs');
+      const onConfirm = vi.fn();
+      render(<TestWeightModal {...baseProps} onConfirm={onConfirm} defaultWeight={75} />);
+
+      expect(screen.getByRole('spinbutton')).toHaveValue(165.35);
+      fireEvent.click(screen.getByText('Confirmar'));
+
+      expect(onConfirm).toHaveBeenCalledWith(75);
     });
 
     it('should disable Confirmar button when input is empty', () => {

@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { estimateRepMaxFromOneRM } from '@gzclp/domain/barbell';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 export interface OneRmCalculatorProps {
   /** Reps the program asks for (5 for a GZCLP-style 5RM). */
@@ -21,14 +22,17 @@ export function OneRmCalculator({
   onClose,
 }: OneRmCalculatorProps): ReactNode {
   const { t } = useTranslation();
+  const { unit, toDisplay, fromDisplay } = useUnitPreference();
   const [oneRm, setOneRm] = useState('');
   const parsed = Number.parseFloat(oneRm);
-  const estimate = Number.isFinite(parsed) ? estimateRepMaxFromOneRM(parsed, targetReps, step) : 0;
+  const estimate = Number.isFinite(parsed)
+    ? estimateRepMaxFromOneRM(fromDisplay(parsed), targetReps, step)
+    : 0;
 
   return (
     <div
       data-testid="one-rm-calculator"
-      className="mb-5 border border-rule bg-surface-2 px-4 py-3.5"
+      className="mb-5 border border-rule bg-surface-2 rounded-card px-4 py-3.5"
     >
       <div className="mb-3 flex items-center gap-3">
         <h3 className="font-mono text-2xs font-bold uppercase tracking-[0.08em] text-accent">
@@ -58,9 +62,9 @@ export function OneRmCalculator({
               step={step}
               value={oneRm}
               onChange={(e) => setOneRm(e.target.value)}
-              className="w-24 border border-rule bg-card px-2 py-1 font-mono text-2xl text-title tabular-nums focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+              className="w-24 border border-rule bg-card rounded-control px-2 py-1 font-mono text-2xl text-title tabular-nums focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
             />
-            <span className="font-mono text-xs text-muted">kg</span>
+            <span className="font-mono text-xs text-muted">{unit}</span>
           </span>
         </label>
 
@@ -77,9 +81,9 @@ export function OneRmCalculator({
               data-testid="one-rm-estimate"
               className="font-mono text-2xl text-title tabular-nums"
             >
-              {estimate > 0 ? estimate : '—'}
+              {estimate > 0 ? toDisplay(estimate) : '—'}
             </span>
-            <span className="font-mono text-xs text-muted">kg</span>
+            <span className="font-mono text-xs text-muted">{unit}</span>
           </span>
         </p>
 
@@ -88,9 +92,11 @@ export function OneRmCalculator({
           data-testid="one-rm-use"
           onClick={() => onUse(estimate)}
           disabled={estimate <= 0}
-          className="min-h-[40px] bg-accent px-4 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+          className="type-button rounded-control min-h-[40px] bg-accent px-4 text-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
         >
-          {t('onboarding.weights.calculator_use', { weight: estimate > 0 ? estimate : '—' })}
+          {t('onboarding.weights.calculator_use', {
+            weight: estimate > 0 ? toDisplay(estimate) : '—',
+          })}
         </button>
       </div>
     </div>

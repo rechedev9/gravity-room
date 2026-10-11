@@ -108,7 +108,7 @@ function renderView(
     readonly workout?: GenericWorkoutRow;
     readonly rows?: readonly GenericWorkoutRow[];
     readonly isCurrent?: boolean;
-    readonly rest?: { readonly seconds: number; readonly id: number } | null;
+    readonly showCompletion?: boolean;
     readonly actions?: Partial<Parameters<typeof SessionView>[0]['slotActions']>;
   } = {}
 ) {
@@ -130,8 +130,7 @@ function renderView(
       }
       workout={workout}
       isCurrent={overrides.isCurrent ?? true}
-      rest={overrides.rest ?? null}
-      onSkipRest={vi.fn()}
+      showCompletion={overrides.showCompletion ?? false}
       onGoToNextDay={vi.fn()}
       slotActions={{
         onMark,
@@ -157,8 +156,7 @@ function renderRerenderable() {
       rows={[base, workout]}
       workout={workout}
       isCurrent
-      rest={null}
-      onSkipRest={vi.fn()}
+      showCompletion={false}
       onGoToNextDay={vi.fn()}
       slotActions={{
         onMark: vi.fn(),
@@ -219,13 +217,6 @@ describe('SessionView', () => {
     expect(onMark).toHaveBeenCalledWith(1, 'a-t1', 'fail');
   });
 
-  it('docks the rest countdown inside the hero card instead of floating it', () => {
-    renderView({ rest: { seconds: 180, id: 1 } });
-
-    const hero = screen.getByTestId('current-lift-card');
-    expect(within(hero).getByTestId('rest-timer')).toBeInTheDocument();
-  });
-
   it('moves undo onto the completed card', () => {
     renderView({
       workout: row(1, [slot({ result: 'success', setLogs: [{ reps: 3 }] }), T2]),
@@ -275,8 +266,20 @@ describe('SessionView', () => {
     expect(screen.queryByTestId('failure-explainer')).not.toBeInTheDocument();
   });
 
+  it('drops the failure explainer when the failure is undone elsewhere', () => {
+    const { rerender } = renderRerenderable();
+    rerender(row(1, [slot({ result: 'fail' }), T2]));
+    expect(screen.getByTestId('failure-explainer')).toBeInTheDocument();
+
+    // The header undo or the U shortcut clears the result without touching the explainer.
+    rerender(row(1, [slot(), T2]));
+    expect(screen.queryByTestId('failure-explainer')).not.toBeInTheDocument();
+  });
+
   it('closes a finished day with a summary and the queued next loads', () => {
     renderView({
+      showCompletion: true,
+      isCurrent: false,
       workout: row(1, [
         slot({
           result: 'success',
@@ -309,10 +312,24 @@ describe('SessionView', () => {
     expect(screen.getAllByTestId('completed-slot-row').length).toBeGreaterThan(0);
   });
 
+  it('keeps a finished day that is not the latest as plain history rows', () => {
+    renderView({
+      isCurrent: false,
+      showCompletion: false,
+      workout: row(1, [
+        slot({ result: 'success', setLogs: [{ reps: 3 }] }),
+        { ...T2, result: 'success' },
+      ]),
+    });
+
+    expect(screen.queryByTestId('day-completed-panel')).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('completed-slot-row')).toHaveLength(2);
+  });
+
   it('lists what the same session looked like last time', () => {
     renderView();
 
     const panel = screen.getByTestId('session-side-panel');
-    expect(within(panel).getByText('100 · 5×3')).toBeInTheDocument();
+    expect(within(panel).getByText('100 kg · 5×3')).toBeInTheDocument();
   });
 });

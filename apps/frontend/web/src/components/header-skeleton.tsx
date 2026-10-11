@@ -1,11 +1,11 @@
+/** Placeholder for the ScreenHeader (kicker + display title) while a route chunk loads. */
 export function HeaderSkeleton(): React.ReactNode {
   return (
-    <header className="flex items-center justify-between px-5 sm:px-8 py-3.5 bg-header border-b border-rule">
-      <div className="flex items-center gap-3">
-        <div className="w-7 h-7 rounded-full bg-rule animate-pulse" />
-        <div className="h-3.5 w-48 bg-rule rounded animate-pulse" />
+    <header className="px-5 pt-6 sm:px-8 sm:pt-8">
+      <div className="mx-auto flex max-w-3xl flex-col gap-3">
+        <div className="h-2.5 w-20 animate-pulse rounded bg-rule" />
+        <div className="h-8 w-48 animate-pulse rounded bg-rule" />
       </div>
-      <div className="w-8 h-8 rounded-full bg-rule animate-pulse" />
     </header>
   );
 }

@@ -22,36 +22,49 @@ test.describe('Tracker visual polish', () => {
 
     const edit = page.getByTestId('session-chrome-edit-weights');
     await expect(edit).toBeVisible();
-    // Gold accent border must not be used on this secondary control.
+    // Gold must not be used on this secondary control.
     const className = (await edit.getAttribute('class')) ?? '';
-    expect(className).toContain('border-rule');
     expect(className).not.toContain('border-accent');
+    expect(className).not.toContain('bg-accent');
     expect(className).not.toContain('text-accent');
   });
 
-  test('session chrome is the only band above the exercises', async ({ page }) => {
-    await expect(page.getByTestId('session-chrome')).toBeVisible();
+  test('session header is the only band above the exercises', async ({ page }) => {
+    const chrome = page.getByTestId('session-chrome');
+    await expect(chrome).toBeVisible();
+    await expect(chrome.getByRole('heading', { level: 1 })).toHaveText('GZCLP');
+    await expect(chrome.getByRole('button', { name: 'Semana 1', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(chrome.getByRole('button', { name: 'Día 1', exact: true })).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
     // No separate weights pill, day pill or Programa/Estadísticas tablist survives.
     await expect(page.getByTestId('weights-pill')).toHaveCount(0);
     await expect(page.locator('#panel-program').getByRole('tablist')).toHaveCount(0);
     await expect(page.getByRole('tab', { name: /estad[ií]sticas/i })).toHaveCount(0);
-    const box = await page.getByTestId('session-chrome').boundingBox();
-    expect(box?.height).toBeLessThanOrEqual(120);
+    // Name, position, week chips and day selector still leave the first lift above the fold.
+    const box = await chrome.boundingBox();
+    expect(box?.height).toBeLessThanOrEqual(300);
   });
 
-  test('set tables are width-capped with fixed layout for dense columns', async ({ page }) => {
-    const table = page.getByTestId('slot-set-table').first();
-    await expect(table).toBeVisible();
-    const box = await table.boundingBox();
-    expect(box).not.toBeNull();
-    // max-w-[20rem] ≈ 320px; allow a little headroom for zoom/subpixel.
-    expect(box!.width).toBeLessThanOrEqual(340);
+  test('set rows offer weight, reps and a confirm for the next set only', async ({ page }) => {
+    const sets = page.getByTestId('slot-set-table').first();
+    await expect(sets.getByRole('spinbutton', { name: 'Peso serie 1' })).toBeEnabled();
+    await expect(sets.getByRole('spinbutton', { name: 'Reps serie 1' })).toHaveValue('3');
+    await expect(sets.getByRole('spinbutton', { name: 'Peso serie 2' })).toBeDisabled();
+    await expect(sets.getByRole('button', { name: 'Confirmar serie 2' })).toBeDisabled();
 
-    const tableLayout = await table.evaluate((el) => getComputedStyle(el).tableLayout);
-    expect(tableLayout).toBe('fixed');
+    // The lifter can log a load other than the planned one.
+    await sets.getByRole('spinbutton', { name: 'Peso serie 1' }).fill('62.5');
+    await sets.getByRole('button', { name: 'Confirmar serie 1' }).click();
+    await expect(sets).toContainText('62.5 kg');
+    await expect(sets.getByRole('spinbutton', { name: 'Peso serie 2' })).toBeEnabled();
   });
 
-  test('desktop exercises use the available width without stretching set tables', async ({
+  test('desktop exercises use three columns and set rows stay inside their card', async ({
     page,
   }) => {
     const grid = page.getByTestId('detailed-day-grid');
@@ -60,9 +73,11 @@ test.describe('Tracker visual polish', () => {
     );
     expect(columns).toHaveLength(3);
 
-    const table = page.getByTestId('slot-set-table').first();
-    const box = await table.boundingBox();
-    expect(box?.width).toBeLessThanOrEqual(340);
+    const overflow = await page
+      .getByTestId('slot-set-table')
+      .first()
+      .evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(overflow).toBe(0);
   });
 
   test('week navigation stays compact and follows the selected workout', async ({ page }) => {
@@ -94,7 +109,7 @@ test.describe('Tracker visual polish', () => {
 
   test('day progress fills as lifts are resolved', async ({ page }) => {
     const bar = page.getByRole('progressbar').first();
-    await expect(bar).toContainText(/0\/\d+/);
+    await expect(bar).toContainText(/0 de \d+ ejercicios/);
 
     // Confirm every set of day 1.
     for (let i = 0; i < 20; i++) {
@@ -178,7 +193,7 @@ test.describe('Tracker visual polish', () => {
         await skip.click().catch(() => {});
       }
     }
-    await expect(page.getByRole('progressbar').first()).toContainText(/(\d+)\//);
+    await expect(page.getByRole('progressbar').first()).toContainText(/\d+ de \d+/);
     // Neither the Sensei tip nor the "about this program" block belongs in a session.
     const panel = page.locator('#panel-program');
     await expect(panel.getByLabel('Consejo del Sensei')).toHaveCount(0);

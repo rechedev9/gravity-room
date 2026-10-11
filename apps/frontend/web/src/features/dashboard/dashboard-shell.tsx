@@ -30,7 +30,7 @@ export function DashboardShell({
   recent,
 }: DashboardShellProps): React.ReactNode {
   return (
-    <StaggerContainer className="flex flex-col gap-6 max-w-5xl mx-auto px-4 sm:px-6 py-6">
+    <StaggerContainer className="flex flex-col gap-6 max-w-5xl mx-auto px-5 sm:px-6 py-6">
       {mentor}
       <StaggerItem>{hero}</StaggerItem>
       {kpi != null ? <StaggerItem>{kpi}</StaggerItem> : null}

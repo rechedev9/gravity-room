@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import type { InsightItem } from '@/lib/api-functions';
 import { isRecommendationPayload } from '@/lib/insight-payloads';
+import { insightSeriesLabel } from '@/lib/insight-series-label';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 interface LoadRecommendationProps {
   readonly insight: InsightItem;
@@ -12,10 +14,14 @@ export function LoadRecommendation({
   exerciseName,
 }: LoadRecommendationProps): React.ReactNode {
   const { t } = useTranslation();
+  const { format } = useUnitPreference();
   const payload = insight.payload;
   if (!isRecommendationPayload(payload)) return null;
 
-  const name = exerciseName ?? insight.exerciseId ?? t('insights.load_rec.default_exercise');
+  const name =
+    exerciseName ??
+    (insight.exerciseId === null ? null : insightSeriesLabel(insight.exerciseId)) ??
+    t('insights.load_rec.default_exercise');
   const confidencePct = Math.round(payload.confidence * 100);
   const isML = payload.method === 'logistic_regression';
   const actionLabel = payload.shouldIncrement
@@ -24,8 +30,8 @@ export function LoadRecommendation({
 
   return (
     <div
-      className="bg-card border border-rule card p-5"
-      aria-label={`${name}: ${actionLabel} ${t('insights.load_rec.from')} ${payload.currentWeight}kg ${t('insights.load_rec.to')} ${payload.recommendedWeight}kg`}
+      className="bg-card rounded-card border border-rule card p-5"
+      aria-label={`${name}: ${actionLabel} ${t('insights.load_rec.from')} ${format(payload.currentWeight)} ${t('insights.load_rec.to')} ${format(payload.recommendedWeight)}`}
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-mono text-[10px] font-bold text-muted uppercase tracking-widest">
@@ -40,7 +46,7 @@ export function LoadRecommendation({
           <p className="font-mono text-[9px] text-muted uppercase tracking-widest mb-1">
             {t('insights.load_rec.current_load_label')}
           </p>
-          <p className="font-display-data text-2xl text-muted">{payload.currentWeight} kg</p>
+          <p className="font-display-data text-2xl text-muted">{format(payload.currentWeight)}</p>
         </div>
         <svg
           className={`w-5 h-5 shrink-0 ${payload.shouldIncrement ? 'text-accent animate-pulse' : 'text-muted'}`}
@@ -64,7 +70,7 @@ export function LoadRecommendation({
           <p
             className={`font-display-data text-2xl ${payload.shouldIncrement ? 'text-main' : 'text-title'}`}
           >
-            {payload.recommendedWeight} kg
+            {format(payload.recommendedWeight)}
           </p>
         </div>
       </div>

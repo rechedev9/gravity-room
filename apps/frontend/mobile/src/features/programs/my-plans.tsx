@@ -2,8 +2,10 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from '
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import type { ProgramSummary } from '../../lib/programs/program-repository';
-import { colors, spacing, type } from '../../shell/design';
+import { type } from '../../shell/design';
+import { colors, spacing } from '@gzclp/design-tokens';
 import { Screen } from '../../ui/screen';
+import { ScreenHeader } from '../../ui/screen-header';
 import { Button } from '../../ui/button';
 import { IconButton } from '../../ui/icon-button';
 import { ProgramArtwork } from '../../ui/program-artwork';
@@ -46,23 +48,23 @@ export function MyPlans({
   };
   const header = (
     <View style={styles.header}>
-      <View style={styles.topLine}>
-        <Text style={styles.eyebrow}>{t('plans.eyebrow')}</Text>
-        {onExplore ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('plans.explore')}
-            onPress={onExplore}
-            style={styles.add}
-          >
-            <Ionicons accessible={false} name="add" color={colors.textPrimary} size={23} />
-          </Pressable>
-        ) : null}
-      </View>
-      <Text accessibilityRole="header" style={styles.title}>
-        {t('programs.title')}
-      </Text>
-      <Text style={styles.intro}>{t('plans.intro')}</Text>
+      <ScreenHeader
+        eyebrow={t('plans.eyebrow')}
+        title={t('programs.title')}
+        subtitle={t('plans.intro')}
+        trailing={
+          onExplore ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('plans.explore')}
+              onPress={onExplore}
+              style={({ pressed }) => [styles.add, pressed && styles.pressed]}
+            >
+              <Ionicons accessible={false} name="add" color={colors.textPrimary} size={23} />
+            </Pressable>
+          ) : null
+        }
+      />
       {loading ? <ActivityIndicator color={colors.accent} /> : null}
       {error || syncNotice ? (
         <View style={styles.notice}>
@@ -214,8 +216,6 @@ export function MyPlans({
 const styles = StyleSheet.create({
   content: { padding: 20, gap: 12, paddingBottom: spacing.tabClearance },
   header: { gap: 12 },
-  topLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  eyebrow: { ...type.kicker, color: colors.accent, letterSpacing: 2 },
   add: {
     width: 44,
     height: 44,
@@ -226,7 +226,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  title: { ...type.display, fontSize: 34, lineHeight: 40 },
   intro: { ...type.body, fontSize: 14, lineHeight: 21 },
   feature: {
     marginTop: 12,

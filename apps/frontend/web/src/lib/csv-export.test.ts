@@ -98,7 +98,7 @@ describe('generateProgramCsv — workoutsPerWeek boundary', () => {
   it('workoutsPerWeek=0 falls back to 1 (fixed)', () => {
     // safeWpw = Math.max(1, 0) = 1 → week = Math.floor(index / 1) + 1
     const rows = [makeRow(0, 'Day A', [makeSlot()])];
-    const csv = generateProgramCsv(rows, 0);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 0 });
     const lines = csv.split('\n');
     expect(lines).toHaveLength(2);
     expect(lines[1]!.split(',')[0]).toBe('1');
@@ -106,7 +106,7 @@ describe('generateProgramCsv — workoutsPerWeek boundary', () => {
 
   it('workoutsPerWeek=0 with index≥1 falls back to 1 (fixed)', () => {
     const rows = [makeRow(1, 'Day B', [makeSlot()])];
-    const csv = generateProgramCsv(rows, 0);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 0 });
     const weekValue = csv.split('\n')[1]!.split(',')[0];
     // safeWpw=1 → week = Math.floor(1/1)+1 = 2
     expect(weekValue).toBe('2');
@@ -118,7 +118,7 @@ describe('generateProgramCsv — workoutsPerWeek boundary', () => {
       makeRow(1, 'Day A', [makeSlot()]),
       makeRow(2, 'Day A', [makeSlot()]),
     ];
-    const csv = generateProgramCsv(rows, 1);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 1 });
     const lines = csv.split('\n');
     expect(lines[1]!.split(',')[0]).toBe('1'); // workout 0 → week 1
     expect(lines[2]!.split(',')[0]).toBe('2'); // workout 1 → week 2
@@ -128,7 +128,7 @@ describe('generateProgramCsv — workoutsPerWeek boundary', () => {
   it('workoutsPerWeek=-1 falls back to 1 (fixed)', () => {
     // safeWpw = Math.max(1, -1) = 1 → weeks increment normally
     const rows = [makeRow(0, 'Day A', [makeSlot()]), makeRow(1, 'Day A', [makeSlot()])];
-    const csv = generateProgramCsv(rows, -1);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: -1 });
     const lines = csv.split('\n');
     const week1 = Number(lines[1]!.split(',')[0]);
     const week2 = Number(lines[2]!.split(',')[0]);
@@ -138,7 +138,7 @@ describe('generateProgramCsv — workoutsPerWeek boundary', () => {
 
   it('workoutsPerWeek=3 groups workouts correctly', () => {
     const rows = Array.from({ length: 9 }, (_, i) => makeRow(i, 'Day', [makeSlot()]));
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     const lines = csv.split('\n');
     // Workouts 0,1,2 → week 1
     expect(lines[1]!.split(',')[0]).toBe('1');
@@ -157,14 +157,14 @@ describe('generateProgramCsv — workoutsPerWeek boundary', () => {
 
 describe('generateProgramCsv — empty inputs', () => {
   it('empty rows produces header only', () => {
-    const csv = generateProgramCsv([], 3);
+    const csv = generateProgramCsv({ rows: [], workoutsPerWeek: 3 });
     expect(csv).toBe(HEADER);
     expect(csv.split('\n')).toHaveLength(1);
   });
 
   it('row with no slots produces no data lines', () => {
     const rows = [makeRow(0, 'Rest Day', [])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     expect(csv).toBe(HEADER);
   });
 
@@ -174,7 +174,7 @@ describe('generateProgramCsv — empty inputs', () => {
       makeRow(1, 'Day A', [makeSlot({ exerciseName: 'Squat' })]),
       makeRow(2, 'Rest', []),
     ];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     const lines = csv.split('\n');
     expect(lines).toHaveLength(2); // header + 1 data line
     expect(lines[1]).toContain('Squat');
@@ -188,40 +188,40 @@ describe('generateProgramCsv — empty inputs', () => {
 describe('generateProgramCsv — CSV field escaping', () => {
   it('exercise name with comma is wrapped in double quotes', () => {
     const rows = [makeRow(0, 'Day A', [makeSlot({ exerciseName: 'Bench, Incline' })])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     const dataLine = csv.split('\n')[1]!;
     expect(dataLine).toContain('"Bench, Incline"');
   });
 
   it('exercise name with double quote escapes the quote', () => {
     const rows = [makeRow(0, 'Day A', [makeSlot({ exerciseName: 'Pull"Up' })])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     const dataLine = csv.split('\n')[1]!;
     expect(dataLine).toContain('"Pull""Up"');
   });
 
   it('exercise name with newline is wrapped in double quotes', () => {
     const rows = [makeRow(0, 'Day A', [makeSlot({ exerciseName: 'Over\nHead' })])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     // The field must be quoted when it contains a newline
     expect(csv).toContain('"Over\nHead"');
   });
 
   it('day name with comma is wrapped in double quotes', () => {
     const rows = [makeRow(0, 'Upper, Lower', [makeSlot()])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     expect(csv).toContain('"Upper, Lower"');
   });
 
   it('exercise name with both comma and quote is doubly escaped', () => {
     const rows = [makeRow(0, 'Day A', [makeSlot({ exerciseName: 'A "heavy", Squat' })])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     expect(csv).toContain('"A ""heavy"", Squat"');
   });
 
   it('plain field is not quoted', () => {
     const rows = [makeRow(0, 'Day A', [makeSlot({ exerciseName: 'Squat' })])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     const dataLine = csv.split('\n')[1]!;
     // Should appear unquoted between commas
     expect(dataLine).toContain(',Squat,');
@@ -249,7 +249,7 @@ describe('generateProgramCsv — CSV injection', () => {
   for (const name of injectionNames) {
     it(`neutralizes "${name.slice(0, 20)}..." as spreadsheet text`, () => {
       const rows = [makeRow(0, 'Day A', [makeSlot({ exerciseName: name })])];
-      const csv = generateProgramCsv(rows, 3);
+      const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
       expect(csv).toContain(`'${name}`.replace(/"/g, '""'));
       expect(csv).not.toContain(`,${name}`);
     });
@@ -288,27 +288,27 @@ describe('generateProgramCsv — unicode in fields', () => {
   it('emoji in exercise name round-trips correctly', () => {
     const name = '🏋️ Deadlift';
     const rows = [makeRow(0, 'Day A', [makeSlot({ exerciseName: name })])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     expect(csv).toContain(name);
   });
 
   it('RTL text (Arabic) in exercise name round-trips correctly', () => {
     const name = 'تمرين القرفصاء';
     const rows = [makeRow(0, 'Day A', [makeSlot({ exerciseName: name })])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     expect(csv).toContain(name);
   });
 
   it('ZWJ sequence in exercise name round-trips correctly', () => {
     const name = 'Lift\u200D\u200DPress'; // ZWJ joined
     const rows = [makeRow(0, 'Day A', [makeSlot({ exerciseName: name })])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     expect(csv).toContain(name);
   });
 
   it('null character in day name does not crash', () => {
     const rows = [makeRow(0, 'Day\x00A', [makeSlot()])];
-    expect(() => generateProgramCsv(rows, 3)).not.toThrow();
+    expect(() => generateProgramCsv({ rows: rows, workoutsPerWeek: 3 })).not.toThrow();
   });
 });
 
@@ -321,7 +321,7 @@ describe('generateProgramCsv — optional slot fields', () => {
     const rows = [
       makeRow(0, 'Day A', [makeSlot({ result: undefined, amrapReps: undefined, rpe: undefined })]),
     ];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     const dataLine = csv.split('\n')[1]!;
     // Last three columns: Result, AMRAP Reps, RPE — all empty
     expect(dataLine.endsWith(',,')).toBe(true);
@@ -329,13 +329,13 @@ describe('generateProgramCsv — optional slot fields', () => {
 
   it('defined result propagates to Result column', () => {
     const rows = [makeRow(0, 'Day A', [makeSlot({ result: 'success' })])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     expect(csv).toContain('success');
   });
 
   it('defined amrapReps appears in AMRAP Reps column', () => {
     const rows = [makeRow(0, 'Day A', [makeSlot({ amrapReps: 12 })])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     const dataLine = csv.split('\n')[1]!;
     const cols = dataLine.split(',');
     expect(cols[9]).toBe('12'); // AMRAP Reps column (0-indexed: 9)
@@ -343,7 +343,7 @@ describe('generateProgramCsv — optional slot fields', () => {
 
   it('defined rpe appears in RPE column', () => {
     const rows = [makeRow(0, 'Day A', [makeSlot({ rpe: 8 })])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     const dataLine = csv.split('\n')[1]!;
     const cols = dataLine.split(',');
     expect(cols[10]).toBe('8'); // RPE column
@@ -351,19 +351,19 @@ describe('generateProgramCsv — optional slot fields', () => {
 
   it('isAmrap=true appends + to reps label', () => {
     const rows = [makeRow(0, 'Day A', [makeSlot({ reps: 5, isAmrap: true })])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     expect(csv).toContain('5+');
   });
 
   it('repsMax defined produces range label (min-max)', () => {
     const rows = [makeRow(0, 'Day A', [makeSlot({ reps: 5, repsMax: 8, isAmrap: false })])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     expect(csv).toContain('5-8');
   });
 
   it('repsMax with isAmrap appends + to range', () => {
     const rows = [makeRow(0, 'Day A', [makeSlot({ reps: 5, repsMax: 8, isAmrap: true })])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     expect(csv).toContain('5-8+');
   });
 });
@@ -376,7 +376,7 @@ describe('generateProgramCsv — very long values', () => {
   it('exercise name of 100 000 chars does not crash', () => {
     const name = 'A'.repeat(100_000);
     const rows = [makeRow(0, 'Day A', [makeSlot({ exerciseName: name })])];
-    expect(() => generateProgramCsv(rows, 3)).not.toThrow();
+    expect(() => generateProgramCsv({ rows: rows, workoutsPerWeek: 3 })).not.toThrow();
   });
 
   it('1000 rows with 10 slots each produces correct line count', () => {
@@ -387,7 +387,7 @@ describe('generateProgramCsv — very long values', () => {
         Array.from({ length: 10 }, (_, j) => makeSlot({ slotId: `s${j}` }))
       )
     );
-    const csv = generateProgramCsv(rows, 5);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 5 });
     const lines = csv.split('\n');
     // 1 header + 1000 rows × 10 slots = 10 001 lines
     expect(lines).toHaveLength(10_001);
@@ -395,7 +395,7 @@ describe('generateProgramCsv — very long values', () => {
 
   it('tier.toUpperCase() is applied', () => {
     const rows = [makeRow(0, 'Day A', [makeSlot({ tier: 't1' })])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     expect(csv).toContain('T1');
   });
 });
@@ -407,7 +407,7 @@ describe('generateProgramCsv — very long values', () => {
 describe('generateProgramCsv — Workout column numbering', () => {
   it('Workout column is 1-indexed (row.index + 1)', () => {
     const rows = [makeRow(0, 'Day A', [makeSlot()]), makeRow(4, 'Day A', [makeSlot()])];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     const lines = csv.split('\n');
     expect(lines[1]!.split(',')[1]).toBe('1'); // index 0 → workout 1
     expect(lines[2]!.split(',')[1]).toBe('5'); // index 4 → workout 5
@@ -420,7 +420,7 @@ describe('generateProgramCsv — Workout column numbering', () => {
         makeSlot({ slotId: 's2', exerciseName: 'Bench' }),
       ]),
     ];
-    const csv = generateProgramCsv(rows, 3);
+    const csv = generateProgramCsv({ rows: rows, workoutsPerWeek: 3 });
     const lines = csv.split('\n');
     expect(lines).toHaveLength(3); // header + 2 slots
     const week1 = lines[1]!.split(',')[0];
@@ -429,5 +429,15 @@ describe('generateProgramCsv — Workout column numbering', () => {
     const workout1 = lines[1]!.split(',')[1];
     const workout2 = lines[2]!.split(',')[1];
     expect(workout1).toBe(workout2);
+  });
+});
+
+describe('generateProgramCsv: weight unit', () => {
+  it('labels the column and converts the weights when the unit is lbs', () => {
+    const rows = [makeRow(0, 'Day', [makeSlot({ weight: 60 })])];
+    const csv = generateProgramCsv({ rows, workoutsPerWeek: 3, unit: 'lbs' });
+    const [header, line] = csv.split('\n');
+    expect(header).toContain('Weight (lbs)');
+    expect(line.split(',')).toContain('132.28');
   });
 });

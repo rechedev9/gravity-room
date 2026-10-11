@@ -14,9 +14,9 @@ export function TrackerGuestEmpty(): React.ReactNode {
   return (
     <div className="min-h-dvh bg-body">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        <section className="bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-elevated)] p-8 sm:p-12 text-center">
+        <section className="bg-card border border-rule rounded-card shadow-[var(--shadow-elevated)] p-8 sm:p-12 text-center">
           <p className="chalk-stamp text-label">{t('tracker.guest_empty.stamp')}</p>
-          <h1 className="font-display text-4xl sm:text-6xl text-main my-4">
+          <h1 className="type-display-sm sm:type-display text-main my-4">
             {t('tracker.guest_empty.title')}
           </h1>
           <p className="text-muted mb-6 max-w-sm mx-auto leading-relaxed">

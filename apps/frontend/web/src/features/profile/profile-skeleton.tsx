@@ -8,7 +8,7 @@ export function ProfileSkeleton(): React.ReactNode {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="h-10 w-32 bg-rule rounded animate-pulse mb-6" />
 
-        <div className="bg-card border border-rule p-5 mb-6 animate-pulse">
+        <div className="bg-card rounded-card border border-rule p-5 mb-6 animate-pulse">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="h-3 w-16 bg-rule rounded mb-2" />
@@ -30,14 +30,14 @@ export function ProfileSkeleton(): React.ReactNode {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="bg-card border border-rule p-4 animate-pulse">
+            <div key={i} className="bg-card rounded-card border border-rule p-4 animate-pulse">
               <div className="h-3 w-20 bg-rule rounded mb-3" />
               <div className="h-7 w-14 bg-rule rounded" />
             </div>
           ))}
         </div>
 
-        <div className="bg-card border border-rule p-4 animate-pulse">
+        <div className="bg-card rounded-card border border-rule p-4 animate-pulse">
           <div className="h-4 w-40 bg-rule rounded mb-4" />
           <div className="h-48 w-full bg-rule rounded" />
         </div>

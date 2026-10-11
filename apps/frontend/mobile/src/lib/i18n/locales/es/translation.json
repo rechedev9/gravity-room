@@ -54,7 +54,10 @@
       "INVALID_CREDENTIALS": "Correo o contraseña incorrectos.",
       "EMAIL_NOT_VERIFIED": "Verifica tu correo antes de entrar. Revisa tu bandeja de entrada.",
       "EMAIL_TAKEN": "Ya existe una cuenta con este correo.",
+      "INVALID_TOKEN": "Este enlace no es válido o ha caducado.",
       "RATE_LIMITED": "Demasiados intentos. Inténtalo de nuevo más tarde.",
+      "NETWORK_ERROR": "No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.",
+      "EMAIL_NOT_CONFIGURED": "El inicio de sesión por correo no está disponible ahora mismo.",
       "VALIDATION_ERROR": "Revisa tus datos e inténtalo de nuevo.",
       "generic": "Algo salió mal. Inténtalo de nuevo."
     }
@@ -98,9 +101,9 @@
   },
   "profile": {
     "eyebrow": "Cuenta",
-    "title": "Perfil",
+    "title": "Más",
     "default_name": "Atleta de Gravity Room",
-    "session_note": "Tu sesión móvil se guarda de forma segura en este dispositivo.",
+    "session_note": "Tu sesión se guarda de forma segura en este dispositivo.",
     "sign_out": "Cerrar sesión",
     "signing_out": "Cerrando sesión...",
     "retry_sign_out": "Reintentar cierre de sesión",
@@ -124,6 +127,7 @@
     "next": "Siguiente",
     "next_accessibility": "Siguiente entrenamiento",
     "weight": "{{weight}} kg",
+    "bodyweight": "Peso corporal",
     "sets_reps": "{{sets}} x {{reps}}",
     "confirm_set": "Set {{index}} ✓",
     "set_indicators": {
@@ -158,7 +162,8 @@
     "notices": {
       "cached": "Mostrando el registro en caché mientras se sincroniza.",
       "manual_retry": "Guardado localmente. Este cambio no se sincronizará automáticamente.",
-      "draft_failed": "No se pudo guardar esta serie en el dispositivo. Inténtalo de nuevo."
+      "draft_failed": "No se pudo guardar esta serie en el dispositivo. Inténtalo de nuevo.",
+      "fail_not_counted": "La serie que cuenta para tu progresión ya estaba completada, así que se guardó como éxito y no como fallo."
     },
     "set_row": {
       "weight": "kg",
@@ -167,7 +172,10 @@
       "reps_accessibility": "Repeticiones de la serie {{index}} de {{name}}",
       "logged": "Serie {{index}}: {{reps}} repeticiones con {{weight}} kg",
       "logged_reps": "{{reps}} reps",
-      "logged_miss": "Serie {{index}}: {{reps}} reps con {{weight}} kg, por debajo del objetivo"
+      "missed": "Fallada",
+      "logged_miss": "Serie {{index}}: {{reps}} reps con {{weight}} kg, por debajo del objetivo",
+      "logged_bodyweight": "Serie {{index}}: {{reps}} reps",
+      "logged_miss_bodyweight": "Serie {{index}}: {{reps}} reps, por debajo del objetivo"
     },
     "session_position": "SEMANA {{week}} DÍA {{day}}",
     "week": "Semana {{week}}",
@@ -184,14 +192,15 @@
     "session_done": "Sesión completada",
     "next_time_title": "Próxima sesión",
     "next_workout": "Siguiente entrenamiento",
-    "undo_set": "Deshacer la última serie de {{name}}"
+    "undo_set": "Deshacer la última serie de {{name}}",
+    "undo_set_short": "Deshacer serie"
   },
   "rest": {
     "title": "Descanso",
     "complete": "Descanso terminado",
     "next_set": "Todo listo para tu siguiente serie.",
     "skip": "Omitir descanso",
-    "alert_unavailable": "Avisos en segundo plano no disponibles. El temporizador sigue activo."
+    "alert_unavailable": "Los avisos del descanso no están disponibles ahora. El temporizador sigue activo."
   },
   "ui": {
     "close": "Cerrar",
@@ -199,7 +208,86 @@
     "increase": "Aumentar {{label}}"
   },
   "exercises": {
-    "pending": "Tu biblioteca de ejercicios aparecerá aquí."
+    "eyebrow": "Biblioteca",
+    "title": "Ejercicios",
+    "search": "Buscar ejercicios",
+    "clear": "Borrar búsqueda",
+    "all": "Todos",
+    "filter_label": "Filtrar por grupo muscular",
+    "count_one": "{{count}} ejercicio",
+    "count_other": "{{count}} ejercicios",
+    "open": "Ver {{name}}",
+    "loading": "Cargando ejercicios",
+    "loading_more": "Cargando más ejercicios",
+    "empty_title": "Ningún ejercicio coincide",
+    "empty_body": "Prueba otro nombre u otro grupo muscular.",
+    "reset": "Quitar filtros",
+    "network_title": "Estás sin conexión",
+    "network_body": "La biblioteca necesita conexión. Tus entrenamientos siguen funcionando sin ella.",
+    "server_title": "No se pudieron cargar los ejercicios",
+    "server_body": "Algo falló por nuestra parte. Inténtalo de nuevo en un momento.",
+    "invalid_title": "No se pudieron leer los ejercicios",
+    "invalid_body": "La biblioteca respondió algo inesperado. Inténtalo de nuevo en un momento.",
+    "more_error": "No se pudieron cargar más ejercicios",
+    "detail": {
+      "muscle": "Grupo muscular",
+      "also_works": "También trabaja",
+      "equipment": "Equipamiento",
+      "level": "Nivel",
+      "mechanic": "Tipo",
+      "force": "Movimiento",
+      "category": "Categoría",
+      "custom": "Creado por ti",
+      "unspecified": "Sin especificar"
+    },
+    "muscle": {
+      "chest": "Pecho",
+      "back": "Espalda",
+      "shoulders": "Hombros",
+      "legs": "Piernas",
+      "arms": "Brazos",
+      "core": "Core",
+      "full_body": "Cuerpo completo",
+      "calves": "Gemelos"
+    },
+    "equipment": {
+      "barbell": "Barra",
+      "dumbbell": "Mancuerna",
+      "cable": "Polea",
+      "machine": "Máquina",
+      "body_only": "Peso corporal",
+      "bodyweight": "Peso corporal",
+      "other": "Otro",
+      "kettlebells": "Kettlebell",
+      "bands": "Bandas",
+      "e_z_curl_bar": "Barra Z",
+      "exercise_ball": "Pelota de ejercicio",
+      "medicine_ball": "Balón medicinal"
+    },
+    "level": {
+      "beginner": "Principiante",
+      "intermediate": "Intermedio",
+      "advanced": "Avanzado",
+      "expert": "Experto"
+    },
+    "mechanic": {
+      "compound": "Compuesto",
+      "isolation": "Aislamiento"
+    },
+    "force": {
+      "pull": "Tirón",
+      "push": "Empuje",
+      "static": "Estático"
+    },
+    "category": {
+      "strength": "Fuerza",
+      "powerlifting": "Powerlifting",
+      "olympic_weightlifting": "Halterofilia",
+      "strongman": "Strongman",
+      "stretching": "Estiramiento",
+      "cardio": "Cardio",
+      "plyometrics": "Pliometría"
+    }
   },
   "discovery": {
     "title": "Encuentra tu próximo programa",
@@ -240,7 +328,7 @@
   },
   "sync": {
     "offline": "Estás sin conexión",
-    "offline_detail": "Puedes continuar con tus entrenamientos guardados.",
+    "offline_detail": "Sigue entrenando. Las series que registres se guardan en este dispositivo y se sincronizan al volver la conexión.",
     "pending_one": "1 cambio pendiente de sincronizar",
     "pending_other": "{{count}} cambios pendientes de sincronizar",
     "pending_detail": "Guardados en este dispositivo. Reintentaremos automáticamente.",
@@ -262,5 +350,59 @@
       "below_min": "Al menos {{min}} kg",
       "above_max": "Como máximo {{max}} kg"
     }
+  },
+  "settings": {
+    "sections": {
+      "preferences": "Preferencias",
+      "sync": "Sincronización",
+      "about": "Acerca de"
+    },
+    "language": {
+      "label": "Idioma",
+      "hint": "Menús y mensajes. Los nombres de programas y ejercicios conservan el idioma en que están escritos.",
+      "system": "Dispositivo",
+      "en": "English",
+      "es": "Español"
+    },
+    "rest_alerts": {
+      "label": "Avisos del descanso",
+      "on": "Un sonido y una notificación cuando termina el descanso, aunque la pantalla esté apagada.",
+      "off": "Desactivados. El temporizador sigue contando en pantalla.",
+      "blocked": "Las notificaciones están bloqueadas para Gravity Room, así que no sonará ningún aviso. Permítelas en los ajustes del sistema.",
+      "open_settings": "Abrir ajustes",
+      "askable": "Esperando el permiso de notificaciones. Sin él no sonará ningún aviso.",
+      "allow": "Permitir notificaciones",
+      "unsupported": "No disponible en este dispositivo."
+    },
+    "sync": {
+      "status": "Estado",
+      "synced": "Todos los cambios guardados",
+      "pending_one": "1 cambio pendiente de sincronizar",
+      "pending_other": "{{count}} cambios pendientes de sincronizar",
+      "attention": "Necesita atención",
+      "offline": "Sin conexión",
+      "unavailable": "No disponible",
+      "last": "Última sincronización",
+      "never": "Aún no en esta sesión",
+      "just_now": "Ahora mismo",
+      "minutes_one": "Hace 1 minuto",
+      "minutes_other": "Hace {{count}} minutos",
+      "hours_one": "Hace 1 hora",
+      "hours_other": "Hace {{count}} horas",
+      "now": "Sincronizar ahora"
+    },
+    "about": {
+      "version": "Versión",
+      "account": "Gestionar cuenta en la web",
+      "account_hint": "Cambia tu nombre o elimina tu cuenta.",
+      "privacy": "Política de privacidad",
+      "open_failed": "No se pudo abrir el enlace. Inténtalo desde tu navegador."
+    }
+  },
+  "rest_prompt": {
+    "title": "Recibe un aviso cuando acabe el descanso",
+    "body": "Permite las notificaciones para que el temporizador te avise entre series, aunque la pantalla esté apagada. Puedes cambiarlo en Más.",
+    "enable": "Activar avisos",
+    "later": "Ahora no"
   }
 }
