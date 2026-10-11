@@ -37,7 +37,10 @@ export function ProgramCompletionScreen({
   }, [onBackToDashboard]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] bg-body overflow-y-auto">
+    <div
+      data-testid="program-completion-screen"
+      className="fixed inset-0 z-[100] bg-body overflow-y-auto"
+    >
       <div className="max-w-2xl mx-auto px-5 sm:px-8 py-12 sm:py-20">
         {/* Celebration header */}
         <div className="text-center mb-12">

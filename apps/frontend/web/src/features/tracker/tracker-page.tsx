@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -42,8 +42,13 @@ export function TrackerPage(): React.ReactNode {
 
   // Fallback chain: URL param → context → guest storage → active program from API
   const activeProgram = programsQuery.data?.find((p) => p.status === 'active');
-  const effectiveProgramId =
+  const resolvedProgramId =
     programIdParam ?? ctxProgramId ?? guestProgramId ?? activeProgram?.programId;
+  // Finishing a program leaves nothing active: keep the tracker mounted on the program it was
+  // showing, so the completion screen can render instead of bouncing home mid-flow.
+  const lastProgramIdRef = useRef(resolvedProgramId);
+  if (resolvedProgramId !== undefined) lastProgramIdRef.current = resolvedProgramId;
+  const effectiveProgramId = resolvedProgramId ?? lastProgramIdRef.current;
 
   const storedName =
     programsQuery.data?.find((p) => p.id === instanceId)?.name ?? activeProgram?.name ?? null;
