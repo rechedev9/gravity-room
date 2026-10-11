@@ -84,6 +84,23 @@ export async function createVerifiedPasswordUser(
     throw new Error(`Dev password user seed failed: ${res.status()} ${await res.text()}`);
 }
 
+interface CreateProgramInput {
+  readonly accessToken: string;
+  readonly programId: string;
+  readonly config: Readonly<Record<string, number>>;
+}
+
+/** Creates any catalog program via the API. Returns the program instance ID. */
+export async function createProgramById(page: Page, input: CreateProgramInput): Promise<string> {
+  const res = await page.request.post(`${BASE_URL}/api/programs`, {
+    headers: { Authorization: `Bearer ${input.accessToken}` },
+    data: { programId: input.programId, name: 'Test Program', config: input.config },
+  });
+  if (!res.ok()) throw new Error(`Create program failed: ${res.status()}`);
+  const body = (await res.json()) as { id: string };
+  return body.id;
+}
+
 /**
  * Creates a GZCLP program via the API. Returns the program instance ID.
  */

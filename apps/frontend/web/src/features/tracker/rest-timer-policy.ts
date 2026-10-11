@@ -1,3 +1,5 @@
+import { plannedPrescriptionSets } from '@gzclp/domain/generic-engine';
+
 /** Default rest between accessory / unknown-role sets (seconds). */
 export const DEFAULT_REST_SECONDS = 90;
 
@@ -27,7 +29,7 @@ export function plannedConfirmableSets(slot: {
 }): number {
   const prescriptions = slot.prescriptions;
   if (prescriptions !== undefined && prescriptions.length > 0) {
-    return prescriptions.reduce((sum, entry) => sum + entry.sets, 0);
+    return plannedPrescriptionSets(prescriptions);
   }
   return slot.sets;
 }

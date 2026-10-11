@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   computeGenericProgram,
+  deriveResultFromPrescriptionLogs,
   deriveResultFromSetLogs,
   deriveResultFromSetLogsSimple,
+  plannedPrescriptionSets,
   roundToNearest,
 } from './generic-engine';
 import type { GenericResults } from './schemas/instance';
@@ -792,5 +794,31 @@ describe('progression rule variants', () => {
     expect(slot?.prescriptions).toHaveLength(3);
     expect(slot?.prescriptions?.[0]?.weight).toBe(140);
     expect(slot?.prescriptions?.[1]?.weight).toBe(160);
+  });
+});
+
+describe('deriveResultFromPrescriptionLogs', () => {
+  const ladder = [
+    { percent: 60, reps: 3, sets: 2, weight: 120 },
+    { percent: 90, reps: 1, sets: 2, weight: 180 },
+  ];
+
+  it('counts every group of the ladder as a planned set', () => {
+    expect(plannedPrescriptionSets(ladder)).toBe(4);
+  });
+
+  it('has no result until every planned set is logged', () => {
+    expect(deriveResultFromPrescriptionLogs(undefined, ladder)).toBeUndefined();
+    expect(deriveResultFromPrescriptionLogs([{ reps: 3 }, { reps: 3 }], ladder)).toBeUndefined();
+  });
+
+  it('judges each set against the reps of its own group', () => {
+    const logs = [{ reps: 3 }, { reps: 3 }, { reps: 1 }, { reps: 1 }];
+    expect(deriveResultFromPrescriptionLogs(logs, ladder)).toBe('success');
+    expect(deriveResultFromSetLogsSimple(logs, 1)).toBe('success');
+    expect(deriveResultFromPrescriptionLogs([{ reps: 2 }, ...logs.slice(1)], ladder)).toBe('fail');
+    expect(deriveResultFromPrescriptionLogs([...logs.slice(0, 3), { reps: 0 }], ladder)).toBe(
+      'fail'
+    );
   });
 });

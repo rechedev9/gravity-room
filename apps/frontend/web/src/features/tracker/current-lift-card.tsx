@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GenericSlotRow, SetLogEntry } from '@gzclp/domain/types';
 import { localizedExerciseName } from '@/lib/catalog-display';
-import { SetIndicators } from '@/features/program-view/set-indicators';
+import { RepsAdjuster, SetIndicators } from '@/features/program-view/set-indicators';
 import { SlotResultFooter } from '@/features/program-view/slot-result-footer';
 import { SlotCardShell } from '@/features/program-view/slot-card-shell';
 import type { SlotActions } from '@/features/program-view/day-view';
@@ -46,6 +46,10 @@ export function CurrentLiftCard({
   const isTestSlot = slot.isTestSlot === true;
   const supportsSetFlow = !hasPrescriptions && !isGpp && !isTestSlot && onSetTap !== undefined;
   const nextSetIndex = setLogs?.length ?? 0;
+  const isAmrapSet = slot.isAmrap && nextSetIndex === slot.sets - 1;
+  // The AMRAP set logs what the lifter did; it starts at the target so a plain hit is one tap.
+  const [amrapEdit, setAmrapEdit] = useState<{ slotId: string; reps: number } | null>(null);
+  const amrapReps = amrapEdit?.slotId === slot.slotId ? amrapEdit.reps : slot.reps;
   const showWeight = !isGpp && slot.isBodyweight !== true && slot.weight > 0;
 
   return (
@@ -84,12 +88,35 @@ export function CurrentLiftCard({
 
         {supportsSetFlow && onSetTap ? (
           <div className="flex w-full items-center gap-2 sm:w-auto">
+            {isAmrapSet && (
+              <div
+                role="group"
+                aria-label={t('tracker.set_stepper.group_aria_amrap', {
+                  index: nextSetIndex + 1,
+                  total: slot.sets,
+                })}
+                className="inline-flex items-center gap-1.5"
+              >
+                <RepsAdjuster
+                  reps={amrapReps}
+                  onChange={(reps) => setAmrapEdit({ slotId: slot.slotId, reps })}
+                />
+              </div>
+            )}
             <button
               type="button"
               data-testid="current-lift-confirm-set"
-              onClick={() => onSetTap(workoutIndex, slot.slotId, nextSetIndex, slot.reps)}
+              onClick={() => {
+                onSetTap(
+                  workoutIndex,
+                  slot.slotId,
+                  nextSetIndex,
+                  isAmrapSet ? amrapReps : slot.reps
+                );
+                setAmrapEdit(null);
+              }}
               style={{ boxShadow: 'var(--shadow-pressed-steel)' }}
-              className="type-button h-12 flex-1 rounded-control bg-accent px-7 text-on-accent cursor-pointer transition-[transform,background-color] duration-[var(--duration-press)] ease-[var(--ease-press)] hover:bg-accent-hover active:translate-y-px sm:flex-none"
+              className="type-button h-12 flex-1 rounded-control bg-accent px-4 text-on-accent whitespace-nowrap sm:px-7 cursor-pointer transition-[transform,background-color] duration-[var(--duration-press)] ease-[var(--ease-press)] hover:bg-accent-hover active:translate-y-px sm:flex-none"
             >
               {t('tracker.current_lift.confirm_set', { index: nextSetIndex + 1 })}
             </button>
