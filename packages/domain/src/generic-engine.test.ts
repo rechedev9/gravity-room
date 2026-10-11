@@ -560,6 +560,48 @@ describe('GZCLP progression rules', () => {
     expect(slotAt(rows, 8, 'd1-t1').isDeload).toBe(false);
   });
 
+  it('does not flag a planned lighter percentage set that shares its tier with a heavier one', () => {
+    const percentSlot = { ...BASE_SLOT, onSuccess: { type: 'no_change' as const } };
+    const definition: ProgramDefinition = {
+      ...BASE_DEFINITION,
+      totalWorkouts: 3,
+      days: [
+        {
+          name: 'Day A',
+          slots: [
+            { ...percentSlot, id: 'work', trainingMaxKey: 'squat_tm', tmPercent: 0.75 },
+            { ...percentSlot, id: 'amrap', trainingMaxKey: 'squat_tm', tmPercent: 0.85 },
+          ],
+        },
+      ],
+    };
+    const rows = computeGenericProgram(definition, { squat_tm: 100 }, {});
+
+    expect(slotAt(rows, 1, 'work').weight).toBe(75);
+    expect(slotAt(rows, 0, 'amrap').weight).toBe(85);
+    expect(rows.flatMap((r) => r.slots).filter((s) => s.isDeload)).toEqual([]);
+  });
+
+  it('does not flag a slot whose own percentage drops when its wave restarts', () => {
+    const percentSlot = {
+      ...BASE_SLOT,
+      onSuccess: { type: 'no_change' as const },
+      trainingMaxKey: 'squat_tm',
+    };
+    const definition: ProgramDefinition = {
+      ...BASE_DEFINITION,
+      totalWorkouts: 4,
+      days: [
+        { name: 'Week 1', slots: [{ ...percentSlot, tmPercent: 0.65 }] },
+        { name: 'Week 2', slots: [{ ...percentSlot, tmPercent: 0.75 }] },
+      ],
+    };
+    const rows = computeGenericProgram(definition, { squat_tm: 100 }, {});
+
+    expect(rows.map((r) => slotAt(rows, r.index, 'squat-t1').weight)).toEqual([65, 75, 65, 75]);
+    expect(rows.flatMap((r) => r.slots).filter((s) => s.isDeload)).toEqual([]);
+  });
+
   it('advances T1 stage on mid-stage fail without changing weight', () => {
     const results: GenericResults = {
       '0': daySuccess(0, { t1: 'fail' }),
