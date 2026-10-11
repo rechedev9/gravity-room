@@ -68,5 +68,7 @@ that carries the weight (`fonts.bodyBold`). Every text style must spread a `type
 
 A Fail pressed after some sets keeps them and closes the slot with a missed set of 0 reps,
 which is how the domain derives a failure from set logs. A recorded result ends the rest
-timer, and undoing a closed slot returns every set but the closing one as drafts. Bodyweight
+timer, and undoing a closed slot returns every set but the closing one as drafts. When the domain reads the sets as a success anyway (a program whose progression set already passed,
+such as PPL double progression), the sets are kept without the invented miss, the slot is saved as a
+success and the lifter sees a notice; undoing it returns every lifted set. Bodyweight
 slots (`isBodyweight`) show "Bodyweight", log reps only and add nothing to logged volume.

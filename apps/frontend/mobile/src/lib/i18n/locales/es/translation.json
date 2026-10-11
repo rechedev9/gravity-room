@@ -162,7 +162,8 @@
     "notices": {
       "cached": "Mostrando el registro en caché mientras se sincroniza.",
       "manual_retry": "Guardado localmente. Este cambio no se sincronizará automáticamente.",
-      "draft_failed": "No se pudo guardar esta serie en el dispositivo. Inténtalo de nuevo."
+      "draft_failed": "No se pudo guardar esta serie en el dispositivo. Inténtalo de nuevo.",
+      "fail_not_counted": "La serie que cuenta para tu progresión ya estaba completada, así que se guardó como éxito y no como fallo."
     },
     "set_row": {
       "weight": "kg",

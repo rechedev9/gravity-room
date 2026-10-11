@@ -1,5 +1,6 @@
 import {
   appendSetLog,
+  draftsAfterUndo,
   nextSetIndex,
   popSetLog,
   slotLogKey,
@@ -44,5 +45,17 @@ describe('tracker set logging', () => {
     ]);
     expect(withMissedSet([{ reps: 3 }], 60)).toEqual([{ reps: 3 }, { reps: 0, weight: 60 }]);
     expect(logs).toHaveLength(1);
+  });
+
+  it('returns every set as a draft only when a success closed the slot before all sets were lifted', () => {
+    const logs = [
+      { reps: 12, weight: 40 },
+      { reps: 8, weight: 40 },
+    ];
+
+    expect(draftsAfterUndo({ logs, result: 'success', sets: 3 })).toEqual(logs);
+    expect(draftsAfterUndo({ logs, result: 'success', sets: 2 })).toEqual([logs[0]]);
+    expect(draftsAfterUndo({ logs, result: 'fail', sets: 3 })).toEqual([logs[0]]);
+    expect(draftsAfterUndo({ logs, result: 'success', sets: undefined })).toEqual([logs[0]]);
   });
 });

@@ -162,7 +162,8 @@
     "notices": {
       "cached": "Showing cached tracker data while sync catches up.",
       "manual_retry": "Saved locally. This change won't sync automatically.",
-      "draft_failed": "Could not save this set on your device. Please try again."
+      "draft_failed": "Could not save this set on your device. Please try again.",
+      "fail_not_counted": "The set that counts for your progression was already completed, so this was saved as a success, not a fail."
     },
     "set_row": {
       "weight": "kg",
