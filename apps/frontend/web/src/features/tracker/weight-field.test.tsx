@@ -38,7 +38,7 @@ describe('WeightField', () => {
     localStorage.setItem('gravity-room:unit-preference', 'lbs');
     const onChange = renderField('100');
     const input = screen.getByRole('spinbutton');
-    expect((input as HTMLInputElement).value).toBe('220.5');
+    expect((input as HTMLInputElement).value).toBe('220.46');
 
     fireEvent.change(input, { target: { value: '135' } });
 

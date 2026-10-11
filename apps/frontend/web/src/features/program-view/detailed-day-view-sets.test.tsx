@@ -110,7 +110,7 @@ describe('DetailedDayView set rows', () => {
     const { onSetTap } = renderDay([slot()]);
 
     const weight = screen.getByRole('spinbutton', { name: 'Peso serie 1' });
-    expect(weight).toHaveValue(220.5);
+    expect(weight).toHaveValue(220.46);
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar serie 1' }));
     expect(onSetTap).toHaveBeenLastCalledWith(2, 'a-t1', 0, 5, 100);
 
