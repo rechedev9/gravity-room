@@ -56,3 +56,17 @@ logged: only `useRestAlerts` may open the system dialog, and only from an explic
 the workout invitation or the More switch, after the in-app rationale. The exercise
 library is online only (TanStack Query over `GET /exercises` and `/muscle-groups`) and
 does not touch the SQLite schema.
+
+## Fonts and weights
+
+expo-font registers every face as a normal style, so `fontWeight: '700'` or `'bold'` on a
+named face makes Android fall back to system Roboto Bold. ESLint rejects it; pick the face
+that carries the weight (`fonts.bodyBold`). Every text style must spread a `type` token or set
+`fontFamily`, otherwise the text renders in Roboto.
+
+## Manual fail in the tracker
+
+A Fail pressed after some sets keeps them and closes the slot with a missed set of 0 reps,
+which is how the domain derives a failure from set logs. A recorded result ends the rest
+timer, and undoing a closed slot returns every set but the closing one as drafts. Bodyweight
+slots (`isBodyweight`) show "Bodyweight", log reps only and add nothing to logged volume.

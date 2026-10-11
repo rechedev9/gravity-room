@@ -1,11 +1,17 @@
 import type { GenericWorkoutRow } from '@gzclp/domain';
 
-/** Sum the actual logged work, including missed targets; never invent missing sets. */
+import { slotIsLoadless } from './tracker-set-logging';
+
+/** Sum the actual logged work, including missed targets; never invent missing sets or a load
+ * for bodyweight work. */
 export function recordedWorkoutVolume(row: GenericWorkoutRow): number {
   return row.slots.reduce(
     (total, slot) =>
       total +
-      (slot.setLogs ?? []).reduce((sum, log) => sum + log.reps * (log.weight ?? slot.weight), 0),
+      (slotIsLoadless(slot) ? [] : (slot.setLogs ?? [])).reduce(
+        (sum, log) => sum + log.reps * (log.weight ?? slot.weight),
+        0
+      ),
     0
   );
 }
@@ -31,4 +37,26 @@ export function workoutScrollTarget({
   const overflow = heroBottom + margin - viewportHeight;
   if (overflow <= 0) return 0;
   return Math.max(0, Math.min(overflow, heroTop - margin));
+}
+
+type HeroRevealInput = WorkoutScrollInput & { readonly scrollY: number };
+
+/**
+ * Where to scroll so the active exercise stays on screen while the lifter works: after a set
+ * grows its card, or when the rest banner takes space from the viewport. Returns null when
+ * nothing needs to move. It never scrolls past the card's own top, so a card taller than the
+ * viewport is not fought over.
+ */
+export function heroRevealTarget({
+  scrollY,
+  viewportHeight,
+  heroTop,
+  heroBottom,
+  margin,
+}: HeroRevealInput): number | null {
+  if (heroBottom < scrollY + margin) return Math.max(0, heroTop - margin);
+  const overflow = heroBottom + margin - (scrollY + viewportHeight);
+  if (overflow <= 0) return null;
+  const target = Math.min(heroBottom + margin - viewportHeight, Math.max(0, heroTop - margin));
+  return target > scrollY ? target : null;
 }

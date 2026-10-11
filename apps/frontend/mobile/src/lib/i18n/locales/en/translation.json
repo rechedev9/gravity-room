@@ -127,6 +127,7 @@
     "next": "Next",
     "next_accessibility": "Next workout",
     "weight": "{{weight}} kg",
+    "bodyweight": "Bodyweight",
     "sets_reps": "{{sets}} x {{reps}}",
     "confirm_set": "Set {{index}} ✓",
     "set_indicators": {
@@ -170,7 +171,10 @@
       "reps_accessibility": "Reps for set {{index}} of {{name}}",
       "logged": "Set {{index}}: {{reps}} reps at {{weight}} kg",
       "logged_reps": "{{reps}} reps",
-      "logged_miss": "Set {{index}}: {{reps}} reps at {{weight}} kg, below target"
+      "missed": "Missed",
+      "logged_miss": "Set {{index}}: {{reps}} reps at {{weight}} kg, below target",
+      "logged_bodyweight": "Set {{index}}: {{reps}} reps",
+      "logged_miss_bodyweight": "Set {{index}}: {{reps}} reps, below target"
     },
     "session_position": "WEEK {{week}} DAY {{day}}",
     "week": "Week {{week}}",
@@ -187,7 +191,8 @@
     "session_done": "Session complete",
     "next_time_title": "Next session",
     "next_workout": "Next workout",
-    "undo_set": "Undo last set for {{name}}"
+    "undo_set": "Undo last set for {{name}}",
+    "undo_set_short": "Undo set"
   },
   "rest": {
     "title": "Rest",

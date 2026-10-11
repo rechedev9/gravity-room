@@ -2,6 +2,7 @@ import { MAX_PROGRAM_CONFIG_WEIGHT, type ProgramDefinition } from '@gzclp/domain
 
 import {
   parseStartingWeight,
+  startingChoiceFields,
   startingWeightFields,
   validateStartingWeights,
 } from './starting-weights';
@@ -107,5 +108,21 @@ describe('validateStartingWeights', () => {
       ok: false,
       issues: { bench: 'below_min' },
     });
+  });
+});
+
+describe('startingChoiceFields', () => {
+  it('lists select fields with their first option as the default', () => {
+    expect(startingChoiceFields(DEFINITION)).toEqual([
+      {
+        key: 'unit',
+        label: 'Unit',
+        options: [
+          { label: 'kg', value: 'kg' },
+          { label: 'lb', value: 'lb' },
+        ],
+        defaultValue: 'kg',
+      },
+    ]);
   });
 });

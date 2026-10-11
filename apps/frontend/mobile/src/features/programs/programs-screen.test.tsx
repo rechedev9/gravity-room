@@ -376,6 +376,57 @@ describe('ProgramsScreen', () => {
     expect(onOpenProgram).toHaveBeenCalledWith('created-program');
   });
 
+  it('shows the program own description, groups and select fields in the starting sheet', async () => {
+    mockedListProgramSummaries.mockResolvedValue([]);
+    mockedFetchCatalogEntries.mockResolvedValue([CATALOG_ENTRY]);
+    mockedFetchCatalogDefinition.mockResolvedValue({
+      ...PROGRAM_DEFINITION,
+      configDescription: 'Start from your body weight.',
+      configFields: [
+        {
+          key: 'bodyweight',
+          label: 'Body weight',
+          type: 'weight',
+          min: 30,
+          step: 0.5,
+          group: 'You',
+        },
+        {
+          key: 'gender',
+          label: 'Gender',
+          type: 'select',
+          group: 'You',
+          options: [
+            { label: 'Male', value: 'male' },
+            { label: 'Female', value: 'female' },
+          ],
+        },
+        { key: 'squat', label: 'Squat', type: 'weight', min: 0, step: 2.5, group: 'Start loads' },
+      ],
+    });
+    mockedCreateProgramInstance.mockResolvedValue(CREATED_DETAIL);
+    render(<ProgramsScreen mode="catalog" onOpenProgram={jest.fn()} />);
+    const card = (await screen.findAllByRole('button', { name: 'View GZCLP' }))[0];
+    if (!card) throw new Error('Missing catalog card');
+    fireEvent.press(card);
+    fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP' }));
+
+    expect(await screen.findByText('Start from your body weight.')).toBeTruthy();
+    expect(screen.getByText('You')).toBeTruthy();
+    expect(screen.getByText('Start loads')).toBeTruthy();
+    fireEvent.press(screen.getByRole('radio', { name: 'Female' }));
+    fireEvent.changeText(screen.getByLabelText('Body weight'), '64');
+    fireEvent.press(screen.getByRole('button', { name: 'Start program' }));
+
+    await waitFor(() =>
+      expect(mockedCreateProgramInstance).toHaveBeenCalledWith({
+        programId: 'gzclp',
+        name: 'GZCLP',
+        config: { bodyweight: 64, gender: 'female', squat: 20 },
+      })
+    );
+  });
+
   it('keeps the sheet open and explains a starting weight below the program minimum', async () => {
     mockedListProgramSummaries.mockResolvedValue([]);
     mockedFetchCatalogEntries.mockResolvedValue([CATALOG_ENTRY]);

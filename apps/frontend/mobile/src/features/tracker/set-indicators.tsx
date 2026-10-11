@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { SetLogEntry } from '@gzclp/domain';
 
 import { colors, radii } from '@gzclp/design-tokens';
+import { type } from '../../shell/design';
 
 type SetIndicatorsProps = {
   readonly sets: number;
@@ -91,11 +92,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fail,
   },
   amrapMark: {
+    ...type.meta,
     position: 'absolute',
     top: -8,
     right: -6,
     color: colors.accent,
     fontSize: 12,
-    fontWeight: '700',
   },
 });

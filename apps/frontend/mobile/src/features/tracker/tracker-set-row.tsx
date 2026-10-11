@@ -12,11 +12,20 @@ type Props = {
   readonly index: number;
   readonly weight: number;
   readonly reps: number;
+  /** False for bodyweight work, which has no load to enter. */
+  readonly showWeight?: boolean;
   readonly onConfirm: (entry: SetLogEntry) => Promise<void>;
 };
 
 /** Text remains local until explicitly confirmed; domain schemas validate the entry. */
-export function TrackerSetRow({ exerciseName, index, weight, reps, onConfirm }: Props) {
+export function TrackerSetRow({
+  exerciseName,
+  index,
+  weight,
+  reps,
+  showWeight = true,
+  onConfirm,
+}: Props) {
   const { t } = useTranslation();
   const [editedWeight, setWeightText] = useState<string>();
   const [editedReps, setRepsText] = useState<string>();
@@ -26,26 +35,29 @@ export function TrackerSetRow({ exerciseName, index, weight, reps, onConfirm }: 
   const savingRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const parsed = SetLogEntryInputSchema.safeParse({
-    weight: Number(weightText.replace(',', '.')),
+    ...(showWeight ? { weight: Number(weightText.replace(',', '.')) } : {}),
     reps: Number(repsText),
   });
-  const valid = weightText.trim() !== '' && repsText.trim() !== '' && parsed.success;
+  const valid =
+    (!showWeight || weightText.trim() !== '') && repsText.trim() !== '' && parsed.success;
   return (
     <View style={styles.row}>
       <Text style={styles.index}>{index}</Text>
-      <View style={styles.input}>
-        <TextInput
-          label={t('tracker.set_row.weight')}
-          accessibilityLabel={t('tracker.set_row.weight_accessibility', {
-            name: exerciseName,
-            index,
-          })}
-          value={weightText}
-          onChangeText={setWeightText}
-          keyboardType="decimal-pad"
-          selectTextOnFocus
-        />
-      </View>
+      {showWeight ? (
+        <View style={styles.input}>
+          <TextInput
+            label={t('tracker.set_row.weight')}
+            accessibilityLabel={t('tracker.set_row.weight_accessibility', {
+              name: exerciseName,
+              index,
+            })}
+            value={weightText}
+            onChangeText={setWeightText}
+            keyboardType="decimal-pad"
+            selectTextOnFocus
+          />
+        </View>
+      ) : null}
       <View style={styles.input}>
         <TextInput
           label={t('tracker.set_row.reps')}
@@ -89,7 +101,9 @@ export function LoggedSetRow({
   entry,
   fallbackWeight,
   targetReps,
+  showWeight = true,
 }: {
+  readonly showWeight?: boolean;
   readonly index: number;
   readonly entry: SetLogEntry;
   readonly fallbackWeight: number;
@@ -102,15 +116,24 @@ export function LoggedSetRow({
   return (
     <View
       style={styles.logged}
-      accessibilityLabel={t(missed ? 'tracker.set_row.logged_miss' : 'tracker.set_row.logged', {
-        index,
-        reps: entry.reps,
-        weight,
-      })}
+      accessibilityLabel={t(
+        showWeight
+          ? missed
+            ? 'tracker.set_row.logged_miss'
+            : 'tracker.set_row.logged'
+          : missed
+            ? 'tracker.set_row.logged_miss_bodyweight'
+            : 'tracker.set_row.logged_bodyweight',
+        { index, reps: entry.reps, weight }
+      )}
     >
       <Text style={styles.index}>{index}</Text>
-      <Text style={styles.value}>{t('tracker.weight', { weight })}</Text>
-      <Text style={styles.value}>{t('tracker.set_row.logged_reps', { reps: entry.reps })}</Text>
+      {showWeight ? <Text style={styles.value}>{t('tracker.weight', { weight })}</Text> : null}
+      <Text style={styles.value}>
+        {entry.reps === 0
+          ? t('tracker.set_row.missed')
+          : t('tracker.set_row.logged_reps', { reps: entry.reps })}
+      </Text>
       <Text style={missed ? styles.miss : styles.check}>{missed ? '✗' : '✓'}</Text>
     </View>
   );

@@ -417,11 +417,13 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   error: {
+    ...type.body,
     color: colors.textError,
     fontSize: 16,
     textAlign: 'center',
   },
   syncNotice: {
+    ...type.body,
     color: colors.warn,
     fontSize: 14,
     lineHeight: 20,
@@ -431,9 +433,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   cardTitle: {
-    color: colors.textPrimary,
+    ...type.title,
     fontSize: 18,
-    fontWeight: '600',
   },
   cardMeta: {
     ...type.body,
