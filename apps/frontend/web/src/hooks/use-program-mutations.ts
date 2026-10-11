@@ -179,6 +179,7 @@ export function useProgramMutations({
     onSettled: detailOnSettled,
     onSettledAfterResultIdle,
   } = optimisticDetailCallbacks(queryClient, activeInstanceId);
+  const detailKey = queryKeys.programs.detail(activeInstanceId ?? '');
 
   const markResultMutation = useMutation({
     mutationFn: async ({
@@ -208,6 +209,30 @@ export function useProgramMutations({
         ...prev,
         results: setSlotResultOptimistic(prev.results, index, slotId, value, undefined, setLogs),
       })),
+    // The server has pushed its undo entry by now: mirror it so undo is offered at once
+    // instead of after the debounced refetch. That refetch replaces it with the real entry.
+    onSuccess: (_data, { index, slotId }, context) => {
+      const current = queryClient.getQueryData<GenericProgramDetail>(detailKey);
+      if (!current) return;
+      const top = current.undoHistory[current.undoHistory.length - 1];
+      const before = context?.previousDetail?.results[String(index)]?.[slotId];
+      // A refetch that raced this request already carries the entry.
+      if (top?.i === index && top.slotId === slotId && top.prev === before?.result) return;
+      queryClient.setQueryData<GenericProgramDetail>(detailKey, {
+        ...current,
+        undoHistory: [
+          ...current.undoHistory,
+          {
+            i: index,
+            slotId,
+            ...(before?.result !== undefined && { prev: before.result }),
+            ...(before?.amrapReps !== undefined && { prevAmrapReps: before.amrapReps }),
+            ...(before?.rpe !== undefined && { prevRpe: before.rpe }),
+            ...(before?.setLogs !== undefined && { prevSetLogs: [...before.setLogs] }),
+          },
+        ],
+      });
+    },
     onError: detailOnError,
     onSettled: onSettledAfterResultIdle,
   });

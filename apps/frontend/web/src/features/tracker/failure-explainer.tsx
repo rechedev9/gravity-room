@@ -61,7 +61,7 @@ export function FailureExplainer({
       data-testid="failure-explainer"
       data-slot-id={slot.slotId}
       aria-label={t('tracker.failure.aria', { exercise: exerciseLabel })}
-      className="mb-4 border border-rule-light bg-card rounded-card px-5 py-5 sm:px-6"
+      className="mb-3 rounded-card border border-rule bg-card p-5 sm:p-6"
     >
       <div className="mb-4 flex items-center gap-2.5">
         <h3 className="font-mono text-2xs font-bold uppercase tracking-[0.08em] text-accent">

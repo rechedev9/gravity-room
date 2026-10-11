@@ -266,6 +266,16 @@ describe('SessionView', () => {
     expect(screen.queryByTestId('failure-explainer')).not.toBeInTheDocument();
   });
 
+  it('drops the failure explainer when the failure is undone elsewhere', () => {
+    const { rerender } = renderRerenderable();
+    rerender(row(1, [slot({ result: 'fail' }), T2]));
+    expect(screen.getByTestId('failure-explainer')).toBeInTheDocument();
+
+    // The header undo or the U shortcut clears the result without touching the explainer.
+    rerender(row(1, [slot(), T2]));
+    expect(screen.queryByTestId('failure-explainer')).not.toBeInTheDocument();
+  });
+
   it('closes a finished day with a summary and the queued next loads', () => {
     renderView({
       showCompletion: true,

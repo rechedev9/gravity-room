@@ -179,7 +179,8 @@ export function SessionView({
 
   const failedSlot =
     pendingFailSlotId !== null
-      ? (workout.slots.find((s) => s.slotId === pendingFailSlotId) ?? null)
+      ? // Undone from the header or with U: there is no failure left to explain.
+        (workout.slots.find((s) => s.slotId === pendingFailSlotId && s.result === 'fail') ?? null)
       : null;
   const failureLadder = useMemo(() => {
     if (failedSlot === null) return [];
