@@ -116,7 +116,7 @@ export function CurrentLiftCard({
                 setAmrapEdit(null);
               }}
               style={{ boxShadow: 'var(--shadow-pressed-steel)' }}
-              className="type-button h-12 flex-1 rounded-control bg-accent px-7 text-on-accent cursor-pointer transition-[transform,background-color] duration-[var(--duration-press)] ease-[var(--ease-press)] hover:bg-accent-hover active:translate-y-px sm:flex-none"
+              className="type-button h-12 flex-1 rounded-control bg-accent px-4 text-on-accent whitespace-nowrap sm:px-7 cursor-pointer transition-[transform,background-color] duration-[var(--duration-press)] ease-[var(--ease-press)] hover:bg-accent-hover active:translate-y-px sm:flex-none"
             >
               {t('tracker.current_lift.confirm_set', { index: nextSetIndex + 1 })}
             </button>
