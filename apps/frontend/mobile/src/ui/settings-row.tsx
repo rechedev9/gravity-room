@@ -1,7 +1,8 @@
 import type { ComponentProps, ReactNode } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
-import { colors, type } from '../shell/design';
+import { type } from '../shell/design';
+import { colors } from '@gzclp/design-tokens';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 

@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { colors, type } from '../shell/design';
+import { type } from '../shell/design';
+import { colors } from '@gzclp/design-tokens';
 
 type Props = {
   readonly value: string;

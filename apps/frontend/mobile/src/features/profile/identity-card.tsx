@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, fonts, type } from '../../shell/design';
+import { type } from '../../shell/design';
+import { colors, fonts } from '@gzclp/design-tokens';
 import { Card } from '../../ui/card';
 
 type Props = {

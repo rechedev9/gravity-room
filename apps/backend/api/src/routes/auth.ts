@@ -6,6 +6,7 @@
  */
 import { Elysia, t } from 'elysia';
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import type { WeightUnit } from '@gzclp/domain/weight-unit';
 import { jwtPlugin, resolveUserId } from '../middleware/auth-guard';
 import { ApiError } from '../middleware/error-handler';
 import { rateLimit } from '../middleware/rate-limit';
@@ -323,13 +324,17 @@ interface UserProfile {
   readonly email: string;
   readonly name: string | null;
   readonly avatarUrl: string | null;
+  readonly weightUnit: WeightUnit;
 }
+
+const weightUnitSchema = t.Union([t.Literal('kg'), t.Literal('lbs')]);
 
 const userProfileResponseSchema = t.Object({
   id: t.String(),
   email: t.String({ format: 'email' }),
   name: t.Nullable(t.String()),
   avatarUrl: t.Nullable(t.String()),
+  weightUnit: weightUnitSchema,
 });
 
 const mobileGoogleAuthResponseSchema = t.Object({
@@ -350,6 +355,7 @@ function userResponse(user: UserProfile & { avatarUrl?: string | null }): UserPr
     email: user.email,
     name: user.name,
     avatarUrl: user.avatarUrl ?? null,
+    weightUnit: user.weightUnit,
   };
 }
 
@@ -482,6 +488,7 @@ interface GoogleSignInResult {
     email: string;
     name: string | null;
     avatarUrl: string | null;
+    weightUnit: WeightUnit;
     authVersion: number;
   };
   readonly isNewUser: boolean;
@@ -1658,6 +1665,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const updated = await updateUserProfile(userId, {
         name: normalizeDisplayName(body.name),
         avatarUrl: body.avatarUrl,
+        weightUnit: body.weightUnit,
       });
 
       reqLogger.info({ event: 'auth.profile_update', userId }, 'profile updated');
@@ -1667,11 +1675,13 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       body: t.Object({
         name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
         avatarUrl: t.Optional(t.Nullable(t.String({ maxLength: MAX_AVATAR_BYTES }))),
+        weightUnit: t.Optional(weightUnitSchema),
       }),
       detail: {
         tags: ['Auth'],
         summary: 'Update user profile',
-        description: 'Updates name and/or avatar. Send avatarUrl: null to remove the avatar.',
+        description:
+          'Updates name, avatar and/or weight unit. Send avatarUrl: null to remove the avatar.',
         security: authSecurity,
         responses: {
           200: { description: 'Updated user profile' },

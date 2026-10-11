@@ -1,30 +1,26 @@
-export type WeightUnit = 'kg' | 'lbs';
+import { isWeightUnit, type WeightUnit } from '@gzclp/domain/weight-unit';
 
+/**
+ * Browser-side cache of the weight unit. The account holds the real value for
+ * signed-in users; this key keeps guests and the first paint working.
+ */
 export const WEIGHT_UNIT_STORAGE_KEY = 'gravity-room:unit-preference';
+/** Id of the account the stored unit was last reconciled with; absent for a guest choice. */
+export const WEIGHT_UNIT_OWNER_KEY = 'gravity-room:unit-owner';
 const WEIGHT_UNIT_EVENT = 'gravity-room:unit-change';
-const LBS_PER_KG = 2.20462;
 
-/** Stored weights are always kg; lbs exist only at the display/input boundary. */
-export function kgToDisplay(kg: number, unit: WeightUnit): number {
-  if (unit === 'lbs') return Math.round(kg * LBS_PER_KG * 10) / 10;
-  return kg;
-}
-
-export function displayToKg(value: number, unit: WeightUnit): number {
-  if (unit === 'lbs') return Math.round((value / LBS_PER_KG) * 100) / 100;
-  return value;
-}
-
-export function formatWeight(kg: number, unit: WeightUnit): string {
-  return `${kgToDisplay(kg, unit)} ${unit}`;
+/** The explicit choice made in this browser, or null when none was ever stored. */
+export function readStoredWeightUnit(): WeightUnit | null {
+  try {
+    const stored = localStorage.getItem(WEIGHT_UNIT_STORAGE_KEY);
+    return isWeightUnit(stored) ? stored : null;
+  } catch {
+    return null;
+  }
 }
 
 export function readWeightUnit(): WeightUnit {
-  try {
-    return localStorage.getItem(WEIGHT_UNIT_STORAGE_KEY) === 'lbs' ? 'lbs' : 'kg';
-  } catch {
-    return 'kg';
-  }
+  return readStoredWeightUnit() ?? 'kg';
 }
 
 export function writeWeightUnit(unit: WeightUnit): void {
@@ -34,6 +30,22 @@ export function writeWeightUnit(unit: WeightUnit): void {
     // storage unavailable: the in-memory event still updates this tab
   }
   window.dispatchEvent(new Event(WEIGHT_UNIT_EVENT));
+}
+
+export function readWeightUnitOwner(): string | null {
+  try {
+    return localStorage.getItem(WEIGHT_UNIT_OWNER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function writeWeightUnitOwner(userId: string): void {
+  try {
+    localStorage.setItem(WEIGHT_UNIT_OWNER_KEY, userId);
+  } catch {
+    // storage unavailable: the choice is simply reconciled again next load
+  }
 }
 
 export function subscribeWeightUnit(onChange: () => void): () => void {

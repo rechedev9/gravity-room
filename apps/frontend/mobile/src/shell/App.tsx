@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
 import '../lib/i18n';
 import { useAuth } from './auth-provider';
-import { colors } from './design';
+import { colors } from '@gzclp/design-tokens';
 import { AppProviders } from './providers';
 
 function Navigation() {

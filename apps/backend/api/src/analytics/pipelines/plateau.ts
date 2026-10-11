@@ -6,7 +6,7 @@
  * branch is `slope === 0 && popStd(weights) === 0`.
  */
 
-import type { WorkoutRecord } from '../record';
+import { seriesKeyResolver, type WorkoutRecord } from '../record';
 import { linregress } from '../stats';
 import { isoWeekKeyFromTimestamp } from '../iso-week';
 import { parseInstant } from './time';
@@ -34,14 +34,15 @@ export function computePlateauPerExercise(
 ): Map<string, PlateauDetectionPayload> {
   const cutoff = Date.now() - WEEKS_BACK * MS_PER_WEEK;
 
+  const keyOf = seriesKeyResolver(records);
   const bySlot = new Map<string, WorkoutRecord[]>();
   for (const r of records) {
     if (r.result !== 'success' || r.recordedAt === null) continue;
     const instant = parseInstant(r.recordedAt);
     if (instant === null || instant.getTime() < cutoff) continue;
-    const slot = bySlot.get(r.exerciseId) ?? [];
+    const slot = bySlot.get(keyOf(r)) ?? [];
     slot.push(r);
-    bySlot.set(r.exerciseId, slot);
+    bySlot.set(keyOf(r), slot);
   }
 
   const result = new Map<string, PlateauDetectionPayload>();

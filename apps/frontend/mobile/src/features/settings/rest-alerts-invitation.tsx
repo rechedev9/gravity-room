@@ -1,7 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
-import { colors, type } from '../../shell/design';
+import { type } from '../../shell/design';
+import { colors } from '@gzclp/design-tokens';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
 import { useRestAlerts } from './use-rest-alerts';

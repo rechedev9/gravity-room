@@ -17,6 +17,7 @@ import type { UserInfo } from '@gzclp/domain/schemas/user';
 import { setUser as sentrySetUser } from '@/lib/sentry';
 import { trackEvent } from '@/lib/analytics';
 import { queryKeys } from '@/lib/query-keys';
+import { useWeightUnitAccountSync } from '@/hooks/use-weight-unit-account-sync';
 import { isRecentlySignedOut, markSessionSignedIn, markSessionSignedOut } from '@/lib/session-hint';
 
 // ---------------------------------------------------------------------------
@@ -240,6 +241,7 @@ export function AuthProvider({
 
   const user = session.data ?? null;
   const loading = session.isPending;
+  useWeightUnitAccountSync(user);
 
   useEffect(() => {
     const handleSessionInvalidated = (): void => {

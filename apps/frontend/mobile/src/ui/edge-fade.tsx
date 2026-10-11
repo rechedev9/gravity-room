@@ -1,7 +1,7 @@
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
-import { colors } from '../shell/design';
+import { colors } from '@gzclp/design-tokens';
 
 type Props = {
   readonly edge: 'top' | 'right';

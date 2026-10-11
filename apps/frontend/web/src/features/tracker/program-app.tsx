@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { findFirstPendingIndex, isWorkoutComplete } from '@gzclp/domain/generic-stats';
 import type { ResultValue } from '@gzclp/domain/types';
 import { useProgram } from '@/hooks/use-program';
 import { useGuestProgram } from '@/hooks/use-guest-program';
@@ -123,17 +124,10 @@ export function ProgramApp({
   const workoutsPerWeek = definition?.workoutsPerWeek ?? 4;
   const totalWorkouts = definition?.totalWorkouts ?? 0;
   const { completedCount, firstPendingIdx } = useMemo(() => {
-    let completed = 0;
-    let firstPending = -1;
-    for (const row of rows) {
-      const allDone = row.slots.every((s) => s.result !== undefined);
-      if (allDone) {
-        completed += 1;
-      } else if (firstPending < 0) {
-        firstPending = row.index;
-      }
-    }
-    return { completedCount: completed, firstPendingIdx: firstPending };
+    return {
+      completedCount: rows.filter(isWorkoutComplete).length,
+      firstPendingIdx: findFirstPendingIndex(rows),
+    };
   }, [rows]);
 
   const dayNav = useDayNavigation({ totalWorkouts, firstPendingIdx, config });
@@ -171,9 +165,7 @@ export function ProgramApp({
   };
 
   const selectedWorkout = rows[dayNav.selectedDayIndex];
-  const isDayComplete = selectedWorkout
-    ? selectedWorkout.slots.every((s) => s.result !== undefined)
-    : false;
+  const isDayComplete = selectedWorkout ? isWorkoutComplete(selectedWorkout) : false;
 
   const mutenroshiBlocksCompletion =
     graduation.isMutenroshi && !graduation.graduationState.allPassed;

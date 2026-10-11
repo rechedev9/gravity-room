@@ -14,7 +14,8 @@ gravity-room/
 ├── apps/backend/api/         ← ElysiaJS (create-app.ts; analytics under src/analytics)
 ├── packages/domain/          ← @gzclp/domain — Zod + GZCLP engine
 ├── packages/database/        ← @gzclp/database — schema, migrations, seeds
-├── packages/api-client/      ← @gzclp/api-client — typed fetch helpers
+├── packages/api-client/      ← @gzclp/api-client — shared wire mechanics (paths, requests, errors)
+├── packages/design-tokens/   ← @gzclp/design-tokens — shared colors, spacing, radii, type
 ├── scripts/                  ← vercel-build, bundle-api, loadtest, security checks
 ├── docs/                     ← this file + security runbooks
 └── vercel.json               ← build, function, rewrites, crons
@@ -27,7 +28,7 @@ gravity-room/
 | `apps/frontend/web/`                             | React SPA, PWA                       | `pnpm run dev` / `test` / `e2e`    |
 | `apps/frontend/web/src/features/`                | Feature UI                           | `pnpm --filter web test`           |
 | `apps/frontend/web/src/components/`              | Shared UI + shell                    | vitest                             |
-| `apps/frontend/web/src/lib/api/generated.ts`     | OpenAPI Zod client (committed)       | `pnpm --filter web api:types`      |
+| `apps/frontend/web/src/lib/api/generated.ts`     | OpenAPI drift artifact (committed)   | `pnpm --filter web api:types`      |
 | `apps/frontend/web/codegen/`                     | Codegen for generated client         | vitest on codegen                  |
 | `apps/frontend/web/e2e/`                         | Playwright                           | `pnpm run e2e`                     |
 | `apps/frontend/mobile/`                          | Expo / RN (hand-written API calls)   | `pnpm --filter mobile typecheck`   |
@@ -45,7 +46,9 @@ gravity-room/
 | `packages/domain/src/generic-engine.ts`          | Progression engine                   | domain tests                       |
 | `packages/database/`                             | Schema, migrations, seeds            | `pnpm run test:database`           |
 | `packages/database/src/schema.ts`                | Tables / indexes                     | `pnpm run db:generate` after edits |
-| `packages/api-client/`                           | Shared fetch helpers                 | `pnpm run test:api-client`         |
+| `packages/api-client/`                           | Shared wire mechanics, no Zod        | `pnpm run test:api-client`         |
+| `packages/design-tokens/`                        | Shared design tokens                 | `pnpm run test:design-tokens`      |
+| `apps/frontend/web/src/styles/tokens.css`        | Generated from the tokens            | `pnpm --filter web tokens:css`     |
 | `scripts/bundle-api-function.mjs`                | Build/check `api/index.ts`           | `pnpm run bundle:api:check`        |
 | `scripts/vercel-build.sh`                        | Vercel build + prod db:deploy        | Vercel                             |
 | `lefthook.yml`                                   | pre-commit / pre-push gates          | lefthook                           |
@@ -54,10 +57,11 @@ gravity-room/
 
 - **`@gzclp/domain`** — SoT for GZCLP rules + shared Zod. Never reimplement in apps.
 - **`@gzclp/database`** — SoT for Postgres schema/migrations/seeds. API owns the pool only.
-- **Web OpenAPI client** — regenerate `generated.ts` after route changes (`api:types` with API up). Mobile does not use it.
+- **`generated.ts` is a drift artifact** — regenerate it after route changes (`api:types` with API up). It is not a runtime client and app code never imports it; web and mobile call the API through hand-written code on the shared builders.
+- **Sharing** — training rules in `@gzclp/domain`, wire mechanics in `@gzclp/api-client`, visual tokens in `@gzclp/design-tokens`; see "Sharing rules" in `CLAUDE.md`.
 - **Auth** — JWT access + refresh rotation; multi-method (Google, Apple, GitHub, Microsoft, email/password).
 - **API is HTTP-only** — SPA is static on Vercel; `create-app.ts` never serves assets.
-- **Analytics in-process** — pipelines in `src/analytics/`, stored in `user_insights`, driven by cron `POST /api/internal/analytics/compute`. Golden parity: `__fixtures__/golden.json`.
+- **Analytics in-process** — pipelines in `src/analytics/`, stored in `user_insights`, driven by cron `POST /api/internal/analytics/compute`. Golden parity: `__fixtures__/golden.json`. A series is one lift in one tier (`exerciseId:tier` when the lift has several tiers, the bare id otherwise; `@gzclp/domain/insight-series`), because T1 and T2 of a lift carry different loads.
 - **Migrations build-time** — `db:deploy` at end of `vercel-build.sh` (prod needs `DIRECT_DATABASE_URL`); no boot-time DDL.
 
 ## Local dev
@@ -73,31 +77,31 @@ Postgres required (`DATABASE_URL`). Upstash Redis optional locally, required in 
 
 ## Validation
 
-| Command                          | Covers                                        |
-| -------------------------------- | --------------------------------------------- |
-| `pnpm run typecheck`             | web + domain + database + api-client + mobile |
-| `pnpm run typecheck:api`         | API                                           |
-| `pnpm run bundle:api:check`      | `api/index.ts` matches source entry           |
-| `pnpm run lint` / `format:check` | eslint + prettier                             |
-| `pnpm run test`                  | web + domain + database + api-client + mobile |
-| `pnpm run test:api`              | API + analytics golden parity                 |
-| `pnpm run e2e`                   | Playwright chromium                           |
+| Command                          | Covers                                                        |
+| -------------------------------- | ------------------------------------------------------------- |
+| `pnpm run typecheck`             | web + domain + database + api-client + design-tokens + mobile |
+| `pnpm run typecheck:api`         | API                                                           |
+| `pnpm run bundle:api:check`      | `api/index.ts` matches source entry                           |
+| `pnpm run lint` / `format:check` | eslint + prettier                                             |
+| `pnpm run test`                  | web + domain + database + api-client + design-tokens + mobile |
+| `pnpm run test:api`              | API + analytics golden parity                                 |
+| `pnpm run e2e`                   | Playwright chromium                                           |
 
 ## Where is…
 
-| Question           | Path                                                               |
-| ------------------ | ------------------------------------------------------------------ |
-| Progression math   | `packages/domain/src/generic-engine.ts`                            |
-| API routes         | `apps/backend/api/src/routes/`                                     |
-| Auth server        | `routes/auth.ts` + `services/auth.ts` + `middleware/auth-guard.ts` |
-| Web OpenAPI client | `apps/frontend/web/src/lib/api/generated.ts`                       |
-| Shared UI          | `apps/frontend/web/src/components/`                                |
-| Migrations         | `packages/database/migrations/`                                    |
-| Program seeds      | `packages/database/src/seeds/programs/`                            |
-| Insights           | `apps/backend/api/src/analytics/`                                  |
-| New shared type    | `packages/domain/src/schemas/`                                     |
-| DB table change    | `packages/database/src/schema.ts` → `pnpm run db:generate`         |
-| Prod infra         | `vercel.json` + `scripts/vercel-build.sh`                          |
+| Question           | Path                                                                                                                                                        |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Progression math   | `packages/domain/src/generic-engine.ts`                                                                                                                     |
+| API routes         | `apps/backend/api/src/routes/`                                                                                                                              |
+| Auth server        | `routes/auth.ts` + `services/auth.ts` + `middleware/auth-guard.ts`                                                                                          |
+| API drift artifact | `apps/frontend/web/src/lib/api/generated.ts` (not imported)                                                                                                 |
+| Shared UI          | `apps/frontend/web/src/components/`                                                                                                                         |
+| Migrations         | `packages/database/migrations/`                                                                                                                             |
+| Program seeds      | `packages/database/src/seeds/programs/`                                                                                                                     |
+| Insights           | `apps/backend/api/src/analytics/`                                                                                                                           |
+| New shared type    | Training rule or data shape → `packages/domain/src/`; paths, requests, errors → `packages/api-client/src/`; colors, spacing → `packages/design-tokens/src/` |
+| DB table change    | `packages/database/src/schema.ts` → `pnpm run db:generate`                                                                                                  |
+| Prod infra         | `vercel.json` + `scripts/vercel-build.sh`                                                                                                                   |
 
 ## Other docs
 

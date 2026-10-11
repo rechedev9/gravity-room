@@ -6,6 +6,7 @@ import { eq, lt, gte, and, isNull, sql } from 'drizzle-orm';
 import { hash as argon2Hash, verify as argon2Verify } from '@node-rs/argon2';
 import bcrypt from 'bcryptjs';
 import { isRecord } from '@gzclp/domain/type-guards';
+import type { WeightUnit } from '@gzclp/domain/weight-unit';
 import { getDb } from '../db';
 import { withUserRole } from '../db/rls-context';
 import {
@@ -652,16 +653,17 @@ export async function resetPasswordWithToken(
   });
 }
 
-/** Update user profile fields (name, avatarUrl). */
+/** Update user profile fields (name, avatarUrl, weightUnit). */
 export async function updateUserProfile(
   userId: string,
-  fields: { name?: string; avatarUrl?: string | null }
+  fields: { name?: string; avatarUrl?: string | null; weightUnit?: WeightUnit }
 ): Promise<UserRow> {
   return withUserRole(userId, async (tx) => {
     // Value overridden by set_updated_at trigger; kept to ensure valid UPDATE
     const updates: Record<string, unknown> = { updatedAt: new Date() };
     if (fields.name !== undefined) updates['name'] = fields.name;
     if (fields.avatarUrl !== undefined) updates['avatarUrl'] = fields.avatarUrl;
+    if (fields.weightUnit !== undefined) updates['weightUnit'] = fields.weightUnit;
 
     const [updated] = await tx
       .update(users)

@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, radii, type } from '../shell/design';
+import { type } from '../shell/design';
+import { colors, radii } from '@gzclp/design-tokens';
 
 type Props<Value extends string> = {
   readonly label: string;

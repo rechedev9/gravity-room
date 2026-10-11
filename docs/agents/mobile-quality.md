@@ -12,8 +12,11 @@ actual ESLint configuration with accepted and rejected code fixtures.
 - `src/lib` owns reusable services, storage and controllers. Its static imports
   and re-exports must not depend on routes, screens, shell providers or UI.
   Inject callbacks or move a shared contract downward instead.
-- Mobile can consume `@gzclp/domain` and `@gzclp/api-client`. It must not import
-  server/database implementations or the web app's implementation modules.
+- Mobile can consume `@gzclp/domain`, `@gzclp/api-client` and `@gzclp/design-tokens`.
+  It must not import server/database implementations or the web app's implementation
+  modules. A rule that web also needs (reducers, completion, units, request paths,
+  colors) moves into one of those packages instead of being copied; see "Sharing
+  rules" in `CLAUDE.md`.
 - Do not use dynamic imports to evade a static import boundary. Native adapters
   and pure controllers should retain explicit dependency direction.
 

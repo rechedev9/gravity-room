@@ -1,3 +1,4 @@
+import { insightSeriesLabel } from '@/lib/insight-series-label';
 import { useTranslation } from 'react-i18next';
 import type { InsightItem } from '@/lib/api-functions';
 import { isPlateauPayload } from '@/lib/insight-payloads';
@@ -17,7 +18,10 @@ export function PlateauAlert({ insight, exerciseName }: PlateauAlertProps): Reac
   if (!isPlateauPayload(payload)) return null;
   if (!payload.isPlateauing || payload.confidence <= CONFIDENCE_THRESHOLD) return null;
 
-  const name = exerciseName ?? insight.exerciseId ?? t('insights.plateau.default_exercise');
+  const name =
+    exerciseName ??
+    (insight.exerciseId === null ? null : insightSeriesLabel(insight.exerciseId)) ??
+    t('insights.plateau.default_exercise');
   const confidencePct = Math.round(payload.confidence * 100);
 
   return (

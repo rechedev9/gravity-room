@@ -2,7 +2,7 @@ import { useEffect, useState, type PropsWithChildren } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { restoreLanguagePreference } from '../lib/i18n/language-preference';
 import { restoreRestAlertsPreference } from '../lib/rest/rest-alerts-preference';
-import { colors } from './design';
+import { colors } from '@gzclp/design-tokens';
 
 /** Holds the first frame until device preferences are applied, so no screen flashes the wrong language. */
 export function PreferencesProvider({ children }: PropsWithChildren) {

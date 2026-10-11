@@ -28,24 +28,28 @@ Shared standing law for every agent that touches this repo. If it is not here, i
 | `apps/backend/api`               | ElysiaJS API — `src/create-app.ts`; local `src/dev-server.ts`; Vercel source `src/vercel-handler.ts` → bundled `api/index.ts` |
 | `apps/backend/api/src/analytics` | Insight pipelines (cron-driven; not a separate service)                                                                       |
 | `apps/backend/api/src/routes`    | HTTP handlers                                                                                                                 |
-| `packages/domain`                | `@gzclp/domain` — Zod schemas + GZCLP engine (**SoT for training rules**)                                                     |
+| `packages/domain`                | `@gzclp/domain` — Zod schemas + GZCLP engine + every rule web and mobile share (**SoT for training rules**)                   |
 | `packages/database`              | `@gzclp/database` — Drizzle schema, migrations, seeds                                                                         |
-| `packages/api-client`            | Pure web+mobile transport helpers: ApiError, program request builders, cursor paging (web still uses OpenAPI codegen)         |
+| `packages/api-client`            | Wire mechanics web and mobile share: path encoding, request builders, error decoding, cursor paging. No training rules        |
+| `packages/design-tokens`         | `@gzclp/design-tokens` — colors, spacing, radii, type scale; web CSS is generated from it, mobile imports it                  |
 | `scripts/`                       | `vercel-build.sh`, `bundle-api-function.mjs`, loadtest, security checks                                                       |
 
 ## Hard contracts (do not violate)
 
-1. **Domain SoT** — progression math, graduation, shared Zod schemas live only in
+1. **Domain SoT** — progression math, graduation, shared Zod schemas, result and
+   undo reducers, workout-complete rules and weight-unit conversion live only in
    `@gzclp/domain`. Never reimplement or clamp on top in app code.
 2. **Server DB SoT** — Postgres schema/migrations/seeds only in `packages/database`. Edit
    `packages/database/src/schema.ts` → `pnpm run db:generate`. Migrations run
    **build-time** via `pnpm --filter api db:deploy` (advisory-locked,
    `DIRECT_DATABASE_URL` in prod) — **never** boot-time DDL in `create-app.ts`. Mobile offline SQLite has a separate
    [storage contract](docs/agents/mobile-storage.md) in `apps/frontend/mobile/src/lib/db`.
-3. **Web API client is generated** — after route changes, with API running:
-   `pnpm --filter web api:types` and commit
-   `apps/frontend/web/src/lib/api/generated.ts`. Do not hand-edit it. Mobile does
-   not use it.
+3. **`generated.ts` is a drift artifact, not a client** — after route changes, with
+   API running: `pnpm --filter web api:types` and commit
+   `apps/frontend/web/src/lib/api/generated.ts`. Do not hand-edit it and do not
+   import it from app code (its header forbids it; only tests read it). Web and
+   mobile make their requests through hand-written code on the shared builders
+   and `@gzclp/domain` schemas.
 4. **Errors** — `throw new ApiError(status, message, code)` from
    `middleware/error-handler.ts`. Do not set `set.status` in handlers.
 5. **Transactions** — use `tx` inside `db.transaction(...)`; `.for('update')`
@@ -63,6 +67,31 @@ Shared standing law for every agent that touches this repo. If it is not here, i
 9. **New required-in-prod env** — update all three:
    `apps/backend/api/src/lib/env-validation.ts`, root `.env.example`, Vercel env
    (Production + Preview).
+
+## Sharing rules (web and mobile)
+
+Put code in the package by what it is, not by who uses it first. A rule that is
+duplicated in `apps/frontend/web` and `apps/frontend/mobile` belongs in a package.
+
+| It is                                                                                            | It goes in               |
+| ------------------------------------------------------------------------------------------------ | ------------------------ |
+| A training or data rule: engine, reducers, completion, units, defaults, limits, response schemas | `packages/domain`        |
+| Wire mechanics with no training meaning: path encoding, request builders, `ApiError`, paging     | `packages/api-client`    |
+| A color, spacing, radius, font or type size                                                      | `packages/design-tokens` |
+| Credentials and tokens, storage, refresh orchestration, outbox, retry policy, query keys, i18n   | the app, on purpose      |
+
+- Import the package subpath (`@gzclp/domain/slot-results`). Never keep a copy and
+  never add a re-export shim in an app.
+- `packages/api-client` holds no credentials, no storage and no Zod. Web `lib/api.ts`
+  and `lib/api-core.ts` sit in the entry chunk of every page: import only Zod-free
+  subpaths there.
+- To change a design token, edit `packages/design-tokens/src/tokens.ts` and run
+  `pnpm --filter web tokens:css`. The generated `tokens.css` is committed and a test
+  fails when it drifts.
+- Backend route I/O stays TypeBox. It takes constants and types from `@gzclp/domain`
+  and does not depend on `@gzclp/api-client`.
+- The weight unit is an account field (`users.weight_unit`). Stored weights are always
+  kg; the unit only changes display and input.
 
 ## Conventions
 
@@ -105,7 +134,7 @@ The five canonical triage roles, each label string equal to its name. See [`docs
 
 ### Domain docs
 
-Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See [`docs/agents/domain.md`](./docs/agents/domain.md).
+Single-context. The repo has no `CONTEXT.md` or `docs/adr/` yet, so there is no glossary or ADR to read; create them at the repo root when terms or decisions get resolved. See [`docs/agents/domain.md`](./docs/agents/domain.md).
 
 ## Do not reintroduce
 

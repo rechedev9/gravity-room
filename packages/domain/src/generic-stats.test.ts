@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { calculateStats, extractAllGenericStats } from './generic-stats';
+import {
+  calculateStats,
+  extractAllGenericStats,
+  findFirstPendingIndex,
+  isWorkoutComplete,
+} from './generic-stats';
 import type { GenericWorkoutRow } from './types';
 import type { ProgramDefinition } from './schemas/program-definition';
 
@@ -269,5 +274,54 @@ describe('calculateStats', () => {
       gained: 0,
       currentStage: 1,
     });
+  });
+});
+
+function makeRow(
+  index: number,
+  results: readonly ('success' | 'fail' | undefined)[]
+): GenericWorkoutRow {
+  return {
+    index,
+    dayName: 'Day A',
+    isChanged: false,
+    completedAt: undefined,
+    slots: results.map((result, slot) =>
+      makeSlot({ slotId: `s${slot}`, exerciseId: 'squat', exerciseName: 'Squat', result })
+    ),
+  };
+}
+
+describe('isWorkoutComplete', () => {
+  it('is true only when every slot has a result', () => {
+    expect(isWorkoutComplete(makeRow(0, ['success', 'fail']))).toBe(true);
+    expect(isWorkoutComplete(makeRow(0, ['success', undefined]))).toBe(false);
+    expect(isWorkoutComplete(makeRow(0, [undefined, undefined]))).toBe(false);
+  });
+
+  it('is false for a row with no slots (nothing was done, so it is not complete)', () => {
+    expect(isWorkoutComplete(makeRow(0, []))).toBe(false);
+  });
+});
+
+describe('findFirstPendingIndex', () => {
+  it('returns the position of the first incomplete row', () => {
+    const rows = [
+      makeRow(0, ['success']),
+      makeRow(1, ['success', undefined]),
+      makeRow(2, [undefined]),
+    ];
+    expect(findFirstPendingIndex(rows)).toBe(1);
+  });
+
+  it('returns -1 when every row is complete or there are no rows', () => {
+    expect(findFirstPendingIndex([makeRow(0, ['fail']), makeRow(1, ['success'])])).toBe(-1);
+    expect(findFirstPendingIndex([])).toBe(-1);
+  });
+
+  it('treats a zero-slot row as pending', () => {
+    expect(
+      findFirstPendingIndex([makeRow(0, ['success']), makeRow(1, []), makeRow(2, [undefined])])
+    ).toBe(1);
   });
 });

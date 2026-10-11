@@ -1,5 +1,5 @@
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
-import { type WeightUnit, kgToDisplay } from '@/lib/weight-unit';
+import { type WeightUnit, kgToDisplay } from '@gzclp/domain/weight-unit';
 
 function escapeCsvField(value: string): string {
   // Spreadsheet applications interpret these leading characters as formulas.

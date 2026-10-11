@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, spacing } from '../shell/design';
+import { colors, spacing } from '@gzclp/design-tokens';
 import { EdgeFade } from './edge-fade';
 
 type ScreenProps = {

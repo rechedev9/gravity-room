@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
-import { colors, fonts, radii } from '../shell/design';
+import { colors, fonts, radii } from '@gzclp/design-tokens';
 
 type Props = {
   readonly children: string;

@@ -13,7 +13,8 @@ import {
   type StartingWeightField,
   type StartingWeightIssue,
 } from '../../lib/programs/starting-weights';
-import { colors, type } from '../../shell/design';
+import { type } from '../../shell/design';
+import { colors } from '@gzclp/design-tokens';
 import { Button } from '../../ui/button';
 import { Sheet } from '../../ui/sheet';
 import { TextInput } from '../../ui/text-input';

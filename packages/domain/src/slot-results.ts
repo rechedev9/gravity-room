@@ -1,5 +1,5 @@
-import type { GenericResults, GenericUndoHistory } from '@gzclp/domain/types/program';
-import type { ResultValue, SetLogEntry } from '@gzclp/domain/types';
+import type { GenericResults, GenericUndoHistory } from './types/program';
+import type { ResultValue, SetLogEntry } from './types';
 
 /**
  * Pure helpers for immutably mutating GenericResults state.
@@ -71,9 +71,30 @@ export function patchSlotField(
 }
 
 /**
+ * Snapshots the slot as it is now, so applying the entry later restores it.
+ * A slot with no result yields an entry without `prev`, which undo deletes.
+ */
+export function buildUndoEntry(
+  results: GenericResults,
+  workoutIndex: number,
+  slotId: string
+): GenericUndoHistory[number] {
+  const current = results[String(workoutIndex)]?.[slotId];
+  return {
+    i: workoutIndex,
+    slotId,
+    ...(current?.result !== undefined ? { prev: current.result } : {}),
+    ...(current?.rpe !== undefined ? { prevRpe: current.rpe } : {}),
+    ...(current?.amrapReps !== undefined ? { prevAmrapReps: current.amrapReps } : {}),
+    ...(current?.setLogs !== undefined ? { prevSetLogs: current.setLogs } : {}),
+  };
+}
+
+/**
  * Restores the result state to what it was before a single undo-history entry
- * was recorded. Mirrors the server's `undoLast` (results.ts) and the web
- * optimistic reconstruction in use-program-mutations.ts: when the entry has no
+ * was recorded. Mirrors the server's `undoLast` (apps/backend/api
+ * services/results.ts, the SQL implementation) and is the one copy used by web
+ * and mobile: when the entry has no
  * `prev` snapshot, the slot had no result before the action being undone, so
  * it's deleted; otherwise the previous result/amrapReps/setLogs/rpe are
  * written back verbatim, clearing the current slot first so nothing from the

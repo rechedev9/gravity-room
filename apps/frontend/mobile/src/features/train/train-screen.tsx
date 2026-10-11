@@ -2,7 +2,8 @@ import { useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { colors, type } from '../../shell/design';
+import { type } from '../../shell/design';
+import { colors } from '@gzclp/design-tokens';
 import { useProgramSummaries } from '../../lib/programs/program-queries';
 import { Button } from '../../ui/button';
 import { Kicker } from '../../ui/kicker';

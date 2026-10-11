@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { colors, type } from '../shell/design';
+import { type } from '../shell/design';
+import { colors } from '@gzclp/design-tokens';
 import { Button } from './button';
 
 type Props = PropsWithChildren<{

@@ -2,7 +2,7 @@
 
 How the engineering skills should consume this repo's domain documentation when exploring the codebase.
 
-This repo is **single-context**: one `CONTEXT.md` and one `docs/adr/` at the repo root, covering the whole pnpm workspace.
+This repo is **single-context**: when they exist, one `CONTEXT.md` and one `docs/adr/` at the repo root cover the whole pnpm workspace. Today neither exists, so there is nothing to read.
 
 ## Before exploring, read these
 

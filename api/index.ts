@@ -880,6 +880,8 @@ var users = pgTable(
     authVersion: integer('auth_version').notNull().default(0),
     name: varchar({ length: 100 }),
     avatarUrl: text('avatar_url'),
+    /** Display unit for weights ('kg' | 'lbs'); stored weights are always kg. */
+    weightUnit: varchar('weight_unit', { length: 3 }).$type().notNull().default('kg'),
     /**
      * Soft-delete timestamp. When set, the user is in a 30-day grace period
      * before `purge-deleted-users.ts` hard-deletes (CASCADE) the row and all
@@ -904,6 +906,7 @@ var users = pgTable(
     uniqueIndex('users_email_active_uq')
       .on(table.email)
       .where(sql`${table.deletedAt} IS NULL`),
+    check('chk_users_weight_unit', sql`${table.weightUnit} IN ('kg', 'lbs')`),
   ]
 );
 var usersRelations = relations(users, ({ many }) => ({
@@ -1687,6 +1690,7 @@ async function updateUserProfile(userId, fields) {
     const updates = { updatedAt: /* @__PURE__ */ new Date() };
     if (fields.name !== void 0) updates['name'] = fields.name;
     if (fields.avatarUrl !== void 0) updates['avatarUrl'] = fields.avatarUrl;
+    if (fields.weightUnit !== void 0) updates['weightUnit'] = fields.weightUnit;
     const [updated] = await tx
       .update(users)
       .set(updates)
@@ -3051,11 +3055,13 @@ function isEmailPasswordAvailable() {
 function isGoogleConfigured() {
   return Boolean(process.env['GOOGLE_CLIENT_ID']?.trim());
 }
+var weightUnitSchema = t.Union([t.Literal('kg'), t.Literal('lbs')]);
 var userProfileResponseSchema = t.Object({
   id: t.String(),
   email: t.String({ format: 'email' }),
   name: t.Nullable(t.String()),
   avatarUrl: t.Nullable(t.String()),
+  weightUnit: weightUnitSchema,
 });
 var mobileGoogleAuthResponseSchema = t.Object({
   user: userProfileResponseSchema,
@@ -3073,6 +3079,7 @@ function userResponse(user) {
     email: user.email,
     name: user.name,
     avatarUrl: user.avatarUrl ?? null,
+    weightUnit: user.weightUnit,
   };
 }
 async function issueSessionTokens(jwt2, user) {
@@ -4122,6 +4129,7 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
       const updated = await updateUserProfile(userId, {
         name: normalizeDisplayName(body.name),
         avatarUrl: body.avatarUrl,
+        weightUnit: body.weightUnit,
       });
       reqLogger.info({ event: 'auth.profile_update', userId }, 'profile updated');
       return userResponse(updated);
@@ -4130,11 +4138,13 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
       body: t.Object({
         name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
         avatarUrl: t.Optional(t.Nullable(t.String({ maxLength: MAX_AVATAR_BYTES }))),
+        weightUnit: t.Optional(weightUnitSchema),
       }),
       detail: {
         tags: ['Auth'],
         summary: 'Update user profile',
-        description: 'Updates name and/or avatar. Send avatarUrl: null to remove the avatar.',
+        description:
+          'Updates name, avatar and/or weight unit. Send avatarUrl: null to remove the avatar.',
         security: authSecurity,
         responses: {
           200: { description: 'Updated user profile' },
@@ -7242,11 +7252,13 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
       desc4(workoutResults.id)
     )
     .limit(MAX_ANALYTICS_RECORDS_PER_USER);
+  const resultInstances = new Set(rows.map((row) => row.instanceId));
   const unweighted = new Set(
     rows.filter((row) => row.loggedWeight === null).map((row) => row.instanceId)
   );
   const prescribed = /* @__PURE__ */ new Map();
-  if (unweighted.size > 0) {
+  const tiers = /* @__PURE__ */ new Map();
+  if (resultInstances.size > 0) {
     const instances = await executor
       .select({
         id: sql8`${programInstances.id}::text`,
@@ -7257,9 +7269,11 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
       .from(programInstances)
       .where(eq7(programInstances.userId, userId));
     for (const instance of instances) {
-      if (!unweighted.has(instance.id)) continue;
+      if (!resultInstances.has(instance.id)) continue;
       const definition = await resolveInstanceDefinition(instance, executor);
       if (definition === null) continue;
+      tiers.set(instance.id, slotTiers(definition));
+      if (!unweighted.has(instance.id)) continue;
       prescribed.set(
         instance.id,
         prescribedWeights(
@@ -7271,6 +7285,8 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
   }
   const records = [];
   for (const row of rows.reverse()) {
+    const tier = tiers.get(row.instanceId)?.get(row.slotId);
+    if (tier === void 0) continue;
     const weight = row.loggedWeight ?? prescribed.get(row.instanceId)?.get(weightKey(row));
     if (weight === void 0) continue;
     records.push({
@@ -7280,6 +7296,7 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
       workoutIndex: row.workoutIndex,
       exerciseId: row.exerciseId,
       definitionVersion: Number(row.definitionVersion),
+      tier,
       weight: Number(weight),
       result: row.result,
       rpe: row.rpe === null ? null : Number(row.rpe),
@@ -7288,6 +7305,13 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
     });
   }
   return records;
+}
+function slotTiers(definition) {
+  const tiers = /* @__PURE__ */ new Map();
+  for (const day of definition.days) {
+    for (const slot of day.slots) tiers.set(slot.id, slot.tier);
+  }
+  return tiers;
 }
 async function upsertInsight(userId, insightType, exerciseId, payload, executor = getDb()) {
   await executor
@@ -7503,6 +7527,29 @@ function consistencyPercentage(sortedDateKeys, first, last) {
   return pyRound(Math.min(100, (weeksWithSession.size / totalWeeks) * 100), 1);
 }
 
+// packages/domain/src/insight-series.ts
+var SEPARATOR = ':';
+var MAX_KEY_LENGTH = 100;
+function buildInsightSeriesKey({ exerciseId, tier }) {
+  if (tier === null) return exerciseId;
+  return `${exerciseId}${SEPARATOR}${tier.replaceAll(SEPARATOR, '-')}`.slice(0, MAX_KEY_LENGTH);
+}
+
+// apps/backend/api/src/analytics/record.ts
+function seriesKeyResolver(records) {
+  const tiers = /* @__PURE__ */ new Map();
+  for (const r of records) {
+    const seen = tiers.get(r.exerciseId) ?? /* @__PURE__ */ new Set();
+    seen.add(r.tier);
+    tiers.set(r.exerciseId, seen);
+  }
+  return (r) =>
+    buildInsightSeriesKey({
+      exerciseId: r.exerciseId,
+      tier: (tiers.get(r.exerciseId)?.size ?? 0) > 1 ? r.tier : null,
+    });
+}
+
 // apps/backend/api/src/analytics/epley.ts
 function epley(weight, reps) {
   if (reps === 1) return weight;
@@ -7522,12 +7569,13 @@ function compareByRecordedAtThenIndex(a, b) {
 var MIN_POINTS = 4;
 var DEFAULT_REPS2 = 5;
 function computeE1rmPerExercise(records) {
+  const keyOf = seriesKeyResolver(records);
   const bySlot = /* @__PURE__ */ new Map();
   for (const r of records) {
     if (r.result !== 'success') continue;
-    const slot = bySlot.get(r.exerciseId) ?? [];
+    const slot = bySlot.get(keyOf(r)) ?? [];
     slot.push(r);
-    bySlot.set(r.exerciseId, slot);
+    bySlot.set(keyOf(r), slot);
   }
   const result = /* @__PURE__ */ new Map();
   for (const [exerciseId, exerciseRecords] of bySlot) {
@@ -7563,11 +7611,12 @@ function formatDate(timestamp2, workoutIndex) {
 // apps/backend/api/src/analytics/pipelines/summary.ts
 var DEFAULT_REPS3 = 5;
 function computeSummaryPerExercise(records) {
+  const keyOf = seriesKeyResolver(records);
   const bySlot = /* @__PURE__ */ new Map();
   for (const r of records) {
-    const slot = bySlot.get(r.exerciseId) ?? [];
+    const slot = bySlot.get(keyOf(r)) ?? [];
     slot.push(r);
-    bySlot.set(r.exerciseId, slot);
+    bySlot.set(keyOf(r), slot);
   }
   const result = /* @__PURE__ */ new Map();
   for (const [exerciseId, exerciseRecords] of bySlot) {
@@ -7757,14 +7806,15 @@ var MAX_CONFIDENCE = 0.95;
 var MS_PER_WEEK = 7 * 864e5;
 function computePlateauPerExercise(records) {
   const cutoff = Date.now() - WEEKS_BACK * MS_PER_WEEK;
+  const keyOf = seriesKeyResolver(records);
   const bySlot = /* @__PURE__ */ new Map();
   for (const r of records) {
     if (r.result !== 'success' || r.recordedAt === null) continue;
     const instant = parseInstant(r.recordedAt);
     if (instant === null || instant.getTime() < cutoff) continue;
-    const slot = bySlot.get(r.exerciseId) ?? [];
+    const slot = bySlot.get(keyOf(r)) ?? [];
     slot.push(r);
-    bySlot.set(r.exerciseId, slot);
+    bySlot.set(keyOf(r), slot);
   }
   const result = /* @__PURE__ */ new Map();
   for (const [exerciseId, exerciseRecords] of bySlot) {
@@ -7832,12 +7882,13 @@ var R2_THRESHOLD = 0.5;
 var DEFAULT_REPS4 = 5;
 var FALLBACK_T_CRIT = 1.96;
 function computeForecastPerExercise(records) {
+  const keyOf = seriesKeyResolver(records);
   const bySlot = /* @__PURE__ */ new Map();
   for (const r of records) {
     if (r.result !== 'success') continue;
-    const slot = bySlot.get(r.exerciseId) ?? [];
+    const slot = bySlot.get(keyOf(r)) ?? [];
     slot.push(r);
-    bySlot.set(r.exerciseId, slot);
+    bySlot.set(keyOf(r), slot);
   }
   const result = /* @__PURE__ */ new Map();
   for (const [exerciseId, exerciseRecords] of bySlot) {
@@ -8084,11 +8135,12 @@ var DEFAULT_REPS5 = 5;
 var MS_PER_WEEK2 = 7 * 864e5;
 var MS_PER_DAY2 = 864e5;
 function computeRecommendationPerExercise(records) {
+  const keyOf = seriesKeyResolver(records);
   const bySlot = /* @__PURE__ */ new Map();
   for (const r of records) {
-    const slot = bySlot.get(r.exerciseId) ?? [];
+    const slot = bySlot.get(keyOf(r)) ?? [];
     slot.push(r);
-    bySlot.set(r.exerciseId, slot);
+    bySlot.set(keyOf(r), slot);
   }
   const result = /* @__PURE__ */ new Map();
   for (const [exerciseId, exerciseRecords] of bySlot) {

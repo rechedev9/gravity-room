@@ -2,7 +2,8 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from '
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import type { ProgramSummary } from '../../lib/programs/program-repository';
-import { colors, spacing, type } from '../../shell/design';
+import { type } from '../../shell/design';
+import { colors, spacing } from '@gzclp/design-tokens';
 import { Screen } from '../../ui/screen';
 import { ScreenHeader } from '../../ui/screen-header';
 import { Button } from '../../ui/button';

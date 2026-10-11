@@ -4,7 +4,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { GenericSlotRow, SetLogEntry } from '@gzclp/domain';
 
-import { colors, type } from '../../shell/design';
+import { type } from '../../shell/design';
+import { colors } from '@gzclp/design-tokens';
 import { IconButton } from '../../ui/icon-button';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';

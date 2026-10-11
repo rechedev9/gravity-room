@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { InsightItem } from '@/lib/api-functions';
 import { isRecommendationPayload } from '@/lib/insight-payloads';
+import { insightSeriesLabel } from '@/lib/insight-series-label';
 import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 interface LoadRecommendationProps {
@@ -17,7 +18,10 @@ export function LoadRecommendation({
   const payload = insight.payload;
   if (!isRecommendationPayload(payload)) return null;
 
-  const name = exerciseName ?? insight.exerciseId ?? t('insights.load_rec.default_exercise');
+  const name =
+    exerciseName ??
+    (insight.exerciseId === null ? null : insightSeriesLabel(insight.exerciseId)) ??
+    t('insights.load_rec.default_exercise');
   const confidencePct = Math.round(payload.confidence * 100);
   const isML = payload.method === 'logistic_regression';
   const actionLabel = payload.shouldIncrement

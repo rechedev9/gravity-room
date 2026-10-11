@@ -337,6 +337,13 @@
       "when": 1788605462178,
       "tag": "0047_daily_spencer_smythe",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1791589778953,
+      "tag": "0048_low_kulan_gath",
+      "breakpoints": true
     }
   ]
 }

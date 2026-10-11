@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { SetLogEntryInputSchema, type SetLogEntry } from '@gzclp/domain';
 import { TextInput } from '../../ui/text-input';
 import { Button } from '../../ui/button';
-import { colors, type } from '../../shell/design';
+import { type } from '../../shell/design';
+import { colors } from '@gzclp/design-tokens';
 
 type Props = {
   readonly exerciseName: string;
