@@ -1,7 +1,7 @@
 /**
  * Drizzle data access for analytics pipelines.
- * Reads use stable exercise identity, a bounded newest-history window, and
- * deterministic ordering. `upsertInsight` writes `user_insights` with
+ * Insight points use stable exercise identity, a bounded newest-history window,
+ * and deterministic ordering; the engine replay reads every result. `upsertInsight` writes `user_insights` with
  * `ON CONFLICT (user_id, insight_type, exercise_id) DO UPDATE`.
  */
 
@@ -11,7 +11,7 @@ import { programInstances, userInsights, users, workoutResults } from '@gzclp/da
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import type { WorkoutRecord } from './record';
-import { prescribedWeights, weightKey } from './prescribed-weight';
+import { prescribedWeights, weightKey, type AnalyticsResultRow } from './prescribed-weight';
 import { MAX_ANALYTICS_RECORDS_PER_USER } from '../lib/data-limits';
 import { getHistoricalProgramDefinition } from '../services/catalog';
 
@@ -130,6 +130,26 @@ async function resolveInstanceDefinition(
   return stored.status === 'found' ? stored.definition : null;
 }
 
+/** Every result of the user's instances: no identity filter and no cap. */
+async function fetchResultHistory(
+  userId: string,
+  executor: Executor
+): Promise<AnalyticsResultRow[]> {
+  return executor
+    .select({
+      instanceId: sql<string>`${programInstances.id}::text`,
+      workoutIndex: workoutResults.workoutIndex,
+      slotId: workoutResults.slotId,
+      result: workoutResults.result,
+      rpe: sql<number | null>`${workoutResults.rpe}::float`,
+      amrapReps: workoutResults.amrapReps,
+      setLogs: workoutResults.setLogs,
+    })
+    .from(workoutResults)
+    .innerJoin(programInstances, eq(programInstances.id, workoutResults.instanceId))
+    .where(eq(programInstances.userId, userId));
+}
+
 /**
  * The newest bounded workout-result window for a user. Only rows with a stable
  * versioned exercise identity participate; unresolved legacy rows are omitted
@@ -182,6 +202,7 @@ export async function fetchWorkoutRecords(
   const prescribed = new Map<string, ReadonlyMap<string, number>>();
   const tiers = new Map<string, ReadonlyMap<string, string>>();
   if (resultInstances.size > 0) {
+    const history = await fetchResultHistory(userId, executor);
     const instances = await executor
       .select({
         id: sql<string>`${programInstances.id}::text`,
@@ -197,10 +218,12 @@ export async function fetchWorkoutRecords(
       if (definition === null) continue;
       tiers.set(instance.id, slotTiers(definition));
       if (!unweighted.has(instance.id)) continue;
+      // The engine reads a missing result as a rule of its own, so the replay
+      // needs every result of the instance, not the insight window.
       prescribed.set(
         instance.id,
         prescribedWeights(
-          rows.filter((row) => row.instanceId === instance.id),
+          history.filter((row) => row.instanceId === instance.id),
           { definition, config: instance.config }
         )
       );

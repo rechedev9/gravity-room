@@ -47,6 +47,28 @@ function hydratedGzclp() {
   return gzclp.value;
 }
 
+interface FakeReads {
+  readonly window: readonly unknown[];
+  /** Every result of the user; defaults to the window. */
+  readonly history?: readonly unknown[];
+  readonly instances: readonly unknown[];
+}
+
+/** An executor answering the three reads of fetchWorkoutRecords in order. */
+function fakeExecutor({ window, history = window, instances }: FakeReads) {
+  const limit = vi.fn(() => window);
+  const windowWhere = vi.fn<(condition: unknown) => unknown>(() => ({
+    orderBy: () => ({ limit }),
+  }));
+  const historyWhere = vi.fn<(condition: unknown) => unknown>(() => history);
+  const select = vi
+    .fn()
+    .mockReturnValueOnce({ from: () => ({ innerJoin: () => ({ where: windowWhere }) }) })
+    .mockReturnValueOnce({ from: () => ({ innerJoin: () => ({ where: historyWhere }) }) })
+    .mockReturnValueOnce({ from: () => ({ where: () => instances }) });
+  return { executor: { select }, limit, windowWhere, historyWhere };
+}
+
 function sqlText(condition: unknown): string {
   if (
     condition === null ||
@@ -111,31 +133,23 @@ describe('analytics user selection', () => {
         recordedAt: '2026-01-01T00:00:00Z',
       },
     ];
-    const limit = vi.fn(() => rows);
-    const orderBy = vi.fn(() => ({ limit }));
-    const where = vi.fn<(condition: unknown) => { orderBy: typeof orderBy }>(() => ({ orderBy }));
-    const innerJoin = vi.fn(() => ({ where }));
-    const from = vi.fn(() => ({ innerJoin }));
-    const instancesChain = {
-      from: () => ({
-        where: () => [{ id: 'i1', templateId: 'gzclp', config: {}, customDefinition: null }],
-      }),
-    };
     mockGetHistoricalProgramDefinition.mockImplementation(() =>
       Promise.resolve({ status: 'found', definition: hydratedGzclp() })
     );
-    activeDb = {
-      select: vi.fn().mockReturnValueOnce({ from }).mockReturnValueOnce(instancesChain),
-    };
+    const { executor, limit, windowWhere } = fakeExecutor({
+      window: rows,
+      instances: [{ id: 'i1', templateId: 'gzclp', config: {}, customDefinition: null }],
+    });
+    activeDb = executor;
 
     await expect(fetchWorkoutRecords('u1')).resolves.toMatchObject([
       { exerciseId: 'squat', definitionVersion: 1, weight: 80, tier: 't1' },
     ]);
     expect(limit).toHaveBeenCalledWith(MAX_ANALYTICS_RECORDS_PER_USER);
-    expect(sqlText(where.mock.calls[0]?.[0])).toContain(
+    expect(sqlText(windowWhere.mock.calls[0]?.[0])).toContain(
       '"workout_results"."exercise_id" is not null'
     );
-    expect(sqlText(where.mock.calls[0]?.[0])).toContain(
+    expect(sqlText(windowWhere.mock.calls[0]?.[0])).toContain(
       '"workout_results"."definition_version" is not null'
     );
   });
@@ -171,14 +185,7 @@ describe('analytics user selection', () => {
       { id: 'i1', templateId: 'gzclp', config: { squat: 60 }, customDefinition: null },
       { id: 'i2', templateId: 'retired', config: { squat: 60 }, customDefinition: null },
     ];
-    const resultsChain = {
-      from: () => ({
-        innerJoin: () => ({ where: () => ({ orderBy: () => ({ limit: () => resultRows }) }) }),
-      }),
-    };
-    const instancesChain = { from: () => ({ where: () => instanceRows }) };
-    const select = vi.fn().mockReturnValueOnce(resultsChain).mockReturnValueOnce(instancesChain);
-    const executor = { select };
+    const { executor } = fakeExecutor({ window: resultRows, instances: instanceRows });
     activeDb = executor;
 
     // A row whose definition is gone has no weight to analyse and is dropped.
@@ -232,24 +239,71 @@ describe('analytics user selection', () => {
       { ...base, workoutIndex: 0, slotId: 'd1-t1', loggedWeight: 80 },
       { ...base, workoutIndex: 1, slotId: 'not-a-slot', loggedWeight: 70 },
     ];
-    const resultsChain = {
-      from: () => ({
-        innerJoin: () => ({ where: () => ({ orderBy: () => ({ limit: () => resultRows }) }) }),
-      }),
-    };
-    const instancesChain = {
-      from: () => ({
-        where: () => [{ id: 'i1', templateId: 'gzclp', config: {}, customDefinition: null }],
-      }),
-    };
-    activeDb = {
-      select: vi.fn().mockReturnValueOnce(resultsChain).mockReturnValueOnce(instancesChain),
-    };
+    activeDb = fakeExecutor({
+      window: resultRows,
+      instances: [{ id: 'i1', templateId: 'gzclp', config: {}, customDefinition: null }],
+    }).executor;
 
     const records = await fetchWorkoutRecords('u1');
     expect(records.map((r) => [r.workoutIndex, r.tier, r.weight])).toEqual([
       [0, 't1', 80],
       [2, 't2', 60],
     ]);
+  });
+
+  it('replays the whole instance history, including rows outside the insight window', async () => {
+    mockGetHistoricalProgramDefinition.mockImplementation(() =>
+      Promise.resolve({ status: 'found', definition: hydratedGzclp() })
+    );
+    const base = {
+      userId: 'u1',
+      instanceId: 'i1',
+      programId: 'gzclp',
+      definitionVersion: 1,
+      loggedWeight: null,
+      setLogs: null,
+      rpe: null,
+      amrapReps: null,
+      recordedAt: '2026-01-01T00:00:00Z',
+    };
+    const squat = { ...base, slotId: 'd1-t1', exerciseId: 'squat' };
+    const pulldown = { ...base, slotId: 'latpulldown-t3', exerciseId: 'latpulldown' };
+    // Rows written before migration 0045 carry no exercise identity.
+    const legacy = { exerciseId: null, definitionVersion: null };
+    const history = [
+      { ...squat, ...legacy, workoutIndex: 0, result: 'fail' },
+      { ...pulldown, ...legacy, workoutIndex: 0, result: 'success' },
+      { ...pulldown, ...legacy, workoutIndex: 4, result: 'success' },
+      { ...squat, workoutIndex: 4, result: 'success' },
+      { ...squat, workoutIndex: 8, result: 'success' },
+      { ...pulldown, workoutIndex: 8, result: 'success' },
+    ];
+    // Newest first, identity-bearing rows only, as the window query returns them.
+    const window = history.filter((row) => row.exerciseId !== null).reverse();
+    const { executor, historyWhere } = fakeExecutor({
+      window,
+      history,
+      instances: [
+        {
+          id: 'i1',
+          templateId: 'gzclp',
+          config: { squat: 60, latpulldown: 30 },
+          customDefinition: null,
+        },
+      ],
+    });
+    activeDb = executor;
+
+    const records = await fetchWorkoutRecords('u1');
+
+    // The early fail holds squat at 60 kg; three pulldown successes reach 35 kg.
+    expect(records.map((r) => [r.exerciseId, r.workoutIndex, r.weight])).toEqual([
+      ['squat', 4, 60],
+      ['squat', 8, 65],
+      ['latpulldown', 8, 35],
+    ]);
+    const historyFilter = sqlText(historyWhere.mock.calls[0]?.[0]);
+    expect(historyFilter).not.toContain('exercise_id');
+    expect(historyFilter).not.toContain('definition_version');
   });
 });
