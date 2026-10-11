@@ -8,6 +8,8 @@
  * simultaneously, only one refresh attempt runs — the others wait for its result.
  */
 import { isRecord } from '@gzclp/domain/type-guards';
+import { ApiError } from '@gzclp/api-client/api-error';
+import { readApiError } from '@gzclp/api-client/response-error';
 import { createSingleFlight } from '@gzclp/api-client/single-flight';
 import { SESSION_INVALIDATED_EVENT } from './auth-events';
 
@@ -42,6 +44,9 @@ export async function clearApiResponseCache(): Promise<void> {
  * Refresh result. `user` is the raw profile payload the endpoint now returns
  * alongside the token — callers that need a session (restoreSession) parse it,
  * letting them skip a follow-up GET /auth/me. The 401-retry path ignores it.
+ *
+ * `null` means the server confirmed there is no session. Any other failure
+ * (network, 429, 5xx) throws and leaves the token and the session untouched.
  */
 export interface RefreshResult {
   readonly accessToken: string;
@@ -70,6 +75,9 @@ const refreshAccessToken = createSingleFlight(async (): Promise<RefreshResult | 
   if (refreshBlocked) return null;
 
   if (!res.ok) {
+    const error = await readApiError(res, 'Session refresh failed');
+    // 429, 5xx and a 401 from anything but the endpoint itself say nothing about the cookie.
+    if (!isRefreshTokenVerdict(error)) throw error;
     setAccessToken(null);
     await clearApiResponseCache();
     globalThis.dispatchEvent(new Event(SESSION_INVALIDATED_EVENT));
@@ -82,11 +90,13 @@ const refreshAccessToken = createSingleFlight(async (): Promise<RefreshResult | 
     return { accessToken: body.accessToken, user: body.user };
   }
 
-  setAccessToken(null);
-  await clearApiResponseCache();
-  globalThis.dispatchEvent(new Event(SESSION_INVALIDATED_EVENT));
-  return null;
+  throw new ApiError('Unexpected refresh response', res.status);
 });
+
+/** True only for the refresh endpoint's own 401s (AUTH_NO_REFRESH_TOKEN, AUTH_INVALID_REFRESH...). */
+function isRefreshTokenVerdict(error: ApiError): boolean {
+  return error.status === 401 && error.code !== undefined && error.code.startsWith('AUTH_');
+}
 
 /**
  * Prevent refresh-token rotation while logout is in progress. Any active
