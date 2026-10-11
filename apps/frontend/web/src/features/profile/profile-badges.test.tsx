@@ -88,8 +88,8 @@ describe('ProfileBadges', () => {
     );
 
     expect(screen.getByText('4 de 5 desbloqueados')).toBeVisible();
-    expect(screen.getAllByText('Programa Completo')).toHaveLength(2);
-    expect(screen.getByRole('progressbar', { name: 'Programa Completo: 16 / 90' })).toHaveAttribute(
+    expect(screen.getAllByText('Programa completo')).toHaveLength(2);
+    expect(screen.getByRole('progressbar', { name: 'Programa completo: 16 / 90' })).toHaveAttribute(
       'aria-valuenow',
       '18'
     );
@@ -98,7 +98,7 @@ describe('ProfileBadges', () => {
     ).toHaveAttribute('aria-valuenow', '100');
   });
 
-  // Regression coverage for the "Programa Completo" badge contradicting the
+  // Regression coverage for the "Programa completo" badge contradicting the
   // rest of the page: it must never borrow the active program's totalWorkouts
   // as a denominator for a numerator that belongs to a different, already
   // completed program.
@@ -150,14 +150,14 @@ describe('ProfileBadges', () => {
         // program's own totals, or the count of completed programs), so it
         // never claims progress the user does not have.
         const progressbar = screen.getByRole('progressbar', {
-          name: `Programa Completo: ${expectedProgressLabel}`,
+          name: `Programa completo: ${expectedProgressLabel}`,
         });
         expect(progressbar).toHaveAttribute('aria-valuenow', String(expectedValueNow));
 
         const fill = progressbar.firstElementChild;
         expect(fill).toHaveClass(expectedUnlocked ? 'bg-ok' : 'bg-accent');
 
-        expect(screen.getAllByText('Programa Completo').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('Programa completo').length).toBeGreaterThan(0);
       });
     }
   );

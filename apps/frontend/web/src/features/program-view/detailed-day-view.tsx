@@ -1,17 +1,13 @@
-import { useState, useCallback } from 'react';
-import { useUnitPreference } from '@/hooks/use-unit-preference';
-import type { ReactNode } from 'react';
+import { useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GenericSlotRow } from '@gzclp/domain/types';
+import { CheckIcon, CrossIcon } from '@/components/glyph-icons';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
+import { localizedExerciseName } from '@/lib/catalog-display';
+import { cn } from '@/lib/cn';
 import type { DayViewProps } from './day-view';
 import { SlotCardShell } from './slot-card-shell';
 import { SlotResultFooter } from './slot-result-footer';
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const EM_DASH = '\u2014';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -91,21 +87,24 @@ export function buildSetRows(slot: GenericSlotRow): readonly SetTableRow[] {
 }
 
 // ---------------------------------------------------------------------------
-// Per-row state for tracking user input
+// Set rows of one slot
 // ---------------------------------------------------------------------------
 
-function initRepsInputs(tableRows: readonly SetTableRow[]): readonly string[] {
-  return tableRows.map((row) => String(row.plannedReps));
+const FIELD_CLASS =
+  'flex h-11 min-w-0 items-center gap-1.5 rounded-control border border-rule bg-body px-3 transition-colors duration-[var(--duration-press)] focus-within:border-accent';
+const INPUT_CLASS =
+  'w-full min-w-0 bg-transparent text-base text-main tabular-nums placeholder:text-label [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none disabled:cursor-not-allowed';
+
+/** Reads a typed number; an empty or malformed field is no number at all. */
+function parseField(text: string): number | undefined {
+  const value = Number(text.trim().replace(',', '.'));
+  return text.trim() === '' || !Number.isFinite(value) || value < 0 ? undefined : value;
 }
 
-// ---------------------------------------------------------------------------
-// SlotTable sub-component (keeps the main component under control)
-// ---------------------------------------------------------------------------
-
-interface SlotTableProps {
+interface SlotSetsProps {
   readonly slot: GenericSlotRow;
   readonly workoutIndex: number;
-  readonly isCurrent: boolean;
+  readonly focal: boolean;
   readonly onSetTap?: DayViewProps['onSetTap'];
   readonly onMark: DayViewProps['onMark'];
   readonly onUndo: DayViewProps['onUndo'];
@@ -115,10 +114,10 @@ interface SlotTableProps {
   readonly isSlotLogging?: DayViewProps['isSlotLogging'];
 }
 
-function SlotTable({
+function SlotSets({
   slot,
   workoutIndex,
-  isCurrent,
+  focal,
   onSetTap,
   onMark,
   onUndo,
@@ -126,223 +125,214 @@ function SlotTable({
   onSetRpe,
   getSetLogs,
   isSlotLogging,
-}: SlotTableProps): ReactNode {
+}: SlotSetsProps): ReactNode {
   const { t } = useTranslation();
-  const { unit, toDisplay } = useUnitPreference();
-  const shownWeight = (kg: number | undefined): number | undefined =>
-    kg === undefined ? undefined : toDisplay(kg);
+  const { unit, toDisplay, fromDisplay, format } = useUnitPreference();
   const isDone = slot.result !== undefined;
-  const isGpp = slot.isGpp === true;
-  const isBodyweight = slot.isBodyweight === true;
-  const noWeight = isGpp || isBodyweight;
+  const noWeight = slot.isGpp === true || slot.isBodyweight === true;
+  const exerciseLabel = localizedExerciseName(t, slot.exerciseId, slot.exerciseName);
 
-  const tableRows = buildSetRows(slot);
+  const setRows = buildSetRows(slot);
 
-  // In-progress and committed set logs
-  const inProgressLogs = getSetLogs?.(workoutIndex, slot.slotId);
-  const committedLogs = slot.setLogs;
-  const displayLogs = inProgressLogs ?? committedLogs;
+  // In-progress logs win over the committed ones while the slot is still open.
+  const displayLogs = getSetLogs?.(workoutIndex, slot.slotId) ?? slot.setLogs;
   const logging = isSlotLogging?.(workoutIndex, slot.slotId) === true;
-
-  // Local reps input state per row (weight is always read-only from the program)
-  const [repsInputs, setRepsInputs] = useState<readonly string[]>(() => initRepsInputs(tableRows));
-
   const confirmedCount = displayLogs?.length ?? 0;
 
-  const handleRepsChange = useCallback((rowIndex: number, value: string): void => {
-    setRepsInputs((prev) => {
-      const next = [...prev];
-      next[rowIndex] = value;
-      return next;
-    });
-  }, []);
+  // Typed text stays local until the set is confirmed; untouched fields follow the plan.
+  const [repsEdits, setRepsEdits] = useState<Readonly<Record<number, string>>>({});
+  const [weightEdits, setWeightEdits] = useState<Readonly<Record<number, string>>>({});
 
-  const handleConfirmSet = useCallback(
-    (row: SetTableRow, rowIndex: number): void => {
-      if (!onSetTap) return;
-      const repsStr = repsInputs[rowIndex];
-      if (repsStr === undefined) return;
+  const repsText = (row: SetTableRow): string => repsEdits[row.setIndex] ?? String(row.plannedReps);
+  const weightText = (row: SetTableRow): string =>
+    weightEdits[row.setIndex] ??
+    (row.plannedWeight === undefined ? '' : String(toDisplay(row.plannedWeight)));
 
-      const reps = parseInt(repsStr, 10);
-      if (Number.isNaN(reps)) return;
+  /** What confirming this row would record, or null while a field is not a usable number. */
+  const entryFor = (row: SetTableRow): { reps: number; weight: number | undefined } | null => {
+    const reps = parseField(repsText(row));
+    if (reps === undefined || !Number.isInteger(reps)) return null;
+    if (noWeight) return { reps, weight: row.plannedWeight };
+    const edited = weightEdits[row.setIndex];
+    // An untouched load is recorded exactly as planned, with no unit round trip.
+    if (edited === undefined) return { reps, weight: row.plannedWeight };
+    const shown = parseField(edited);
+    return shown === undefined ? null : { reps, weight: fromDisplay(shown) };
+  };
 
-      onSetTap(workoutIndex, slot.slotId, row.setIndex, reps, row.plannedWeight);
-    },
-    [onSetTap, repsInputs, workoutIndex, slot.slotId]
-  );
+  const confirmSet = (row: SetTableRow): void => {
+    const entry = entryFor(row);
+    if (!onSetTap || entry === null) return;
+    onSetTap(workoutIndex, slot.slotId, row.setIndex, entry.reps, entry.weight);
+  };
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent, row: SetTableRow, rowIndex: number): void => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleConfirmSet(row, rowIndex);
-      }
-    },
-    [handleConfirmSet]
-  );
+  const confirmOnEnter = (event: KeyboardEvent<HTMLInputElement>, row: SetTableRow): void => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    confirmSet(row);
+  };
 
-  // Whether the slot is finished but the user never logged individual sets
-  // (marked success/fail straight from the footer). In that case we still want
-  // to show the prescribed reps rather than collapsing every cell to a dash.
+  // A slot marked straight from the footer has no per-set logs: the prescribed sets still
+  // show, coloured by the slot result, instead of collapsing to nothing.
   const doneWithoutLogs = isDone && confirmedCount === 0;
   const slotSucceeded = slot.result === 'success';
+  const columns = noWeight
+    ? 'grid-cols-[1.75rem_minmax(0,1fr)_2.75rem]'
+    : 'grid-cols-[1.75rem_minmax(0,1fr)_minmax(0,1fr)_2.75rem]';
 
   return (
-    <SlotCardShell slot={slot} isCurrent={isCurrent}>
-      {/* Per-set table. Fixed layout + tight max-width so Kg/Reps/Tgt sit next to
-          Serie instead of stretching across the desktop content column. */}
-      <div className="overflow-x-auto mb-3">
-        <table
-          data-testid="slot-set-table"
-          className="w-full max-w-[20rem] table-fixed border-collapse"
-          aria-label={t('tracker.detailed_day_view.table_aria', { exercise: slot.exerciseName })}
+    <SlotCardShell slot={slot} focal={focal}>
+      <div
+        data-testid="slot-set-table"
+        role="group"
+        aria-label={t('tracker.detailed_day_view.table_aria', { exercise: exerciseLabel })}
+        className="flex flex-col gap-2"
+      >
+        <div
+          aria-hidden="true"
+          className={cn('grid gap-2 font-mono text-xs font-bold text-label', columns)}
         >
-          <colgroup>
-            <col className="w-[2.5rem]" />
-            <col className="w-[3.5rem]" />
-            <col className="w-[4.5rem]" />
-            <col className="w-[3rem]" />
-            <col className="w-[2.75rem]" />
-          </colgroup>
-          <thead>
-            <tr className="border-b border-rule">
-              <th className="text-2xs font-bold text-muted uppercase text-left py-1 pr-1">
-                {t('tracker.detailed_day_view.col_set')}
-              </th>
-              <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-1">
-                {t('tracker.detailed_day_view.col_weight', { unit: unit === 'kg' ? 'Kg' : 'Lbs' })}
-              </th>
-              <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-1">
-                {t('tracker.detailed_day_view.col_reps')}
-              </th>
-              <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-1">
-                {t('tracker.detailed_day_view.col_target')}
-              </th>
-              <th className="text-2xs font-bold text-muted uppercase text-center py-1 pl-1"> </th>
-            </tr>
-          </thead>
-          <tbody>
-            {tableRows.map((row, rowIndex) => {
-              const isConfirmed = rowIndex < confirmedCount;
-              const log = displayLogs?.[rowIndex];
-              const isNextToConfirm = rowIndex === confirmedCount && !isDone;
+          <span />
+          {!noWeight && <span className="pl-1">{unit}</span>}
+          <span className="pl-1">{t('tracker.detailed_day_view.col_reps')}</span>
+          <span />
+        </div>
 
-              const metTarget = log !== undefined && log.reps >= row.plannedReps;
-              // For a done-without-logs slot, colour the prescribed reps by the
-              // slot-level result so the completed state still reads at a glance.
-              const doneTone = slotSucceeded ? 'text-ok' : 'text-fail';
+        {setRows.map((row, rowIndex) => {
+          const log = displayLogs?.[rowIndex];
+          const isNext = rowIndex === confirmedCount && !isDone;
+          const resolved = log !== undefined || doneWithoutLogs;
+          if (isDone && !resolved) return null;
 
-              const warmupClasses = row.isWarmup ? 'text-muted italic' : '';
-              const amrapBorder = row.isAmrap ? 'border-l-2 border-accent' : '';
-              const rowClasses = `${warmupClasses} ${amrapBorder}`;
+          const met = log !== undefined ? log.reps >= row.plannedReps : slotSucceeded;
+          const tone = met ? 'text-ok' : 'text-fail';
+          const label = (
+            <span
+              className={cn(
+                'font-mono text-sm tabular-nums',
+                row.isWarmup ? 'text-label italic' : 'text-muted'
+              )}
+            >
+              {row.label}
+              {row.isAmrap && <span className="font-bold text-accent">+</span>}
+            </span>
+          );
 
-              return (
-                <tr key={row.setIndex} className={`border-b border-rule/50 ${rowClasses}`}>
-                  {/* Set label */}
-                  <td className="text-sm tabular-nums py-1.5 pr-1">
-                    {row.label}
-                    {row.isAmrap && <span className="text-accent font-bold ml-0.5">+</span>}
-                  </td>
+          if (resolved) {
+            const loggedKg = log?.weight ?? row.plannedWeight;
+            return (
+              <div
+                key={row.setIndex}
+                data-set-state={met ? 'met' : 'missed'}
+                className={cn('grid min-h-9 items-center gap-2', columns)}
+              >
+                {label}
+                {!noWeight && (
+                  <span className="pl-1 text-[15px] text-muted tabular-nums">
+                    {loggedKg === undefined ? '' : format(loggedKg)}
+                  </span>
+                )}
+                <span className={cn('pl-1 text-[15px] tabular-nums', tone)}>
+                  {t('tracker.detailed_day_view.logged_reps', {
+                    reps: log?.reps ?? row.plannedReps,
+                  })}
+                </span>
+                <span
+                  role="img"
+                  aria-label={t(
+                    met
+                      ? 'tracker.detailed_day_view.set_completed_aria'
+                      : 'tracker.detailed_day_view.set_failed_aria'
+                  )}
+                  className={cn(
+                    'flex justify-center',
+                    tone,
+                    log !== undefined &&
+                      !isDone &&
+                      'animate-[pop-in_0.2s_cubic-bezier(0.16,1,0.3,1)]'
+                  )}
+                >
+                  {met ? <CheckIcon size={22} /> : <CrossIcon size={22} />}
+                </span>
+              </div>
+            );
+          }
 
-                  {/* Weight (read-only, from program) */}
-                  <td className="text-sm tabular-nums text-right py-1.5 px-1">
-                    {noWeight ? (
-                      <span className="text-muted">{EM_DASH}</span>
-                    ) : isConfirmed ? (
-                      <span className={metTarget ? 'text-ok' : 'text-fail'}>
-                        {shownWeight(row.plannedWeight)}
-                      </span>
-                    ) : doneWithoutLogs ? (
-                      <span className="text-muted">
-                        {shownWeight(row.plannedWeight) ?? EM_DASH}
-                      </span>
-                    ) : (
-                      <span>{shownWeight(row.plannedWeight) ?? EM_DASH}</span>
-                    )}
-                  </td>
-
-                  {/* Reps (input — only thing the user enters) */}
-                  <td className="text-sm tabular-nums text-right py-1.5 px-1">
-                    {isConfirmed && log ? (
-                      <span className={metTarget ? 'text-ok' : 'text-fail'}>{log.reps}</span>
-                    ) : isDone && log ? (
-                      <span className={log.reps >= row.plannedReps ? 'text-ok' : 'text-fail'}>
-                        {log.reps}
-                      </span>
-                    ) : doneWithoutLogs ? (
-                      // Keep prescribed reps visible after completion (greyed) rather
-                      // than collapsing to a dash - the user did complete these.
-                      <span className={`${doneTone} opacity-80`}>{row.plannedReps}</span>
-                    ) : isDone ? (
-                      <span className="text-muted">{EM_DASH}</span>
-                    ) : (
-                      <input
-                        type="number"
-                        value={repsInputs[rowIndex] ?? ''}
-                        onChange={(e) => handleRepsChange(rowIndex, e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(e, row, rowIndex)}
-                        disabled={!isNextToConfirm && !isConfirmed}
-                        placeholder={isNextToConfirm ? String(row.plannedReps) : ''}
-                        aria-label={t('tracker.detailed_day_view.reps_input_aria', {
-                          label: row.label,
-                        })}
-                        className="w-14 text-right text-sm tabular-nums bg-transparent border-b-2 border-rule focus:border-accent focus:bg-accent/5 outline-none py-1 transition-colors duration-150 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-30 placeholder:text-muted/40"
-                      />
-                    )}
-                  </td>
-
-                  {/* Target reps */}
-                  <td className="text-sm tabular-nums text-right py-1.5 px-1 text-muted">
-                    {row.plannedReps}
-                    {row.isAmrap ? '+' : ''}
-                  </td>
-
-                  {/* Confirm button */}
-                  <td className="text-center py-1.5 pl-1">
-                    {isConfirmed ? (
-                      <span
-                        className={`inline-flex items-center justify-center w-8 h-8 text-sm font-bold rounded-sm animate-[pop-in_0.2s_cubic-bezier(0.16,1,0.3,1)] ${metTarget ? 'text-ok bg-ok-bg' : 'text-fail bg-fail-bg'}`}
-                        aria-label={t(
-                          metTarget
-                            ? 'tracker.detailed_day_view.set_completed_aria'
-                            : 'tracker.detailed_day_view.set_failed_aria'
-                        )}
-                      >
-                        {metTarget ? '\u2713' : '\u2717'}
-                      </span>
-                    ) : doneWithoutLogs ? (
-                      <span
-                        className={`inline-flex items-center justify-center w-8 h-8 text-sm font-bold rounded-sm ${slotSucceeded ? 'text-ok bg-ok-bg' : 'text-fail bg-fail-bg'}`}
-                        aria-label={t(
-                          slotSucceeded
-                            ? 'tracker.detailed_day_view.set_completed_aria'
-                            : 'tracker.detailed_day_view.set_failed_aria'
-                        )}
-                      >
-                        {slotSucceeded ? '\u2713' : '\u2717'}
-                      </span>
-                    ) : isDone ? null : (
-                      <button
-                        type="button"
-                        onClick={() => handleConfirmSet(row, rowIndex)}
-                        disabled={!isNextToConfirm}
-                        aria-label={t('tracker.detailed_day_view.confirm_set_aria', {
-                          label: row.label,
-                        })}
-                        className="w-8 h-8 text-sm font-bold text-ok border-2 border-ok-ring bg-transparent cursor-pointer rounded-sm transition-all duration-150 hover:bg-ok-bg active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default"
-                      >
-                        &#10003;
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+          const entry = isNext ? entryFor(row) : null;
+          return (
+            <div
+              key={row.setIndex}
+              data-set-state={isNext ? 'next' : 'queued'}
+              className={cn('grid items-center gap-2', columns, !isNext && 'opacity-45')}
+            >
+              {label}
+              {!noWeight && (
+                <label className={FIELD_CLASS}>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="any"
+                    min={0}
+                    value={weightText(row)}
+                    onChange={(e) =>
+                      setWeightEdits((prev) => ({ ...prev, [row.setIndex]: e.target.value }))
+                    }
+                    onFocus={(e) => e.target.select()}
+                    onKeyDown={(e) => confirmOnEnter(e, row)}
+                    disabled={!isNext}
+                    aria-label={t('tracker.detailed_day_view.weight_input_aria', {
+                      label: row.label,
+                    })}
+                    className={INPUT_CLASS}
+                    style={{ outline: 'none' }}
+                  />
+                </label>
+              )}
+              <label className={FIELD_CLASS}>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  value={repsText(row)}
+                  onChange={(e) =>
+                    setRepsEdits((prev) => ({ ...prev, [row.setIndex]: e.target.value }))
+                  }
+                  onFocus={(e) => e.target.select()}
+                  onKeyDown={(e) => confirmOnEnter(e, row)}
+                  disabled={!isNext}
+                  placeholder={String(row.plannedReps)}
+                  aria-label={t('tracker.detailed_day_view.reps_input_aria', { label: row.label })}
+                  className={INPUT_CLASS}
+                  style={{ outline: 'none' }}
+                />
+                <span aria-hidden="true" className="shrink-0 font-mono text-xs text-label">
+                  / {row.plannedReps}
+                  {row.isAmrap ? '+' : ''}
+                </span>
+              </label>
+              <button
+                type="button"
+                onClick={() => confirmSet(row)}
+                disabled={!isNext || entry === null}
+                aria-label={t('tracker.detailed_day_view.confirm_set_aria', { label: row.label })}
+                style={isNext ? { boxShadow: 'var(--shadow-pressed-steel)' } : undefined}
+                className={cn(
+                  'flex size-11 items-center justify-center rounded-control cursor-pointer',
+                  'transition-[transform,background-color] duration-[var(--duration-press)] ease-[var(--ease-press)] active:translate-y-px',
+                  'disabled:cursor-not-allowed',
+                  isNext
+                    ? 'bg-accent text-on-accent hover:bg-accent-hover disabled:opacity-45'
+                    : 'border border-rule text-label'
+                )}
+              >
+                <CheckIcon size={22} />
+              </button>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Footer: undo / AMRAP / RPE only — set-first mode hides slot pass/fail. */}
+      {/* Set-first mode: the footer only carries undo, AMRAP and RPE. */}
       <SlotResultFooter
         slot={slot}
         workoutIndex={workoutIndex}
@@ -373,6 +363,7 @@ export function DetailedDayView({
   isSlotLogging,
 }: DayViewProps): ReactNode {
   const { t } = useTranslation();
+  const nextSlotId = isCurrent ? workout.slots.find((s) => s.result === undefined)?.slotId : null;
   return (
     <div
       data-testid="detailed-day-grid"
@@ -380,11 +371,11 @@ export function DetailedDayView({
       aria-label={t('tracker.detailed_day_view.workout_aria', { number: workout.index + 1 })}
     >
       {workout.slots.map((slot) => (
-        <SlotTable
+        <SlotSets
           key={slot.slotId}
           slot={slot}
           workoutIndex={workout.index}
-          isCurrent={isCurrent}
+          focal={slot.slotId === nextSlotId}
           onSetTap={onSetTap}
           onMark={onMark}
           onUndo={onUndo}

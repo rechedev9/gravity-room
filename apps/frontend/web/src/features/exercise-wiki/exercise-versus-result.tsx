@@ -73,7 +73,7 @@ function ProList({
   return (
     <div
       className={cn(
-        'border rounded-[var(--radius-base)] p-4 sm:p-5 space-y-3 min-h-[12rem] bg-card',
+        'border rounded-card p-4 sm:p-5 space-y-3 min-h-[12rem] bg-card',
         accent ? 'border-accent/50' : 'border-rule'
       )}
     >
@@ -195,7 +195,7 @@ function AxisBreakdown({
   const primary = weightedAxesForGoal(goal);
   return (
     <div
-      className="border border-rule rounded-[var(--radius-base)] bg-card p-4 sm:p-5 space-y-4"
+      className="border border-rule rounded-card bg-card p-4 sm:p-5 space-y-4"
       data-testid="versus-axis-breakdown"
     >
       <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-label">
@@ -242,7 +242,7 @@ export function ExerciseVersusResultView({
 
   return (
     <section className="space-y-5 anim-rise" data-testid="versus-result" aria-live="polite">
-      <div className="relative border border-accent/40 rounded-[var(--radius-base)] bg-card overflow-hidden shadow-[var(--shadow-card)]">
+      <div className="relative border border-accent/40 rounded-card bg-card overflow-hidden shadow-[var(--shadow-card)]">
         <div className="relative p-5 sm:p-6 space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-accent">
@@ -250,7 +250,7 @@ export function ExerciseVersusResultView({
             </p>
             <span
               className={cn(
-                'font-mono text-[10px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 border',
+                'font-mono text-[10px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 border rounded-chip',
                 result.confidence === 'high' && 'border-ok text-ok bg-ok-bg',
                 result.confidence === 'medium' && 'border-accent/50 text-accent bg-accent/10',
                 result.confidence === 'low' && 'border-rule text-muted bg-surface-2'
@@ -360,7 +360,7 @@ export function ExerciseVersusResultView({
         />
       </div>
 
-      <div className="border border-rule rounded-[var(--radius-base)] p-4 sm:p-5 space-y-2 bg-card">
+      <div className="border border-rule rounded-card p-4 sm:p-5 space-y-2 bg-card">
         <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-label">
           {t('exerciseVersus.caveats')}
         </h3>
@@ -376,7 +376,7 @@ export function ExerciseVersusResultView({
         </ul>
       </div>
 
-      <div className="border border-rule rounded-[var(--radius-base)] p-4 sm:p-5 space-y-3 bg-card">
+      <div className="border border-rule rounded-card p-4 sm:p-5 space-y-3 bg-card">
         <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-label">
           {t('exerciseVersus.evidence')}
         </h3>

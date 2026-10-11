@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { programCoverSpec } from '../lib/programs/program-cover-spec';
+import { programCoverSpec } from '@gzclp/domain/program-cover';
 import { colors } from '@gzclp/design-tokens';
 import { ProgramCover } from './program-cover';
 

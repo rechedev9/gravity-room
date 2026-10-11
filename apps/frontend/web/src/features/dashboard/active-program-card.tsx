@@ -121,7 +121,7 @@ export function ActiveProgramCard({
     if (isOrphan) {
       return (
         <>
-          <div className="bg-card border border-rule p-6">
+          <div className="bg-card rounded-card border border-rule p-6">
             <h3 className="text-base font-extrabold text-title mb-2">
               {t('catalog.active_card.orphan_title')}
             </h3>
@@ -151,7 +151,7 @@ export function ActiveProgramCard({
       );
     }
     return (
-      <div className="bg-card border border-rule p-6 animate-pulse">
+      <div className="bg-card rounded-card border border-rule p-6 animate-pulse">
         <div className="h-5 w-48 bg-rule rounded mb-3" />
         <div className="h-2 bg-progress-track rounded mb-4" />
         <div className="h-10 w-48 bg-rule rounded" />
@@ -164,7 +164,7 @@ export function ActiveProgramCard({
   const shortDescription = `${displayDescription.split('.')[0]}.`;
 
   return (
-    <div className="bg-card border border-rule card overflow-hidden h-full flex flex-col">
+    <div className="bg-card rounded-card border border-rule card overflow-hidden h-full flex flex-col">
       {/* Header */}
       <div className="p-5 sm:p-6 accent-left-gold flex-1">
         <h3 className="text-base font-extrabold text-title leading-tight mb-1">{displayName}</h3>

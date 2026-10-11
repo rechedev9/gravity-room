@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resolvePlaywrightApiUrl } from '../playwright-ports';
 import { createAndAuthUser, createVerifiedPasswordUser } from './helpers/api';
+import { openEmailForm } from './helpers/seed';
 
 const BASE_URL = resolvePlaywrightApiUrl(process.env);
 
@@ -8,8 +9,8 @@ test.describe('Auth flow', () => {
   test('navigates to /login and shows the sign-in screen', async ({ page }) => {
     await page.goto('/login');
 
-    await expect(page.getByRole('heading', { name: 'Gravity Room' })).toBeVisible();
-    await expect(page.getByText('Autenticar')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Entrena con intención.' })).toBeVisible();
+    await expect(page.getByTestId('auth-card')).toBeVisible();
   });
 
   test('provider availability endpoint exposes every supported login method', async ({ page }) => {
@@ -32,11 +33,14 @@ test.describe('Auth flow', () => {
     const emailButton = page.getByRole('button', {
       name: /continuar con email|continue with email/i,
     });
+    const emailField = page.getByLabel(/correo|email/i);
     if (providers.emailPassword) {
-      await expect(emailButton).toBeVisible();
-      await expect(emailButton).toBeEnabled();
+      // Open already when email is the only method, behind the disclosure button otherwise.
+      await expect(emailField.or(emailButton).first()).toBeVisible();
+      if (await emailButton.isVisible()) await expect(emailButton).toBeEnabled();
     } else {
       await expect(emailButton).toHaveCount(0);
+      await expect(emailField).toHaveCount(0);
     }
 
     for (const [provider, label] of [
@@ -83,7 +87,7 @@ test.describe('Auth flow', () => {
     await page.getByRole('menuitem', { name: /cerrar sesión|sign out/i }).click();
 
     await page.waitForURL('**/login', { timeout: 10_000 });
-    await expect(page.getByRole('heading', { name: 'Gravity Room' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Entrena con intención.' })).toBeVisible();
   });
 
   test('failed signout keeps the active session and allows retry', async ({ page }) => {
@@ -118,7 +122,7 @@ test.describe('Auth flow', () => {
     await createVerifiedPasswordUser(page, { email, password });
     await page.goto('/login');
 
-    await page.getByRole('button', { name: /correo|email/i }).click();
+    await openEmailForm(page);
     await page.getByLabel(/correo|email/i).fill(email);
     await page.getByLabel(/contraseña|password/i).fill(password);
     await page.getByRole('button', { name: /entrar|sign in/i }).click();
@@ -132,7 +136,7 @@ test.describe('Auth flow', () => {
     const password = `Valid-${crypto.randomUUID()}-12345678`;
 
     await page.goto('/login');
-    await page.getByRole('button', { name: /correo|email/i }).click();
+    await openEmailForm(page);
     await page.getByRole('button', { name: /crear una|sign up/i }).click();
     await page.getByLabel(/correo|email/i).fill(email);
     await page.getByLabel(/contraseña|password/i).fill(password);

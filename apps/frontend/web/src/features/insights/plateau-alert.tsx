@@ -25,7 +25,7 @@ export function PlateauAlert({ insight, exerciseName }: PlateauAlertProps): Reac
   const confidencePct = Math.round(payload.confidence * 100);
 
   return (
-    <div role="alert" className="bg-amber-500/5 border border-amber-500/60 card p-5">
+    <div role="alert" className="bg-amber-500/5 border border-amber-500/60 rounded-card card p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <svg

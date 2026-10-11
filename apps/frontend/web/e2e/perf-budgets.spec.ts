@@ -72,6 +72,9 @@ test.describe('Frontend perf budgets', () => {
     if (await compactBtn.isVisible().catch(() => false)) {
       await compactBtn.click();
     }
+    // Close the day picker again: the budget is for marking a set, not for scrolling past it.
+    await page.getByTestId('session-chrome-change-day').click();
+    await expect(page.getByTestId('tracker-day-navigation-panel')).toHaveCount(0);
 
     const mark = await measureInteraction(page, 'mark-t1-success', async () => {
       // T1 is the hero lift in compact view — markTierSuccess drives the
@@ -91,7 +94,7 @@ test.describe('Frontend perf budgets', () => {
     await navigateToTracker(page);
     await expandDayControls(page);
 
-    await page.getByRole('button', { name: 'Historial real', pressed: false }).click();
+    await page.getByRole('radio', { name: 'Historial real', checked: false }).click();
     await expect(page.getByTestId('history-microcopy')).toBeVisible({ timeout: 10_000 });
 
     const list = page.getByTestId('history-list');

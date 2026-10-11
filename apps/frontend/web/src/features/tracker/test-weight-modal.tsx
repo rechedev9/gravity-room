@@ -97,7 +97,7 @@ export function TestWeightModal({
     <dialog
       ref={dialogRef}
       aria-labelledby={titleId}
-      className="modal-box fixed inset-0 m-auto h-fit bg-card border border-rule p-6 max-w-sm w-[calc(100%-2rem)] shadow-dialog backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+      className="modal-box fixed inset-0 m-auto h-fit bg-card rounded-card border border-rule p-6 max-w-sm w-[calc(100%-2rem)] shadow-dialog backdrop:bg-black/60 backdrop:backdrop-blur-sm"
     >
       <form onSubmit={handleFormSubmit}>
         <h3 id={titleId} className="text-sm font-bold text-title mb-2">
@@ -121,7 +121,7 @@ export function TestWeightModal({
           step={WEIGHT_STEP}
           aria-invalid={!isWeightValid}
           aria-describedby={showRangeError ? rangeErrorId : undefined}
-          className="w-full border border-rule bg-body text-main text-sm px-3 py-2.5 rounded focus:outline-none focus:ring-2 focus:ring-accent mb-1"
+          className="w-full border border-rule bg-body text-main text-sm px-3 py-2.5 rounded-control focus:outline-none focus:ring-2 focus:ring-accent mb-1"
           autoFocus
         />
         <p

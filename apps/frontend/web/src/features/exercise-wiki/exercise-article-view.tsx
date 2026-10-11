@@ -153,7 +153,7 @@ export function ExerciseArticleView({
           aria-label={l.videoGuide}
         >
           <SectionHeader index={videoNum} label={l.videoGuide} />
-          <div className="aspect-video w-full overflow-hidden rounded-sm border border-rule bg-ink transition-colors hover:border-rule-light">
+          <div className="aspect-video w-full overflow-hidden rounded-card border border-rule bg-ink transition-colors hover:border-rule-light">
             <iframe
               className="h-full w-full"
               src={`https://www.youtube-nocookie.com/embed/${article.video.youtubeId}`}
@@ -234,7 +234,7 @@ export function ExerciseArticleView({
           {c.evidence.map((e, i) => (
             <li
               key={i}
-              className="rounded-sm border border-rule bg-card px-5 py-4 text-base leading-relaxed text-main transition-colors hover:border-rule-light"
+              className="rounded-card border border-rule bg-card px-5 py-4 text-base leading-relaxed text-main transition-colors hover:border-rule-light"
               style={PROSE}
             >
               {e.claim}{' '}

@@ -11,6 +11,13 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import type { CatalogEntry } from '@gzclp/domain';
+import {
+  CATALOG_LEVEL_FILTERS,
+  filterCatalogEntries,
+  hasCatalogFilters,
+  pickFeaturedEntry,
+  type CatalogLevelFilter,
+} from '@gzclp/domain/catalog-filter';
 import { type } from '../../shell/design';
 import { colors, spacing } from '@gzclp/design-tokens';
 import { Screen } from '../../ui/screen';
@@ -29,30 +36,15 @@ type Props = {
   readonly onStart: (entry: CatalogEntry) => Promise<boolean>;
 };
 
-function normalizeSearch(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLocaleLowerCase();
-}
-
 export function CatalogBrowser({ entries, loading, error, creatingId, onRetry, onStart }: Props) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
-  const [level, setLevel] = useState('all');
+  const [level, setLevel] = useState<CatalogLevelFilter>('all');
   const [selected, setSelected] = useState<CatalogEntry | null>(null);
-  const normalizedSearch = normalizeSearch(search);
-  const filtered = entries.filter(
-    (entry) =>
-      (level === 'all' || entry.level === level) &&
-      normalizeSearch(`${entry.name} ${entry.description}`).includes(normalizedSearch)
-  );
-  const hasFilters = level !== 'all' || normalizedSearch.length > 0;
-  const featured =
-    normalizedSearch === '' && level === 'all'
-      ? entries.find((entry) => entry.id === 'gzclp')
-      : undefined;
+  const query = { search, level };
+  const filtered = filterCatalogEntries({ entries, query });
+  const hasFilters = hasCatalogFilters(query);
+  const featured = pickFeaturedEntry(entries, query);
   const label = (entry: CatalogEntry) => t('discovery.open', { name: entry.name });
   const metadata = (entry: CatalogEntry) =>
     `${t('discovery.frequency', { count: entry.workoutsPerWeek })} · ${t(`discovery.level.${entry.level}`)}`;
@@ -99,7 +91,7 @@ export function CatalogBrowser({ entries, loading, error, creatingId, onRetry, o
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filters}
         >
-          {['all', 'beginner', 'intermediate', 'advanced'].map((value) => (
+          {CATALOG_LEVEL_FILTERS.map((value) => (
             <Chip key={value} selected={level === value} onPress={() => setLevel(value)}>
               {t(`discovery.level.${value}`)}
             </Chip>

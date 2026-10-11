@@ -1,11 +1,8 @@
-import { isWorkoutComplete } from '@gzclp/domain/generic-stats';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import type { GenericResults, ProgramDefinition } from '@gzclp/domain/types/program';
 import type { ViewMode } from '@/lib/view-preference';
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GuestBanner } from '@/components/guest-banner';
-import { DayNavigator } from '@/features/program-view/day-navigator';
 import { CalendarNavigator } from '@/features/program-view/calendar-navigator';
 import { DetailedDayView } from '@/features/program-view/detailed-day-view';
 import type { SlotActions } from '@/features/program-view/day-view';
@@ -22,19 +19,14 @@ interface ProgramTabContentProps {
   readonly selectedWorkout: GenericWorkoutRow | undefined;
   readonly selectedDayIndex: number;
   readonly currentDayIndex: number;
-  readonly totalWorkouts: number;
-  readonly isDayComplete: boolean;
+  readonly completedDayIndices: ReadonlySet<number>;
   readonly viewMode: ViewMode;
   readonly workoutsPerWeek: number;
   readonly resultTimestamps?: Readonly<Record<string, string>>;
   /** Day-picker panel, toggled from the session chrome. */
   readonly navExpanded: boolean;
-  readonly rest: { readonly seconds: number; readonly id: number } | null;
-  readonly onSkipRest: () => void;
   readonly onCloseNav: () => void;
-  readonly onPrevDay: () => void;
   readonly onNextDay: () => void;
-  readonly onGoToCurrent: () => void;
   readonly onSelectDay: (index: number) => void;
   readonly onToggleView: () => void;
   readonly onGoToProfile?: () => void;
@@ -50,18 +42,13 @@ export function ProgramTabContent({
   selectedWorkout,
   selectedDayIndex,
   currentDayIndex,
-  totalWorkouts,
-  isDayComplete,
+  completedDayIndices,
   viewMode,
   workoutsPerWeek,
   resultTimestamps,
   navExpanded,
-  rest,
-  onSkipRest,
   onCloseNav,
-  onPrevDay,
   onNextDay,
-  onGoToCurrent,
   onSelectDay,
   onToggleView,
   onGoToProfile,
@@ -70,11 +57,6 @@ export function ProgramTabContent({
   const { onMark, onUndo, onSetAmrapReps, onSetRpe, onSetTap, getSetLogs, isSlotLogging } =
     slotActions;
   const { t } = useTranslation();
-
-  const completedDayIndices = useMemo<ReadonlySet<number>>(
-    () => new Set(rows.filter(isWorkoutComplete).map((r) => r.index)),
-    [rows]
-  );
 
   const handleSelectDay = (idx: number): void => {
     onSelectDay(idx);
@@ -92,21 +74,10 @@ export function ProgramTabContent({
       {navExpanded && (
         <div
           data-testid="tracker-day-navigation-panel"
-          className="mb-4 border border-rule bg-card p-3 shadow-[var(--shadow-card)] sm:p-4"
+          className="mb-4 rounded-card border border-rule bg-card p-3 sm:p-4"
         >
-          <DayNavigator
-            selectedDayIndex={selectedDayIndex}
-            totalDays={totalWorkouts}
-            currentDayIndex={currentDayIndex}
-            dayName={selectedWorkout?.dayName ?? ''}
-            isDayComplete={isDayComplete}
-            compact
-            onPrev={onPrevDay}
-            onNext={onNextDay}
-            onGoToCurrent={onGoToCurrent}
-          />
           {rows.length > 0 && (
-            <div className="mt-3 border-t border-rule pt-3">
+            <div>
               <CalendarNavigator
                 rows={rows}
                 selectedDayIndex={selectedDayIndex}
@@ -125,7 +96,7 @@ export function ProgramTabContent({
                         ? t('tracker.tab_content.aria_compact_view')
                         : t('tracker.tab_content.aria_detailed_view')
                     }
-                    className="min-h-[44px] border border-rule bg-card px-3 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-muted transition-colors hover:border-rule-light hover:text-main cursor-pointer"
+                    className="type-button min-h-[44px] border border-rule bg-card rounded-control px-3 text-muted transition-colors hover:border-rule-light hover:text-main cursor-pointer"
                   >
                     {viewMode === 'detailed'
                       ? t('tracker.tab_content.compact_view')
@@ -172,8 +143,6 @@ export function ProgramTabContent({
             isCurrent={selectedDayIndex === currentDayIndex}
             showCompletion={showCompletion}
             resultTimestamps={resultTimestamps}
-            rest={rest}
-            onSkipRest={onSkipRest}
             onGoToNextDay={onNextDay}
             onGoToProfile={onGoToProfile}
             slotActions={slotActions}

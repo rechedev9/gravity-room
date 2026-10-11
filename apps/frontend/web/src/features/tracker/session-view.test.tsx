@@ -109,7 +109,6 @@ function renderView(
     readonly rows?: readonly GenericWorkoutRow[];
     readonly isCurrent?: boolean;
     readonly showCompletion?: boolean;
-    readonly rest?: { readonly seconds: number; readonly id: number } | null;
     readonly actions?: Partial<Parameters<typeof SessionView>[0]['slotActions']>;
   } = {}
 ) {
@@ -132,8 +131,6 @@ function renderView(
       workout={workout}
       isCurrent={overrides.isCurrent ?? true}
       showCompletion={overrides.showCompletion ?? false}
-      rest={overrides.rest ?? null}
-      onSkipRest={vi.fn()}
       onGoToNextDay={vi.fn()}
       slotActions={{
         onMark,
@@ -160,8 +157,6 @@ function renderRerenderable() {
       workout={workout}
       isCurrent
       showCompletion={false}
-      rest={null}
-      onSkipRest={vi.fn()}
       onGoToNextDay={vi.fn()}
       slotActions={{
         onMark: vi.fn(),
@@ -222,13 +217,6 @@ describe('SessionView', () => {
     expect(onMark).toHaveBeenCalledWith(1, 'a-t1', 'fail');
   });
 
-  it('docks the rest countdown inside the hero card instead of floating it', () => {
-    renderView({ rest: { seconds: 180, id: 1 } });
-
-    const hero = screen.getByTestId('current-lift-card');
-    expect(within(hero).getByTestId('rest-timer')).toBeInTheDocument();
-  });
-
   it('moves undo onto the completed card', () => {
     renderView({
       workout: row(1, [slot({ result: 'success', setLogs: [{ reps: 3 }] }), T2]),
@@ -275,6 +263,16 @@ describe('SessionView', () => {
     rerender(row(1, [slot({ result: 'fail' }), T2]));
 
     fireEvent.click(screen.getByTestId('failure-acknowledge'));
+    expect(screen.queryByTestId('failure-explainer')).not.toBeInTheDocument();
+  });
+
+  it('drops the failure explainer when the failure is undone elsewhere', () => {
+    const { rerender } = renderRerenderable();
+    rerender(row(1, [slot({ result: 'fail' }), T2]));
+    expect(screen.getByTestId('failure-explainer')).toBeInTheDocument();
+
+    // The header undo or the U shortcut clears the result without touching the explainer.
+    rerender(row(1, [slot(), T2]));
     expect(screen.queryByTestId('failure-explainer')).not.toBeInTheDocument();
   });
 

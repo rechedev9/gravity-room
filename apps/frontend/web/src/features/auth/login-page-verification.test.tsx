@@ -101,10 +101,8 @@ function createWrapper(): FC<{ readonly children: ReactNode }> {
   };
 }
 
-/** Expands the progressive-disclosure email form and submits sign-in credentials. */
+/** With email as the only method the form is open from the start; submit sign-in credentials. */
 async function submitSignIn(): Promise<void> {
-  const toggle = await screen.findByRole('button', { name: /Continuar con email/i });
-  fireEvent.click(toggle);
   fireEvent.change(await screen.findByPlaceholderText('tu@ejemplo.com'), {
     target: { value: 'unverified@example.com' },
   });

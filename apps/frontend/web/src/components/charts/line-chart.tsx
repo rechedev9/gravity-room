@@ -210,7 +210,7 @@ function CustomTooltip({
   if (pt.isProjected) {
     return (
       <div
-        className="rounded border px-2 py-1.5 text-xs shadow-lg whitespace-nowrap"
+        className="rounded-md border px-2 py-1.5 text-xs shadow-lg whitespace-nowrap"
         style={{
           backgroundColor: 'var(--color-card)',
           borderColor: 'var(--color-rule)',
@@ -232,7 +232,7 @@ function CustomTooltip({
 
   return (
     <div
-      className="rounded border px-2 py-1.5 text-xs shadow-lg whitespace-nowrap"
+      className="rounded-md border px-2 py-1.5 text-xs shadow-lg whitespace-nowrap"
       style={{
         backgroundColor: 'var(--color-card)',
         borderColor: 'var(--color-rule)',

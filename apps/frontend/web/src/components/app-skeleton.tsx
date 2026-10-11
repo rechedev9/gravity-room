@@ -24,7 +24,10 @@ export function AppSkeleton(): React.ReactNode {
       {/* Content skeleton — 3 workout row placeholders */}
       <div className="max-w-[1300px] mx-auto px-5 pt-6">
         {Array.from({ length: 3 }, (_, i) => (
-          <div key={i} className="bg-card border border-rule mb-3 p-4 sm:p-5 animate-pulse">
+          <div
+            key={i}
+            className="bg-card rounded-card border border-rule mb-3 p-4 sm:p-5 animate-pulse"
+          >
             <div className="flex items-center gap-3 mb-3">
               <div className="h-4 w-16 bg-rule rounded" />
               <div className="h-3 w-32 bg-rule rounded" />

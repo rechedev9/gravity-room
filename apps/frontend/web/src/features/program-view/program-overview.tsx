@@ -178,7 +178,7 @@ function PhaseTabs({
               onChange(index);
             }}
             className={cn(
-              'shrink-0 cursor-pointer border px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] transition-colors',
+              'type-button rounded-control shrink-0 cursor-pointer border px-3 py-1.5 transition-colors',
               selected
                 ? 'border-accent bg-accent/10 text-accent'
                 : 'border-rule text-muted hover:border-rule-light hover:text-main'
@@ -346,11 +346,11 @@ export function ProgramOverview({ summary, programName }: ProgramOverviewProps):
   const { t } = useTranslation();
   return (
     <section
-      className="mb-4 overflow-hidden border border-rule bg-card sm:mb-8"
+      className="mb-4 overflow-hidden border border-rule bg-card rounded-card sm:mb-8"
       aria-label={t('program_overview.aria_label', { programName })}
     >
       <div className="border-b border-rule-light px-4 py-3.5 sm:px-5">
-        <h3 className="font-display text-sm uppercase tracking-wide text-title">
+        <h3 className="text-[15px] font-semibold text-title">
           {t('program_overview.how_it_works')}
         </h3>
       </div>

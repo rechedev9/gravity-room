@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import { computeProfileData, compute1RMData } from '@/lib/profile-stats';
@@ -25,7 +25,6 @@ interface CompletionData {
 }
 
 interface UseProgramCompletionReturn {
-  readonly showCompletion: boolean;
   readonly completionData: CompletionData | null;
   readonly handleFinishProgram: () => Promise<void>;
   readonly handleCompletionDismiss: () => void;
@@ -44,23 +43,22 @@ export function useProgramCompletion({
   onBackToDashboard,
   onGoToProfile,
 }: UseProgramCompletionOptions): UseProgramCompletionReturn {
-  const [showCompletion, setShowCompletion] = useState(false);
+  // Snapshot taken just before finishing: once the program is finished there is no active
+  // program left, so its config and rows are gone by the time the screen renders.
+  const [completionData, setCompletionData] = useState<CompletionData | null>(null);
 
   const completionSessionKey = instanceId !== undefined ? `completion-shown-${instanceId}` : null;
 
-  const shouldShowCompletion = showCompletion && !mutenroshiBlocksCompletion;
-
-  const completionData = useMemo((): CompletionData | null => {
-    if (!shouldShowCompletion || !definition || !config) return null;
+  const snapshotCompletion = (): CompletionData | null => {
+    if (mutenroshiBlocksCompletion || !definition || !config) return null;
     const profileData = computeProfileData(rows, definition, config, resultTimestamps);
-    const oneRMEstimates = compute1RMData(rows, definition);
     return {
       completion: profileData.completion,
       personalRecords: profileData.personalRecords,
-      oneRMEstimates,
+      oneRMEstimates: compute1RMData(rows, definition),
       totalVolume: profileData.volume.totalVolume,
     };
-  }, [shouldShowCompletion, definition, config, rows, resultTimestamps]);
+  };
 
   const handleFinishProgram = async (): Promise<void> => {
     if (completionSessionKey && sessionStorage.getItem(completionSessionKey) === '1') {
@@ -68,24 +66,24 @@ export function useProgramCompletion({
       onBackToDashboard?.();
       return;
     }
+    const snapshot = snapshotCompletion();
     await finishProgram();
     trackEvent('program_complete', { program: programId });
     if (completionSessionKey) sessionStorage.setItem(completionSessionKey, '1');
-    setShowCompletion(true);
+    setCompletionData(snapshot);
   };
 
   const handleCompletionDismiss = (): void => {
-    setShowCompletion(false);
+    setCompletionData(null);
     onBackToDashboard?.();
   };
 
   const handleViewProfile = (): void => {
-    setShowCompletion(false);
+    setCompletionData(null);
     onGoToProfile?.();
   };
 
   return {
-    showCompletion,
     completionData,
     handleFinishProgram,
     handleCompletionDismiss,

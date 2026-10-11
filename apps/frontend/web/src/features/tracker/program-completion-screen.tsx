@@ -37,7 +37,10 @@ export function ProgramCompletionScreen({
   }, [onBackToDashboard]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] bg-body overflow-y-auto">
+    <div
+      data-testid="program-completion-screen"
+      className="fixed inset-0 z-[100] bg-body overflow-y-auto"
+    >
       <div className="max-w-2xl mx-auto px-5 sm:px-8 py-12 sm:py-20">
         {/* Celebration header */}
         <div className="text-center mb-12">
@@ -46,7 +49,7 @@ export function ProgramCompletionScreen({
             alt=""
             className="w-full max-w-xl mx-auto mb-6 opacity-90"
           />
-          <h1 className="font-display text-5xl sm:text-7xl text-title leading-none mb-3">
+          <h1 className="type-display-sm sm:type-display text-title mb-3">
             {t('tracker.completion.header')}
           </h1>
           <p className="text-lg sm:text-xl text-info font-bold">{programName}</p>
@@ -129,14 +132,14 @@ export function ProgramCompletionScreen({
           <button
             type="button"
             onClick={onViewProfile}
-            className="px-8 py-3 text-sm font-bold border-2 border-accent bg-accent text-body cursor-pointer transition-all hover:opacity-90 active:scale-95"
+            className="rounded-control px-8 py-3 text-sm font-bold border-2 border-accent bg-accent text-body cursor-pointer transition-all hover:opacity-90 active:scale-95"
           >
             {t('tracker.completion.view_profile')}
           </button>
           <button
             type="button"
             onClick={onBackToDashboard}
-            className="px-8 py-3 text-sm font-bold border-2 border-btn-ring bg-transparent text-title cursor-pointer transition-all hover:bg-btn-active active:scale-95"
+            className="rounded-control px-8 py-3 text-sm font-bold border-2 border-btn-ring bg-transparent text-title cursor-pointer transition-all hover:bg-btn-active active:scale-95"
           >
             {t('tracker.completion.back_to_dashboard')}
           </button>

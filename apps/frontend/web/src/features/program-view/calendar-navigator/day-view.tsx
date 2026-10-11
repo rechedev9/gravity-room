@@ -92,8 +92,8 @@ export function DayView({
           aria-labelledby={jumpLabelId}
           aria-invalid={jumpError}
           aria-describedby={jumpError ? `${jumpInputId}-error` : undefined}
-          placeholder={`1–${rows.length}`}
-          className={`
+          placeholder={`1-${rows.length}`}
+          className={`rounded-control 
             w-20 px-2 py-1.5 text-xs font-mono tabular-nums
             border bg-card text-main
             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
@@ -103,7 +103,7 @@ export function DayView({
         <button
           type="submit"
           aria-label={t('calendar_navigator.jump_button_aria')}
-          className="
+          className="rounded-control 
             text-xs font-bold px-3 py-1.5 min-h-[44px]
             border-2 border-rule bg-card text-muted
             hover:bg-hover-row hover:text-main hover:border-rule-light
@@ -126,7 +126,7 @@ export function DayView({
           aria-label={t('calendar_navigator.day_summary_aria', {
             index: selectedRow.index + 1,
           })}
-          className="flex items-center gap-3 px-3 py-2 border border-rule bg-card"
+          className="rounded-control flex items-center gap-3 px-3 py-2 border border-rule bg-card"
         >
           <span className="text-sm font-bold font-mono tabular-nums text-accent">
             #{selectedRow.index + 1}

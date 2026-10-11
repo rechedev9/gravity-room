@@ -73,11 +73,10 @@ test.describe('Undo after marking', () => {
     await ensureCompactView(page);
   });
 
-  test('no undo affordance exists with no history', async ({ page }) => {
-    // Undo no longer has a standing chrome control (enabled/disabled) — it
-    // only exists once there is something to undo, so its absence here IS
-    // the "disabled with no history" contract.
-    await expect(page.getByRole('button', { name: 'Deshacer' })).toHaveCount(0);
+  test('undo is disabled with no history', async ({ page }) => {
+    // The header undo is the only standing control; per-card undo appears with a result.
+    await expect(page.getByTestId('session-chrome-undo')).toBeDisabled();
+    await expect(page.getByTestId('result-cell-undo')).toHaveCount(0);
   });
 
   test('marking then undoing restores pass/fail buttons', async ({ page }) => {

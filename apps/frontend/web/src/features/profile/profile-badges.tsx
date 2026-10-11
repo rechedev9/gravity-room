@@ -105,7 +105,7 @@ export function ProfileBadges({
 
   return (
     <section
-      className="mb-6 bg-card border border-rule shadow-card"
+      className="mb-6 bg-card rounded-card border border-rule shadow-card"
       aria-labelledby="profile-badges"
     >
       <div className="flex flex-col gap-3 border-b border-rule px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">

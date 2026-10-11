@@ -8,8 +8,8 @@ import { useGuest } from '@/contexts/guest-context';
 import { sanitizeAuthError } from '@/lib/auth-errors';
 import { fetchAuthProviders, type AuthProviders } from '@/lib/api-functions';
 import { trackEvent } from '@/lib/analytics';
-import { Kicker } from '@/components/kicker';
 import { CornerTicks } from '@/components/corner-ticks';
+import { Button } from '@/components/button';
 
 const EST_LINE = 'EST. 2025 · OPEN SOURCE · AGPL-3.0';
 
@@ -195,61 +195,60 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
   const hasSocialProvider =
     googleEnabled || authProviders.apple || authProviders.github || authProviders.microsoft;
 
+  // Without a social method the email form is the only way in, so it opens straight away
+  // (like the mobile screen); with one, it stays behind a disclosure.
+  const emailOpen = showEmail || !hasSocialProvider;
+
   return (
-    <div className="grain-overlay min-h-dvh bg-body lg:grid lg:grid-cols-[46%_54%]">
-      {/* Left — statement panel */}
-      <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-rule p-12 lg:flex">
+    <div className="grain-overlay relative min-h-dvh overflow-hidden bg-body">
+      {/* Quiet backdrop on wide screens: the gym photo, dimmed, with the wordmark and licence. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 hidden lg:block">
         <img
           src="/landing-hero-bg.webp"
           alt=""
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[0.18] grayscale"
+          className="h-full w-full object-cover opacity-[0.12] grayscale"
         />
         <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0"
+          className="absolute inset-0"
           style={{
             background:
-              'linear-gradient(180deg, var(--color-body) 0%, transparent 35%, var(--color-body) 100%)',
+              'radial-gradient(ellipse at center, transparent 0%, var(--color-body) 75%), linear-gradient(180deg, var(--color-body) 0%, transparent 30%, var(--color-body) 100%)',
           }}
         />
+      </div>
+      <div className="absolute left-12 top-10 hidden items-center gap-3 lg:flex">
+        <img src="/logo-192.webp" alt="" width={32} height={32} className="rounded-control" />
+        <span className="font-display text-xl tracking-[0.06em] text-main">Gravity Room</span>
+      </div>
+      <p className="absolute bottom-10 left-12 hidden font-mono text-[10px] uppercase tracking-[0.08em] text-label lg:block">
+        {EST_LINE}
+      </p>
 
-        {/* Wordmark */}
-        <div className="relative flex items-center gap-3">
-          <img src="/logo-192.webp" alt="Gravity Room logo" width={36} height={36} />
-          <span className="font-display text-xl tracking-[0.06em] text-main">Gravity Room</span>
-        </div>
-
-        {/* Statement headline */}
-        <h2 className="relative font-display leading-[0.92] text-main text-[clamp(48px,6vw,72px)] tracking-[0.02em]">
-          {t('login.auth_separator')}
-        </h2>
-
-        {/* License stamp */}
-        <p className="relative font-mono text-[10px] uppercase tracking-[0.08em] text-label">
-          {EST_LINE}
-        </p>
-      </aside>
-
-      {/* Right — auth card */}
-      <main className="flex flex-col items-center justify-center px-6 py-12 sm:px-12">
+      {/* The cookie notice is fixed to the bottom edge: the page keeps room above it. */}
+      <main className="relative flex min-h-dvh flex-col items-center justify-center px-5 py-6 sm:px-12 sm:py-10 [html[data-cookie-banner]_&]:pb-44 sm:[html[data-cookie-banner]_&]:pb-32">
         <div
           data-testid="auth-card"
-          className="relative w-full max-w-[400px] border border-rule bg-card p-8"
+          className="relative w-full max-w-[400px] rounded-card border border-rule bg-card p-6 sm:p-8"
         >
-          <CornerTicks colorClass="border-rule-light" size={10} />
+          <CornerTicks colorClass="border-rule-light" />
 
-          <Kicker noRule className="mb-3">
-            {t('login.form.title')}
-          </Kicker>
-          <h1 className="font-display text-4xl leading-none text-main tracking-[0.04em]">
-            Gravity Room
-          </h1>
+          <div className="mb-6 flex items-center gap-3">
+            <img
+              src="/logo-192.webp"
+              alt=""
+              width={40}
+              height={40}
+              className="size-10 rounded-control"
+            />
+            <p className="type-kicker text-label tracking-[2px]">Gravity Room</p>
+          </div>
+          <h1 className="type-display mb-2 text-main">{t('login.card.title')}</h1>
+          <p className="mb-6 text-sm leading-relaxed text-muted">{t('login.card.body')}</p>
 
           {/* Sign-in providers — only the methods this deployment offers
               (per /auth/providers) are rendered; no disabled placeholders. */}
           {hasSocialProvider && (
-            <div className="mt-7 flex flex-col gap-2.5">
+            <div className="flex flex-col gap-2.5">
               {googleEnabled && (
                 <GoogleSignInButton
                   label={t('login.social.google')}
@@ -291,11 +290,11 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
 
           {/* Email — progressive disclosure */}
           {emailEnabled &&
-            (!showEmail ? (
+            (!emailOpen ? (
               <button
                 type="button"
                 onClick={() => setShowEmail(true)}
-                className="w-full cursor-pointer border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.06em] text-main transition-colors hover:border-rule-light"
+                className="type-button w-full cursor-pointer border border-rule bg-header rounded-control py-3 text-main transition-colors hover:border-rule-light"
               >
                 ▸ {t('login.email.toggle')}
               </button>
@@ -312,7 +311,7 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder={t('login.email.email_placeholder')}
-                    className="border border-rule bg-header px-3 py-2 text-sm text-main outline-none focus:border-accent"
+                    className="border border-rule bg-header rounded-control px-3 min-h-11 py-2 text-base text-main outline-none focus:border-accent sm:text-sm"
                   />
                 </label>
 
@@ -327,7 +326,7 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder={t('login.email.name_placeholder')}
-                      className="border border-rule bg-header px-3 py-2 text-sm text-main outline-none focus:border-accent"
+                      className="border border-rule bg-header rounded-control px-3 min-h-11 py-2 text-base text-main outline-none focus:border-accent sm:text-sm"
                     />
                   </label>
                 )}
@@ -344,21 +343,17 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={t('login.email.password_placeholder')}
-                    className="border border-rule bg-header px-3 py-2 text-sm text-main outline-none focus:border-accent"
+                    className="border border-rule bg-header rounded-control px-3 min-h-11 py-2 text-base text-main outline-none focus:border-accent sm:text-sm"
                   />
                 </label>
 
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full cursor-pointer border border-accent-dim bg-accent-deep/10 py-2.5 font-mono text-[11px] uppercase tracking-[0.06em] text-accent transition-colors hover:bg-accent-deep/20 disabled:cursor-not-allowed disabled:opacity-50"
-                >
+                <Button type="submit" variant="primary" size="lg" disabled={submitting}>
                   {emailMode === 'signin'
                     ? t('login.email.submit_signin')
                     : t('login.email.submit_signup')}
-                </button>
+                </Button>
 
-                <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.05em]">
+                <div className="flex flex-wrap items-center justify-between gap-x-4">
                   <button
                     type="button"
                     onClick={() => {
@@ -367,7 +362,7 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
                       setResendEmail(null);
                       setResendStatus('idle');
                     }}
-                    className="cursor-pointer text-muted transition-colors hover:text-main"
+                    className="type-button min-h-11 cursor-pointer whitespace-nowrap text-left text-muted transition-colors hover:text-main"
                   >
                     {emailMode === 'signin'
                       ? t('login.email.to_signup')
@@ -377,7 +372,7 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
                     <button
                       type="button"
                       onClick={() => void navigate({ to: '/reset-password' })}
-                      className="cursor-pointer text-muted transition-colors hover:text-main"
+                      className="type-button min-h-11 cursor-pointer whitespace-nowrap text-left text-muted transition-colors hover:text-main"
                     >
                       {t('login.email.forgot')}
                     </button>
@@ -404,7 +399,7 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
                       type="button"
                       onClick={() => void handleResend()}
                       disabled={resendStatus === 'sending' || resendStatus === 'sent'}
-                      className="w-full cursor-pointer border border-rule bg-header py-2 font-mono text-[10px] uppercase tracking-[0.06em] text-main transition-colors hover:border-rule-light disabled:cursor-not-allowed disabled:opacity-50"
+                      className="type-button w-full cursor-pointer border border-rule bg-header rounded-control py-2 text-main transition-colors hover:border-rule-light disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {t('login.email.resend')}
                     </button>
@@ -434,7 +429,7 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
             <button
               type="button"
               onClick={() => void handleDevLogin()}
-              className="mt-3 w-full border border-dashed border-accent-dim py-2 font-mono text-[10px] uppercase tracking-[0.08em] text-accent-deep transition-colors hover:text-accent cursor-pointer"
+              className="type-button rounded-control mt-3 w-full border border-dashed border-accent-dim py-2 text-accent-deep transition-colors hover:text-accent cursor-pointer"
             >
               {t('login.dev.dev_login')}
             </button>
@@ -456,15 +451,10 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
         <button
           type="button"
           onClick={handleGuestEntry}
-          className="mt-5 cursor-pointer px-4 py-2 font-mono text-[11px] uppercase tracking-[0.06em] text-muted transition-colors hover:text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="type-button mt-4 min-h-11 cursor-pointer px-4 py-2 text-muted transition-colors hover:text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           {t('login.guest.cta')}
         </button>
-
-        {/* Tagline */}
-        <p className="mt-8 font-mono text-[9px] uppercase tracking-[0.1em] text-label">
-          {t('login.tagline')}
-        </p>
       </main>
     </div>
   );
@@ -529,7 +519,7 @@ function GoogleSignInButton({
       {/* Visible skin — identical to the email/social buttons. */}
       <div
         aria-hidden="true"
-        className="flex w-full items-center justify-center gap-2.5 border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.06em] text-main transition-colors group-hover:border-rule-light group-focus-within:border-accent group-focus-within:ring-2 group-focus-within:ring-accent group-focus-within:ring-offset-2 group-focus-within:ring-offset-card"
+        className="type-button flex w-full items-center justify-center gap-2.5 border border-rule bg-header rounded-control py-3 text-main transition-colors group-hover:border-rule-light group-focus-within:border-accent group-focus-within:ring-2 group-focus-within:ring-accent group-focus-within:ring-offset-2 group-focus-within:ring-offset-card"
       >
         <GoogleGlyph />
         <span>{label}</span>
@@ -562,7 +552,7 @@ function SocialButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-center gap-2 border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.06em] text-main transition-colors hover:border-rule-light"
+      className="type-button flex w-full items-center justify-center gap-2 border border-rule bg-header rounded-control py-3 text-main transition-colors hover:border-rule-light"
     >
       <span>{label}</span>
     </button>

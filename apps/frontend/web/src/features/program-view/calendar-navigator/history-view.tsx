@@ -57,7 +57,7 @@ function HistoryRow({
       onClick={() => onSelectDay(entry.index)}
       aria-current={isSelected ? 'true' : undefined}
       style={virtualized ? { height: 44, marginBottom: 6, boxSizing: 'border-box' } : undefined}
-      className={`
+      className={`rounded-control 
         flex items-center gap-3 px-3 py-2 min-h-[44px] w-full text-xs text-left
         border transition-all duration-150 active:scale-95
         focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent

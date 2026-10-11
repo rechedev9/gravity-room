@@ -37,11 +37,11 @@ test.describe('Progression rules', () => {
     await selectWorkoutDay(page, 5);
 
     // Workout #5 (index 4) T1 Squat: weight stays 60, stage advances to S2.
-    // The hero shows the stage as inline text, not the StageTag badge.
+    // The hero carries the stage as the S2 tag next to the exercise name.
     const hero = page.getByTestId('current-lift-card');
     await expect(hero.getByText('60', { exact: true })).toBeVisible();
     await expect(hero.getByText('kg', { exact: true })).toBeVisible();
-    await expect(hero.getByText(/Etapa 2/)).toBeVisible();
+    await expect(hero.getByText('S2', { exact: true })).toBeVisible();
   });
 
   test('T1 final-stage fail deloads 10% and resets stage', async ({ page }) => {

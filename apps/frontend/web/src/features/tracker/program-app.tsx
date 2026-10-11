@@ -42,6 +42,7 @@ interface ProgramAppProps {
   readonly onBackToDashboard?: () => void;
   readonly onProgramReset?: () => void;
   readonly onGoToProfile?: () => void;
+  readonly onSwitchProgram?: () => void;
 }
 
 export function ProgramApp({
@@ -51,6 +52,7 @@ export function ProgramApp({
   onBackToDashboard,
   onProgramReset,
   onGoToProfile,
+  onSwitchProgram,
 }: ProgramAppProps): React.ReactNode {
   const { t } = useTranslation();
   const { unit, format } = useUnitPreference();
@@ -123,12 +125,13 @@ export function ProgramApp({
   const [rest, setRest] = useState<{ readonly seconds: number; readonly id: number } | null>(null);
   const workoutsPerWeek = definition?.workoutsPerWeek ?? 4;
   const totalWorkouts = definition?.totalWorkouts ?? 0;
-  const { completedCount, firstPendingIdx } = useMemo(() => {
+  const { completedDayIndices, firstPendingIdx } = useMemo(() => {
     return {
-      completedCount: rows.filter(isWorkoutComplete).length,
+      completedDayIndices: new Set(rows.filter(isWorkoutComplete).map((row) => row.index)),
       firstPendingIdx: findFirstPendingIndex(rows),
     };
   }, [rows]);
+  const completedCount = completedDayIndices.size;
 
   const dayNav = useDayNavigation({ totalWorkouts, firstPendingIdx, config });
   const graduation = useGraduation({
@@ -165,8 +168,6 @@ export function ProgramApp({
   };
 
   const selectedWorkout = rows[dayNav.selectedDayIndex];
-  const isDayComplete = selectedWorkout ? isWorkoutComplete(selectedWorkout) : false;
-
   const mutenroshiBlocksCompletion =
     graduation.isMutenroshi && !graduation.graduationState.allPassed;
 
@@ -345,7 +346,7 @@ export function ProgramApp({
           <button
             type="button"
             onClick={handleResetAll}
-            className="px-5 py-2.5 text-xs font-bold cursor-pointer bg-btn text-btn-text border-2 border-btn-ring hover:bg-btn-active hover:text-btn-active-text transition-colors"
+            className="rounded-control px-5 py-2.5 text-xs font-bold cursor-pointer bg-btn text-btn-text border-2 border-btn-ring hover:bg-btn-active hover:text-btn-active-text transition-colors"
           >
             {t('tracker.delete_and_return')}
           </button>
@@ -370,36 +371,44 @@ export function ProgramApp({
   return (
     <>
       {config && rows.length > 0 && (
-        <div className="sticky top-0 z-50">
-          <SessionChrome
-            definition={definition}
-            config={config}
-            dayIndex={dayNav.selectedDayIndex}
-            totalDays={totalWorkouts}
-            dayName={selectedWorkout?.dayName ?? ''}
-            isCurrentDay={dayNav.selectedDayIndex === firstPendingIdx}
-            doneSlots={doneSlots}
-            totalSlots={selectedWorkout?.slots.length ?? 0}
-            completedDays={completedCount}
-            navExpanded={navExpanded}
-            onToggleNav={() => setNavExpanded((x) => !x)}
-            onEditWeights={() => setEditingWeights(true)}
-            isFinishing={isFinishing}
-            onFinish={handleFinishProgram}
-            onReset={handleResetAll}
-            onExportCsv={handleExportCsv}
-            canUseBackup={!isGuest}
-            onExportBackup={exportData}
-            onImportBackup={handleImportBackup}
-            webMcpSupported={webMcpSupported}
-            webMcpEnabled={webMcpEnabled}
-            onEnableWebMcp={() => setWebMcpEnabled(true)}
-            onDisableWebMcp={() => setWebMcpEnabled(false)}
-          />
-        </div>
+        <SessionChrome
+          definition={definition}
+          config={config}
+          dayIndex={dayNav.selectedDayIndex}
+          totalDays={totalWorkouts}
+          dayName={selectedWorkout?.dayName ?? ''}
+          isCurrentDay={dayNav.selectedDayIndex === firstPendingIdx}
+          currentDayIndex={firstPendingIdx}
+          workoutsPerWeek={workoutsPerWeek}
+          completedDayIndices={completedDayIndices}
+          doneSlots={doneSlots}
+          totalSlots={selectedWorkout?.slots.length ?? 0}
+          completedDays={completedCount}
+          navExpanded={navExpanded}
+          canUndo={undoHistory.length > 0}
+          onUndo={undoLast}
+          onSelectDay={dayNav.handleSelectDay}
+          onPrevDay={dayNav.handlePrevDay}
+          onNextDay={dayNav.handleNextDay}
+          onGoToCurrent={dayNav.handleGoToCurrent}
+          onToggleNav={() => setNavExpanded((x) => !x)}
+          onEditWeights={() => setEditingWeights(true)}
+          onSwitchProgram={onSwitchProgram}
+          isFinishing={isFinishing}
+          onFinish={handleFinishProgram}
+          onReset={handleResetAll}
+          onExportCsv={handleExportCsv}
+          canUseBackup={!isGuest}
+          onExportBackup={exportData}
+          onImportBackup={handleImportBackup}
+          webMcpSupported={webMcpSupported}
+          webMcpEnabled={webMcpEnabled}
+          onEnableWebMcp={() => setWebMcpEnabled(true)}
+          onDisableWebMcp={() => setWebMcpEnabled(false)}
+        />
       )}
 
-      <div className="max-w-[1300px] mx-auto px-3 sm:px-5 pb-24">
+      <div className="max-w-[1300px] mx-auto px-5 sm:px-6 pb-24">
         {config && rows.length > 0 ? (
           editingWeights && (
             <SetupForm
@@ -451,18 +460,13 @@ export function ProgramApp({
             selectedWorkout={selectedWorkout}
             selectedDayIndex={dayNav.selectedDayIndex}
             currentDayIndex={firstPendingIdx}
-            totalWorkouts={totalWorkouts}
-            isDayComplete={isDayComplete}
+            completedDayIndices={completedDayIndices}
             viewMode={dayNav.viewMode}
             workoutsPerWeek={workoutsPerWeek}
             resultTimestamps={resultTimestamps}
             navExpanded={navExpanded}
-            rest={rest}
-            onSkipRest={dismissRest}
             onCloseNav={() => setNavExpanded(false)}
-            onPrevDay={dayNav.handlePrevDay}
             onNextDay={dayNav.handleNextDay}
-            onGoToCurrent={dayNav.handleGoToCurrent}
             onSelectDay={dayNav.handleSelectDay}
             onToggleView={dayNav.handleToggleView}
             onGoToProfile={onGoToProfile}
@@ -489,9 +493,7 @@ export function ProgramApp({
         onCancel={testWeight.handleTestWeightCancel}
       />
 
-      {/* The compact session hosts rest inside the current-lift card; the
-          detailed table has no hero, so it keeps the floating bar. */}
-      {rest !== null && dayNav.viewMode === 'detailed' ? (
+      {rest !== null ? (
         <RestTimer
           key={rest.id}
           seconds={rest.seconds}

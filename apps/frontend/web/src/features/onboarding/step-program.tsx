@@ -34,7 +34,7 @@ export function StepProgram({
 
   return (
     <div data-testid="start-step-program">
-      <h2 className="font-display mb-3 text-[40px] leading-[0.9] tracking-[0.03em] text-title sm:text-[52px]">
+      <h2 className="mb-3 type-display-sm sm:type-display text-title">
         {t('onboarding.program.title')}
       </h2>
       <p className="mb-7 max-w-[640px] text-[15px] leading-relaxed text-muted">
@@ -57,12 +57,12 @@ export function StepProgram({
               data-testid="start-program-card"
               data-program-id={entry.id}
               onClick={() => onSelect(entry.id)}
-              className={`flex flex-col gap-3 border bg-card p-5 text-left transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none ${
+              className={`flex flex-col gap-3 border bg-card rounded-card p-5 text-left transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none ${
                 isSelected ? 'border-accent' : 'border-rule hover:border-rule-light'
               }`}
             >
               <span className="flex items-center gap-3">
-                <span className="font-display text-[28px] leading-none tracking-[0.03em] text-title">
+                <span className="type-title text-title">
                   {localizedProgramName(t, entry.id, entry.name)}
                 </span>
                 <span
@@ -93,7 +93,7 @@ export function StepProgram({
           onClick={onContinue}
           disabled={selected === null}
           style={{ boxShadow: 'var(--shadow-pressed-steel)' }}
-          className="bg-accent px-7 py-3.5 font-mono text-xs font-bold uppercase tracking-[0.08em] text-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+          className="type-button rounded-control bg-accent px-7 py-3.5 text-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
         >
           {selected !== null
             ? t('onboarding.program.continue_with', {
@@ -105,7 +105,7 @@ export function StepProgram({
           <Link
             to="/programs/$programId"
             params={{ programId: selected.id }}
-            className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-muted underline-offset-4 hover:text-main hover:underline"
+            className="type-button text-muted underline-offset-4 hover:text-main hover:underline"
           >
             {t('onboarding.program.read_detail')}
           </Link>

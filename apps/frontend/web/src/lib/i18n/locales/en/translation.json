@@ -591,13 +591,13 @@
     }
   },
   "auth": {
-    "sign_in": "Sign In",
-    "sign_out": "Sign Out",
-    "create_account": "Create Account",
+    "sign_in": "Sign in",
+    "sign_out": "Sign out",
+    "create_account": "Create account",
     "dev_login": "⚗ Dev Login",
     "try_without_account": "Try without account",
     "authenticate": "Authenticate",
-    "enter_the_chamber": "Enter the Chamber",
+    "enter_the_chamber": "Enter the chamber",
     "train_better_progress_faster": "Train better · Progress faster",
     "errors": {
       "google_failed": "Google sign-in failed. Please try again.",
@@ -616,20 +616,25 @@
     "profile": "Profile",
     "main_nav_label": "Main navigation",
     "view_profile": "View profile",
-    "mobile_nav_label": "Mobile navigation"
+    "mobile_nav_label": "Mobile navigation",
+    "tab_train": "Train",
+    "tab_plans": "My plans",
+    "tab_explore": "Explore",
+    "tab_exercises": "Exercises",
+    "tab_more": "More"
   },
   "dashboard": {
     "title": "Dashboard",
     "subtitle": "Training performance and progress",
     "data_updated_6h": "Data updated every 6h",
-    "active_program": "Active Program",
+    "active_program": "Active program",
     "performance": "Performance",
     "alerts": "Alerts",
-    "load_recommendation": "Load Recommendation",
+    "load_recommendation": "Load recommendation",
     "complete_workouts_message": "Complete workouts to see your analytics here.",
     "no_programs_message": "Choose a program to see your metrics here.",
-    "view_programs": "View Programs",
-    "load_recommendation_section": "Load Recommendation",
+    "view_programs": "View programs",
+    "load_recommendation_section": "Load recommendation",
     "kpi_card": {
       "loading_label": "Loading KPI"
     },
@@ -697,11 +702,10 @@
   "programs": {
     "page_title": "Programs — Gravity Room",
     "title": "Programs",
-    "subtitle": "Level-based training program catalog",
+    "subtitle": "Your active program and where to start another.",
     "guided_start_cta": "First time? Start with the guided setup",
     "retry": "Retry",
     "catalog_load_error": "Could not load catalog.",
-    "other_programs": "Other Programs",
     "replace": {
       "title": "Start {{next}}?",
       "message": "Your active program, {{current}}, will be ended. Your history is kept.",
@@ -711,8 +715,8 @@
     "active_workout": "Workout {{completed}} of {{total}}",
     "active_progress_aria": "Program progress",
     "active_cta": "Continue training",
-    "choose_program": "Choose a Program",
-    "my_custom_programs": "My Custom Programs",
+    "choose_program": "Choose a program",
+    "my_custom_programs": "My custom programs",
     "card": {
       "level_beginner": "Beginner",
       "level_intermediate": "Intermediate",
@@ -721,12 +725,12 @@
       "workouts_count": "{{count}} workouts",
       "frequency": "{{count}}x / week",
       "author": "By {{author}}",
-      "view_program": "View Program",
+      "view_program": "View program",
       "preview": "Preview",
-      "continue_training": "Continue Training",
-      "start_program": "Start Program",
-      "start_program_aria": "Start Program: {{name}}",
-      "continue_training_aria": "Continue Training: {{name}}",
+      "continue_training": "Continue training",
+      "start_program": "Start program",
+      "start_program_aria": "Start program: {{name}}",
+      "continue_training_aria": "Continue training: {{name}}",
       "customizing": "Customizing...",
       "customize": "Customize"
     },
@@ -853,6 +857,26 @@
           "weight": "Weight"
         }
       }
+    },
+    "explore": {
+      "page_title": "Explore plans | Gravity Room",
+      "link": "Explore more plans"
+    },
+    "catalog": {
+      "eyebrow": "Catalog",
+      "title": "Find your next program",
+      "subtitle": "Structured plans. Progress you can track.",
+      "search": "Search programs",
+      "clear": "Clear search",
+      "reset_filters": "Reset filters",
+      "levels": "Filter by level",
+      "level_all": "All",
+      "results_count_one": "{{count}} program",
+      "results_count_other": "{{count}} programs",
+      "featured": "Strength foundations",
+      "all_programs": "All programs",
+      "empty": "No programs match. Try another search or level.",
+      "empty_all": "There are no other programs to show right now."
     }
   },
   "tracker": {
@@ -872,10 +896,10 @@
     "catalog_removed": "The program {{programId}} no longer exists in the catalog.",
     "guest_stats_message": "Create an account to see statistics",
     "guest_export_message": "Create an account to export your data",
-    "jaw_status_test_week": "JAW Block {{block}} · Test week — update Block {{next}} TM when done.",
-    "jaw_status_final_test_week": "JAW Block 3 · Final test week — last JAW block.",
+    "jaw_status_test_week": "JAW Block {{block}} · Test week: update Block {{next}} TM when done.",
+    "jaw_status_final_test_week": "JAW Block 3 · Final test week: last JAW block.",
     "jaw_status_progress": "JAW Block {{block}} · Wk. {{week}}/18 · Test in wk. {{testWeek}}.",
-    "result_toast": "#{{index}}: {{exercise}} {{tier}} — {{result}}",
+    "result_toast": "#{{index}}: {{exercise}} {{tier}} · {{result}}",
     "tab_content": {
       "about_label": "About",
       "aria_compact_view": "Switch to compact view",
@@ -889,23 +913,23 @@
       "max_weight": "Maximum {{max}}",
       "required": "Required",
       "generate_error": "Error generating program.",
-      "edit_title_default": "Edit Starting Weights ({{unit}})",
-      "create_title_default": "Starting Weights ({{unit}})",
-      "edit_description_default": "Update your starting weights — the program will recalculate with new values",
+      "edit_title_default": "Edit starting weights ({{unit}})",
+      "create_title_default": "Starting weights ({{unit}})",
+      "edit_description_default": "Update your starting weights: the program will recalculate with new values",
       "create_description_default": "Enter your starting weights for {{name}}",
       "active_group_indicator": "← update here",
       "error_header": "Please correct the following:",
       "cancel_button": "Cancel",
       "generating_loading": "Generating...",
       "update_button_short": "Update",
-      "update_button": "Update Weights",
-      "generate_button": "Generate Program",
-      "collapsed_title": "Starting Weights",
+      "update_button": "Update weights",
+      "generate_button": "Generate program",
+      "collapsed_title": "Starting weights",
       "overflow_indicator": "+{{n}} more",
       "edit_button_short": "Edit",
-      "edit_button": "Edit Weights",
+      "edit_button": "Edit weights",
       "close_aria": "Close",
-      "confirm_title": "Update Starting Weights",
+      "confirm_title": "Update starting weights",
       "confirm_message": "Your success/fail history will be preserved, but projected weights will change. Continue?",
       "confirm_label": "Update",
       "recalc_callout_title": "Recalculation",
@@ -917,17 +941,17 @@
       "undo_button": "Undo",
       "more_actions_aria": "More actions",
       "finishing_loading": "Finishing...",
-      "finish_program": "Finish Program",
+      "finish_program": "Finish program",
       "export_csv": "Export CSV",
       "export_backup": "Export JSON backup",
       "import_backup": "Import JSON backup",
       "import_backup_file_aria": "Select JSON backup file",
-      "reset_all": "Reset All",
+      "reset_all": "Reset all",
       "finish_confirm_message": "Your progress and statistics will be saved. You can review them anytime from your profile.",
       "finish_confirm_label": "Finish",
-      "reset_confirm_title": "Reset All Progress",
+      "reset_confirm_title": "Reset all progress",
       "reset_confirm_message": "Are you sure you want to reset ALL progress? This cannot be undone.",
-      "reset_confirm_label": "Reset All",
+      "reset_confirm_label": "Reset all",
       "webmcp_enable": "Enable AI assistant",
       "webmcp_disable": "Disable AI assistant",
       "webmcp_confirm_title": "Allow AI access for this session?",
@@ -946,8 +970,8 @@
       "card_success_rate": "success",
       "progression_suffix": "Progression",
       "amrap_chart_suffix": "AMRAP (reps)",
-      "volume_section_label": "Total Volume",
-      "volume_chart_label": "Volume per Session (kg)",
+      "volume_section_label": "Total volume",
+      "volume_chart_label": "Volume per session (kg)",
       "start": "Start",
       "gained": "kg gained",
       "stage": "Stage",
@@ -961,8 +985,8 @@
       "exercises": "Exercises",
       "progression": "Progression",
       "amrap_reps": "AMRAP (reps)",
-      "total_volume": "Total Volume",
-      "volume_per_session": "Volume per Session (kg)"
+      "total_volume": "Total volume",
+      "volume_per_session": "Volume per session (kg)"
     },
     "graduation": {
       "exercise_squat": "Squat",
@@ -971,17 +995,17 @@
       "criteria_squat": "3 reps (tempo 5-3-5)",
       "criteria_bench": "1 rep (perfect technique)",
       "criteria_deadlift": "10 reps (controlled)",
-      "completed_title": "Graduation Completed",
-      "pending_title": "Graduation Objectives",
+      "completed_title": "Graduation completed",
+      "pending_title": "Graduation objectives",
       "completed_description": "You have achieved all objectives. You are ready for the JAW Protocol.",
       "pending_description": "Complete these objectives to graduate to the next program.",
       "how_to_unlock": "Hit each criterion under load with solid technique. Progress is checked against the targets below as you train.",
       "estimated_1rm_header": "Your estimated 1RMs (Epley):",
-      "start_jaw": "Start JAW Protocol",
+      "start_jaw": "Start JAW protocol",
       "keep_training": "Keep training"
     },
     "test_weight": {
-      "title": "Max Test —",
+      "title": "Max Test:",
       "description_propagation": "Record your max. This weight will be used as Training Max for the next block.",
       "description_final": "Record your max. This is your final result of the JAW protocol.",
       "weight_label": "How much did you lift? ({{unit}})",
@@ -992,20 +1016,18 @@
     },
     "day_view": {
       "workout_aria": "Workout {{number}}",
-      "deload_badge": "Deload",
-      "fail_badge": "Fail"
+      "deload_badge": "Deload"
     },
     "detailed_day_view": {
       "workout_aria": "Workout {{number}}",
-      "col_set": "Set",
-      "col_weight": "{{unit}}",
       "col_reps": "Reps",
-      "col_target": "Tgt.",
       "table_aria": "Sets of {{exercise}}",
       "reps_input_aria": "Set {{label}} reps",
       "set_completed_aria": "Set completed",
       "set_failed_aria": "Set failed",
-      "confirm_set_aria": "Confirm set {{label}}"
+      "confirm_set_aria": "Confirm set {{label}}",
+      "logged_reps": "{{reps}} reps",
+      "weight_input_aria": "Set {{label}} weight"
     },
     "set_indicators": {
       "sets_aria_one": "{{count}} set",
@@ -1032,13 +1054,13 @@
       "header": "COMPLETED!",
       "workouts_label": "Workouts",
       "workouts_of": "of",
-      "total_volume": "Total Volume",
-      "weight_gained": "Weight Gained",
-      "personal_records": "Personal Records",
+      "total_volume": "Total volume",
+      "weight_gained": "Weight gained",
+      "personal_records": "Personal records",
       "estimated_1rm": "Estimated 1RM (Epley)",
       "epley_note": "Estimate based on Epley formula",
-      "view_profile": "View Training Profile",
-      "back_to_dashboard": "Back to Home"
+      "view_profile": "View training profile",
+      "back_to_dashboard": "Back to home"
     },
     "weight_field": {
       "decrease_label": "Decrease {{label}}",
@@ -1109,8 +1131,8 @@
       "day_label": "DAY",
       "day_name": "Day {{n}}",
       "complete_suffix": " · COMPLETE",
-      "close": "close ▴",
-      "change_day": "change day ▾"
+      "close": "Close",
+      "change_day": "Change day"
     },
     "shortcuts": {
       "title": "KEYBOARD SHORTCUTS",
@@ -1122,25 +1144,31 @@
       "understood": "GOT IT"
     },
     "rest_timer": {
-      "label": "REST",
-      "skip": "Skip",
+      "label": "Rest",
+      "skip": "Skip rest",
       "aria": "Rest {{time}}"
     },
     "session_chrome": {
       "day_progress_aria": "Day progress",
-      "edit_weights_aria": "Edit starting weights"
+      "edit_weights_aria": "Edit starting weights",
+      "label": "Workout",
+      "switch_program_aria": "{{name}}: switch program",
+      "undo_aria": "Undo the last result",
+      "week_label": "WEEK {{n}}",
+      "week_chip": "Week {{n}}",
+      "weeks_aria": "Program weeks",
+      "days_aria": "Days of the week",
+      "day_done_aria": "{{day}}, completed",
+      "exercises_progress": "{{done}} of {{total}} exercises"
     },
     "current_lift": {
       "aria": "Current lift: {{exercise}}",
-      "in_progress": "In progress",
-      "stage_scheme": "Stage {{stage}} · {{scheme}}",
       "confirm_set": "Set {{index}} ✓",
-      "fail_aria": "Mark {{exercise}} as failed"
+      "fail_aria": "Mark {{exercise}} as failed",
+      "fail": "Fail"
     },
     "session_view": {
-      "completed": "Completed",
-      "failed": "Failed",
-      "pending_aria": "Pending in this session"
+      "logged_reps": "Reps {{reps}}"
     },
     "session_panel": {
       "aria": "Session context",
@@ -1156,7 +1184,7 @@
       "shortcut_undo": "undo",
       "shortcut_day": "change day",
       "shortcut_rest": "skip rest",
-      "stats_link": "See stats in profile →"
+      "stats_link": "See stats in profile"
     },
     "failure": {
       "aria": "What failing {{exercise}} costs",
@@ -1191,18 +1219,24 @@
       "progress": "Day {{day}} of {{total}}",
       "next_session": "Next session · day {{day}} · {{name}}",
       "next_session_plain": "Next session · day {{day}}"
+    },
+    "slot_status": {
+      "success": "Logged success",
+      "fail": "Logged fail",
+      "awaiting": "Awaiting result"
     }
   },
   "profile": {
     "page": {
       "title": "Profile — Gravity Room",
       "heading": "Profile",
-      "subtitle": "Your training progress"
+      "subtitle": "Your training progress",
+      "eyebrow": "Account"
     },
     "empty": {
       "heading": "NO PROGRAM",
       "description": "Start a program to see your training profile.",
-      "cta": "Go to Home"
+      "cta": "Go to home"
     },
     "history": {
       "title": "History",
@@ -1231,7 +1265,7 @@
       "unlocked_count": "{{unlocked}} of {{total}} unlocked",
       "next_milestone": "Next milestone",
       "first_workout": {
-        "label": "First Workout",
+        "label": "First workout",
         "description": "Complete 1 workout"
       },
       "streak_5": {
@@ -1243,7 +1277,7 @@
         "description": "Any T1 reaches 100 kg"
       },
       "complete_program": {
-        "label": "Complete Program",
+        "label": "Complete program",
         "description": "Finish a complete program"
       },
       "volume_10k": {
@@ -1253,7 +1287,7 @@
       "zero_state": "Complete workouts to unlock achievements"
     },
     "charts": {
-      "weight_progression_title": "Weight Progression",
+      "weight_progression_title": "Weight progression",
       "description": "Compare your logged loads with the next 6 planned sessions.",
       "current_load": "Current load",
       "logged_sessions_one": "{{count}} logged session",
@@ -1267,32 +1301,32 @@
       "workouts_label": "Workouts",
       "workouts_of": "of",
       "workouts_label_plural": "workouts",
-      "success_rate_label": "Success Rate",
-      "total_volume_label": "Total Volume",
+      "success_rate_label": "Success rate",
+      "total_volume_label": "Total volume",
       "sets_label": "sets",
       "reps_label": "reps",
       "completed_label": "Completed",
       "streak_title": "Streak",
-      "current_streak_label": "Current Streak",
+      "current_streak_label": "Current streak",
       "consecutive_label": "consecutive",
       "longest_streak_label": "Record",
       "this_month_label": "this month",
       "new_prs_label": "New PRs",
       "volume_label": "Volume",
-      "initial_weights_title": "Starting Weights (T1)",
-      "personal_records_title": "Personal Records (T1)",
+      "initial_weights_title": "Starting weights (T1)",
+      "personal_records_title": "Personal records (T1)",
       "workout_number_label": "Workout #",
       "initial_weight_label": "Initial weight",
       "e1rm_title": "Estimated 1RM (Epley)",
       "epley_note": "Estimate based on Epley formula",
-      "lifetime_volume_title": "Lifetime Total Volume",
-      "all_programs_label": "All Programs",
+      "lifetime_volume_title": "Lifetime total volume",
+      "all_programs_label": "All programs",
       "programs_label_plural": "programs",
       "rolling_30_days_title": "Last 30 days"
     },
     "account": {
       "title": "Account",
-      "section_title": "Account Settings",
+      "section_title": "Account settings",
       "change_avatar_label": "Change avatar",
       "change_avatar_text": "Change",
       "username_input_label": "Username",
@@ -1318,6 +1352,13 @@
     },
     "account_errors": {
       "delete_error": "Error deleting account"
+    },
+    "more": {
+      "preferences": "Preferences",
+      "shortcuts": "Go to",
+      "progress": "Your progress",
+      "home_hint": "Next set, streak and recent sessions",
+      "insights_hint": "Charts and trends from your training"
     }
   },
   "insights": {
@@ -1346,14 +1387,14 @@
       "direction_up": "↑ rising",
       "direction_down": "↓ falling",
       "direction_stable": "→ stable",
-      "title": "Volume Trend",
+      "title": "Volume trend",
       "no_data": "No volume data",
       "chart_sr_only": "Weekly volume trend",
       "avg_label": "avg"
     },
     "frequency": {
       "day_labels": ["M", "T", "W", "T", "F", "S", "S"],
-      "title": "Weekly Activity",
+      "title": "Weekly activity",
       "days_label": "days",
       "total_sessions_label": "total sessions"
     },
@@ -1381,8 +1422,6 @@
     "page": {
       "title": "Sign In — Gravity Room"
     },
-    "tagline": "Train better · Progress faster",
-    "auth_separator": "Enter the Chamber",
     "form": {
       "title": "Authenticate"
     },
@@ -1458,18 +1497,22 @@
       "success": "Password updated. You can now sign in.",
       "error": "This reset link is invalid or has expired.",
       "back_to_login": "Back to sign in"
+    },
+    "card": {
+      "title": "Train with intent.",
+      "body": "Your plan. Every set. All your progress in one place."
     }
   },
   "not_found": {
     "logo_alt": "Gravity Room logo",
     "message": "This page doesn't exist. It may have been moved, or you typed the URL incorrectly.",
-    "go_home": "Go to Home"
+    "go_home": "Go to home"
   },
   "guest_banner": {
     "mode": "Guest mode",
     "prompt": "Create an account to save your progress.",
     "preserve_hint": "Your current program will be transferred after sign-in.",
-    "create_account": "Create Account",
+    "create_account": "Create account",
     "create_account_aria": "Create account to save your progress"
   },
   "guest_migration": {
@@ -1587,7 +1630,7 @@
   "avatar_dropdown": {
     "user_menu": "User menu",
     "profile": "Profile",
-    "sign_out": "Sign Out"
+    "sign_out": "Sign out"
   },
   "delete_account": {
     "confirm_word": "DELETE",
@@ -1595,12 +1638,12 @@
     "validation": {
       "incorrect": "Incorrect"
     },
-    "title": "Delete Account",
+    "title": "Delete account",
     "description": "This action will mark your account for deletion. Your data will be permanently deleted after 30 days.",
     "confirm_instruction": "Type {{word}} to confirm.",
     "cancel": "Cancel",
     "loading": "Deleting...",
-    "confirm_button": "Delete Account"
+    "confirm_button": "Delete account"
   },
   "confirm_dialog": {
     "confirm": "Confirm",
@@ -1644,7 +1687,8 @@
       "last_today": "today",
       "last_yesterday": "yesterday",
       "last_days_ago_one": "{{count}} day ago",
-      "last_days_ago_other": "{{count}} days ago"
+      "last_days_ago_other": "{{count}} days ago",
+      "eyebrow": "Today"
     },
     "kpi": {
       "streak_label": "Streak",
@@ -1663,7 +1707,7 @@
       "no_program_stamp": "NO PROGRAM",
       "no_program_title": "No active program",
       "no_program_body": "Pick a program to start logging your training.",
-      "no_program_cta": "View Programs"
+      "no_program_cta": "View programs"
     },
     "guest_resume": {
       "stamp": "IN PROGRESS",
@@ -1784,10 +1828,6 @@
       "t2": "T2",
       "t3": "T3"
     }
-  },
-  "sidebar": {
-    "open_menu": "Open menu",
-    "close_menu": "Close menu"
   },
   "route_error": {
     "image_alt": "Error state, damaged gravity chamber",

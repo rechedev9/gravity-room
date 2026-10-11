@@ -1,4 +1,4 @@
-import { colors, radii, spacing } from './tokens';
+import { colors, radii, spacing, typeScale, type FontKey } from './tokens';
 
 type ColorKey = keyof typeof colors;
 
@@ -91,6 +91,62 @@ const radiusVars = [
   ['chip', radii.pill],
 ] as const;
 
+/** The mobile faces carry their weight in the name; on web each one is a family plus a weight. */
+const webFonts: Record<FontKey, { family: string; weight: number }> = {
+  display: { family: "'Bebas Neue', system-ui", weight: 400 },
+  body: { family: "'Barlow', system-ui, sans-serif", weight: 400 },
+  bodySemi: { family: "'Barlow', system-ui, sans-serif", weight: 600 },
+  bodyBold: { family: "'Barlow', system-ui, sans-serif", weight: 700 },
+  mono: { family: "'JetBrains Mono', monospace", weight: 400 },
+  monoBold: { family: "'JetBrains Mono', monospace", weight: 700 },
+};
+
+type TypeKey = keyof typeof typeScale;
+
+/** Utility names for the type scale. displayData is left out: web keeps Bebas for hero numbers. */
+const typeUtilityNames = {
+  kicker: 'type-kicker',
+  display: 'type-display',
+  displaySm: 'type-display-sm',
+  title: 'type-title',
+  body: 'type-body',
+  meta: 'type-meta',
+  button: 'type-button',
+} as const satisfies Partial<Record<TypeKey, string>>;
+
+type WebTypeKey = keyof typeof typeUtilityNames;
+
+const typeKeys = [
+  'kicker',
+  'display',
+  'displaySm',
+  'title',
+  'body',
+  'meta',
+  'button',
+] as const satisfies readonly WebTypeKey[];
+
+function renderTypeUtility(key: WebTypeKey): string[] {
+  const entry: {
+    font: FontKey;
+    fontSize: number;
+    letterSpacing?: number;
+    lineHeight?: number;
+  } = typeScale[key];
+  const face = webFonts[entry.font];
+  const lines = [
+    `@utility ${typeUtilityNames[key]} {`,
+    `  font-family: ${face.family};`,
+    `  font-weight: ${face.weight};`,
+    `  font-size: ${entry.fontSize}px;`,
+  ];
+  if (entry.lineHeight !== undefined) lines.push(`  line-height: ${entry.lineHeight}px;`);
+  if (entry.letterSpacing !== undefined) lines.push(`  letter-spacing: ${entry.letterSpacing}px;`);
+  if (key === 'kicker') lines.push('  text-transform: uppercase;');
+  lines.push('}');
+  return lines;
+}
+
 export function renderTokensCss(): string {
   const lines: string[] = [
     '/* Generated from @gzclp/design-tokens by pnpm --filter web tokens:css. Do not edit. */',
@@ -109,5 +165,9 @@ export function renderTokensCss(): string {
   lines.push('  /* SPACING (shared with mobile) */');
   for (const [name, px] of spacingVars) lines.push(`  --space-${name}: ${px}px;`);
   lines.push('}');
+  for (const key of typeKeys) {
+    lines.push('');
+    lines.push(...renderTypeUtility(key));
+  }
   return `${lines.join('\n')}\n`;
 }

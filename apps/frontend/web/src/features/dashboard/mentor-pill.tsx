@@ -19,7 +19,7 @@ export function MentorPill({ tips, rotateMs = 12000 }: MentorPillProps): React.R
   if (tips.length === 0) return null;
 
   return (
-    <section className="bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-card)] p-4 sm:p-5">
+    <section className="bg-card border border-rule rounded-card shadow-[var(--shadow-card)] p-4 sm:p-5">
       <p className="chalk-stamp mb-3">{t('dashboard.mentor.title')}</p>
       <blockquote className="text-sm text-main italic leading-relaxed">« {tips[i]} »</blockquote>
       <div className="flex items-center justify-between mt-3">

@@ -4,6 +4,8 @@ import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import { isCycleDayName, localizedExerciseName } from '@/lib/catalog-display';
 import { detectGenericPersonalRecord } from '@/lib/pr-detection';
 import { tierColorClass } from '@/features/program-view/tier-color';
+import { slotScheme } from '@/features/program-view/slot-card-shell';
+import { CheckIcon, CrossIcon } from '@/components/glyph-icons';
 import { findNextScheduled, workoutVolume } from './session-history';
 import { useUnitPreference } from '@/hooks/use-unit-preference';
 
@@ -54,7 +56,7 @@ export function DayCompletedPanel({
       reps:
         slot.setLogs !== undefined && slot.setLogs.length > 0
           ? slot.setLogs.map((s) => s.reps).join(' ')
-          : `${slot.sets}×${slot.complexReps ?? slot.reps}`,
+          : slotScheme(slot),
     };
   });
   const recordCount = lines.filter((l) => l.isRecord).length;
@@ -64,66 +66,60 @@ export function DayCompletedPanel({
       ref={panelRef}
       data-testid="day-completed-panel"
       aria-label={t('tracker.day_completed.aria', { day: workout.index + 1 })}
-      className="mb-4 scroll-mt-32"
+      className="mb-3 flex scroll-mt-4 flex-col gap-5 rounded-card border border-rule bg-card p-5 sm:p-6"
     >
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-6">
+      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
         <div>
-          <p className="mb-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-ok">
-            {t('tracker.day_completed.closed')}
-          </p>
-          <h2 className="font-display m-0 text-[44px] leading-[0.9] tracking-[0.03em] text-title sm:text-[60px]">
+          <p className="type-kicker mb-2 text-ok">{t('tracker.day_completed.closed')}</p>
+          <h2 className="type-display m-0 text-title">
             {t('tracker.day_completed.title', { day: workout.index + 1 })}
           </h2>
         </div>
-        <dl className="flex gap-8 pb-1.5">
+        <dl className="flex gap-8">
           <div>
-            <dt className="mb-1 font-mono text-2xs font-bold uppercase tracking-[0.08em] text-info">
-              {t('tracker.day_completed.volume')}
-            </dt>
-            <dd className="font-display m-0 text-[38px] leading-none tracking-[0.02em] text-title tabular-nums">
+            <dt className="type-kicker mb-1 text-label">{t('tracker.day_completed.volume')}</dt>
+            <dd className="font-display m-0 text-[34px] leading-none tracking-[0.02em] text-title tabular-nums">
               {toDisplay(workoutVolume(workout)).toLocaleString()} {unit}
             </dd>
           </div>
           <div>
-            <dt className="mb-1 font-mono text-2xs font-bold uppercase tracking-[0.08em] text-info">
-              {t('tracker.day_completed.records')}
-            </dt>
-            <dd className="font-display m-0 text-[38px] leading-none tracking-[0.02em] text-accent tabular-nums">
+            <dt className="type-kicker mb-1 text-label">{t('tracker.day_completed.records')}</dt>
+            <dd className="font-display m-0 text-[34px] leading-none tracking-[0.02em] text-accent tabular-nums">
               {recordCount}
             </dd>
           </div>
         </dl>
       </div>
 
-      <ul className="mb-6 flex flex-col gap-0.5">
+      <ul className="flex flex-col border-y border-rule">
         {lines.map(({ slot, next, isRecord, reps }) => (
           <li
             key={slot.slotId}
             data-testid="day-completed-line"
-            className={`flex flex-wrap items-center gap-3.5 border-l-[3px] bg-card px-4 py-3.5 ${
-              slot.result === 'fail' ? 'border-l-fail' : 'border-l-ok'
-            }`}
+            data-slot-result={slot.result}
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-rule py-3 last:border-b-0"
           >
-            <span className={`w-6 font-mono text-[11px] font-bold ${tierColorClass(slot.role)}`}>
+            <span aria-hidden="true" className={slot.result === 'fail' ? 'text-fail' : 'text-ok'}>
+              {slot.result === 'fail' ? <CrossIcon size={18} /> : <CheckIcon size={18} />}
+            </span>
+            <span className={`font-mono text-[11px] font-bold ${tierColorClass(slot.role)}`}>
               {slot.tier.toUpperCase()}
             </span>
-            <span className="text-[14.5px] font-bold text-title">
+            <span className="text-base font-semibold text-title">
               {localizedExerciseName(t, slot.exerciseId, slot.exerciseName)}
             </span>
-            <span className="whitespace-nowrap font-mono text-[13px] text-muted tabular-nums">
-              {slot.weight > 0 ? `${format(slot.weight)} · ` : ''}
+            <span className="whitespace-nowrap font-mono text-[13px] text-label tabular-nums">
+              {slot.weight > 0 ? `${format(slot.weight)} \u00b7 ` : ''}
               {reps}
             </span>
             {isRecord && (
-              <span className="bg-accent px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-on-accent">
+              <span className="rounded-chip bg-accent px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-on-accent">
                 {t('tracker.day_completed.record')}
               </span>
             )}
             {next !== null && next.weight > 0 && (
-              <span className="ml-auto flex items-center gap-2.5">
-                <span className="font-mono text-xs text-info">
-                  {t('tracker.day_completed.next')}
-                </span>
+              <span className="ml-auto flex items-baseline gap-2">
+                <span className="text-sm text-label">{t('tracker.day_completed.next')}</span>
                 <span className="font-mono text-sm font-bold text-ok tabular-nums">
                   {format(next.weight)}
                 </span>
@@ -134,8 +130,8 @@ export function DayCompletedPanel({
       </ul>
 
       {nextWorkout !== null && nextWorkout.slots.length > 0 && (
-        <div className="mb-6 border border-rule bg-header px-4 py-3.5" data-testid="next-session">
-          <h3 className="mb-2.5 font-mono text-2xs font-bold uppercase tracking-[0.08em] text-info">
+        <div data-testid="next-session">
+          <h3 className="type-kicker mb-1 text-label">
             {isCycleDayName(nextWorkout.dayName)
               ? t('tracker.day_completed.next_session_plain', { day: nextWorkout.index + 1 })
               : t('tracker.day_completed.next_session', {
@@ -143,28 +139,33 @@ export function DayCompletedPanel({
                   name: nextWorkout.dayName,
                 })}
           </h3>
-          <ul className="flex flex-wrap gap-x-5 gap-y-1">
+          <ul className="grid grid-cols-1 gap-x-10 sm:grid-cols-2 xl:grid-cols-3">
             {nextWorkout.slots.map((slot) => (
-              <li key={slot.slotId} className="font-mono text-[12.5px] text-muted tabular-nums">
-                {localizedExerciseName(t, slot.exerciseId, slot.exerciseName)}
-                {' · '}
-                {slot.weight > 0
-                  ? format(slot.weight)
-                  : `${slot.sets}×${slot.complexReps ?? slot.reps}`}
+              <li
+                key={slot.slotId}
+                className="flex items-baseline justify-between gap-4 py-1.5 text-[15px]"
+              >
+                <span className="min-w-0 truncate text-muted">
+                  {localizedExerciseName(t, slot.exerciseId, slot.exerciseName)}
+                </span>
+                <span className="shrink-0 text-main tabular-nums">
+                  {slot.weight > 0 ? `${format(slot.weight)} \u00b7 ` : ''}
+                  {slotScheme(slot)}
+                </span>
               </li>
             ))}
           </ul>
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         {nextWorkout !== null && (
           <button
             type="button"
             data-testid="day-completed-next"
             onClick={onGoToNextDay}
             style={{ boxShadow: 'var(--shadow-pressed-steel)' }}
-            className="bg-accent px-7 py-3.5 font-mono text-xs font-bold uppercase tracking-[0.08em] text-on-accent transition-colors hover:bg-accent-hover cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+            className="type-button min-h-12 w-full rounded-control bg-accent px-7 text-on-accent cursor-pointer transition-[transform,background-color] duration-[var(--duration-press)] ease-[var(--ease-press)] hover:bg-accent-hover active:translate-y-px sm:w-auto"
           >
             {isCycleDayName(nextWorkout.dayName)
               ? t('tracker.day_completed.next_day_plain', { day: nextWorkout.index + 1 })
@@ -179,12 +180,12 @@ export function DayCompletedPanel({
             type="button"
             data-testid="day-completed-review"
             onClick={onReview}
-            className="border-[1.5px] border-rule-light px-5 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted transition-colors hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+            className="type-button min-h-12 rounded-control px-4 text-muted cursor-pointer transition-colors duration-[var(--duration-press)] hover:bg-surface-2 hover:text-main"
           >
             {t('tracker.day_completed.review')}
           </button>
         )}
-        <span className="font-mono text-2xs text-info">
+        <span className="ml-auto text-sm text-label">
           {t('tracker.day_completed.progress', { day: workout.index + 1, total: totalDays })}
         </span>
       </div>

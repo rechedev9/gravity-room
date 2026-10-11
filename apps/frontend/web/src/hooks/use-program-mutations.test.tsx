@@ -89,6 +89,59 @@ describe('useProgramMutations', () => {
     expect(mockRecordGenericResult).toHaveBeenCalledTimes(1);
   });
 
+  it('offers undo as soon as the result is saved, without waiting for the refetch', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    queryClient.setQueryData(DETAIL_KEY, DETAIL);
+    const { result } = renderProgramMutations(queryClient);
+    await waitFor(() => {
+      expect(result.current).toBeDefined();
+    });
+
+    await result.current.markResultMutation.mutateAsync({
+      index: 0,
+      slotId: 'squat-t1',
+      value: 'fail',
+    });
+    expect(queryClient.getQueryData<GenericProgramDetail>(DETAIL_KEY)?.undoHistory).toEqual([
+      { i: 0, slotId: 'squat-t1' },
+    ]);
+
+    // Re-marking the same slot records what it held, so undo restores it.
+    await result.current.markResultMutation.mutateAsync({
+      index: 0,
+      slotId: 'squat-t1',
+      value: 'success',
+    });
+    expect(queryClient.getQueryData<GenericProgramDetail>(DETAIL_KEY)?.undoHistory).toEqual([
+      { i: 0, slotId: 'squat-t1' },
+      { i: 0, slotId: 'squat-t1', prev: 'fail' },
+    ]);
+
+    await result.current.undoLastMutation.mutateAsync();
+    const detail = queryClient.getQueryData<GenericProgramDetail>(DETAIL_KEY);
+    expect(detail?.results['0']?.['squat-t1']).toEqual({ result: 'fail' });
+    expect(detail?.undoHistory).toHaveLength(1);
+  });
+
+  it('offers no undo for a result the server rejected', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    queryClient.setQueryData(DETAIL_KEY, DETAIL);
+    mockRecordGenericResult.mockRejectedValueOnce(new Error('network error'));
+    const { result } = renderProgramMutations(queryClient);
+    await waitFor(() => {
+      expect(result.current).toBeDefined();
+    });
+
+    await expect(
+      result.current.markResultMutation.mutateAsync({ index: 0, slotId: 'squat-t1', value: 'fail' })
+    ).rejects.toThrow();
+    expect(queryClient.getQueryData<GenericProgramDetail>(DETAIL_KEY)?.undoHistory).toEqual([]);
+  });
+
   it('rolls back a failed AMRAP save to the pre-edit server value, not the failed optimistic one', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },

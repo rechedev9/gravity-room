@@ -61,7 +61,7 @@ export function FailureExplainer({
       data-testid="failure-explainer"
       data-slot-id={slot.slotId}
       aria-label={t('tracker.failure.aria', { exercise: exerciseLabel })}
-      className="mb-4 border border-rule-light bg-card px-5 py-5 sm:px-6"
+      className="mb-3 rounded-card border border-rule bg-card p-5 sm:p-6"
     >
       <div className="mb-4 flex items-center gap-2.5">
         <h3 className="font-mono text-2xs font-bold uppercase tracking-[0.08em] text-accent">
@@ -82,7 +82,7 @@ export function FailureExplainer({
         <li aria-hidden="true" className="font-mono text-[26px] text-accent">
           &rarr;
         </li>
-        <li className="border-2 border-accent bg-surface-2 px-5 py-3.5">
+        <li className="border-2 border-accent bg-surface-2 rounded-control px-5 py-3.5">
           <p className="mb-1 font-mono text-2xs font-bold uppercase tracking-[0.08em] text-accent">
             {t('tracker.failure.next_stage_label', { stage: next.stage + 1 })}
           </p>
@@ -150,7 +150,7 @@ export function FailureExplainer({
           data-testid="failure-acknowledge"
           onClick={onAcknowledge}
           style={{ boxShadow: 'var(--shadow-pressed-steel)' }}
-          className="bg-accent px-7 py-3.5 font-mono text-xs font-bold uppercase tracking-[0.08em] text-on-accent transition-colors hover:bg-accent-hover cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+          className="type-button rounded-control bg-accent px-7 py-3.5 text-on-accent transition-colors hover:bg-accent-hover cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
         >
           {t('tracker.failure.continue')}
         </button>
@@ -158,7 +158,7 @@ export function FailureExplainer({
           type="button"
           data-testid="failure-undo"
           onClick={() => onUndo(workoutIndex, slot.slotId)}
-          className="border-[1.5px] border-rule-light px-5 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted transition-colors hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+          className="type-button rounded-control border-[1.5px] border-rule-light px-5 py-3 text-muted transition-colors hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
         >
           {t('tracker.failure.undo')}
         </button>

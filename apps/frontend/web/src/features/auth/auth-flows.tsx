@@ -30,8 +30,8 @@ function AuthShell({
   const navigate = useNavigate();
   return (
     <div className="grain-overlay flex min-h-dvh flex-col items-center justify-center bg-body px-6 py-12">
-      <div className="relative w-full max-w-[400px] border border-rule bg-card p-8">
-        <CornerTicks colorClass="border-rule-light" size={10} />
+      <div className="relative w-full max-w-[400px] border border-rule bg-card rounded-card p-8">
+        <CornerTicks colorClass="border-rule-light" />
         <Kicker noRule className="mb-4">
           {title}
         </Kicker>
@@ -40,7 +40,7 @@ function AuthShell({
       <button
         type="button"
         onClick={() => void navigate({ to: '/login' })}
-        className="mt-5 cursor-pointer px-4 py-2 font-mono text-[11px] uppercase tracking-[0.06em] text-muted transition-colors hover:text-main"
+        className="type-button mt-5 cursor-pointer px-4 py-2 text-muted transition-colors hover:text-main"
       >
         {t('login.callback.back_to_login')}
       </button>
@@ -49,9 +49,9 @@ function AuthShell({
 }
 
 const inputClass =
-  'border border-rule bg-header px-3 py-2 text-sm text-main outline-none focus:border-accent';
+  'border border-rule bg-header rounded-control px-3 py-2 text-sm text-main outline-none focus:border-accent';
 const submitClass =
-  'w-full cursor-pointer border border-accent-dim bg-accent-deep/10 py-2.5 font-mono text-[11px] uppercase tracking-[0.06em] text-accent transition-colors hover:bg-accent-deep/20 disabled:cursor-not-allowed disabled:opacity-50';
+  'type-button rounded-control w-full cursor-pointer border border-accent-dim bg-accent-deep/10 py-2.5 text-accent transition-colors hover:bg-accent-deep/20 disabled:cursor-not-allowed disabled:opacity-50';
 
 // ---------------------------------------------------------------------------
 // /auth/callback — social redirect landing

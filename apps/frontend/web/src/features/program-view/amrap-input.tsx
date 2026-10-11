@@ -64,7 +64,7 @@ export function AmrapInput({
           onClick={decrement}
           disabled={current <= MIN_REPS}
           aria-label={t('tracker.amrap_input.decrement_label')}
-          className={`${btnBase} font-bold border-2 border-r-0 border-rule bg-card text-btn-text cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-title active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default`}
+          className={`${btnBase} font-bold border-2 border-r-0 rounded-l-control border-rule bg-card text-btn-text cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-title active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default`}
         >
           &minus;
         </button>
@@ -80,7 +80,7 @@ export function AmrapInput({
           onClick={increment}
           disabled={current >= MAX_REPS}
           aria-label={t('tracker.amrap_input.increment_label')}
-          className={`${btnBase} font-bold border-2 border-l-0 border-rule bg-card text-btn-text cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-title active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default`}
+          className={`${btnBase} font-bold border-2 border-l-0 rounded-r-control border-rule bg-card text-btn-text cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-title active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default`}
         >
           +
         </button>

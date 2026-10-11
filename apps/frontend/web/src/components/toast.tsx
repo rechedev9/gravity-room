@@ -11,9 +11,8 @@ export function ToastContainer(): React.ReactNode {
     <div
       role="status"
       aria-live="polite"
-      // Sit above the mobile bottom nav (3.5rem + safe-area) on small screens;
-      // desktop keeps the original bottom-6 offset.
-      className="fixed left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-2 items-center pointer-events-none bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.75rem)] lg:bottom-6"
+      // Sit above the phone tab bar when it is mounted; desktop keeps bottom-6.
+      className="fixed left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-2 items-center pointer-events-none bottom-[calc(var(--bottom-chrome)+var(--rest-banner)+0.75rem)] lg:bottom-[calc(var(--rest-banner)+1.5rem)]"
     >
       {toasts.map((toast) => {
         const animation = toast.exiting
@@ -22,7 +21,7 @@ export function ToastContainer(): React.ReactNode {
         const variantStyle =
           toast.variant === 'pr'
             ? 'bg-victory text-victory-on border-[1.5px] border-victory shadow-[var(--shadow-victory)]'
-            : 'bg-header text-title border border-rule';
+            : 'bg-header text-title border border-rule rounded-control';
 
         return (
           <div

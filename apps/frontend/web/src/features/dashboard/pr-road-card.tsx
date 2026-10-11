@@ -13,7 +13,7 @@ export function PrRoadCard({ road }: PrRoadCardProps): React.ReactNode {
 
   if (!road) {
     return (
-      <section className="bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-card)] p-4 sm:p-5 opacity-70">
+      <section className="bg-card border border-rule rounded-card shadow-[var(--shadow-card)] p-4 sm:p-5 opacity-70">
         <p className="chalk-stamp mb-2">{t('dashboard.pr_road.title')}</p>
         <p className="text-sm text-muted">{t('dashboard.pr_road.empty')}</p>
       </section>
@@ -21,7 +21,7 @@ export function PrRoadCard({ road }: PrRoadCardProps): React.ReactNode {
   }
 
   return (
-    <section className="bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-card)] p-4 sm:p-5">
+    <section className="bg-card border border-rule rounded-card shadow-[var(--shadow-card)] p-4 sm:p-5">
       <p className="chalk-stamp mb-3">{t('dashboard.pr_road.title')}</p>
       <dl className="grid grid-cols-2 gap-y-1 text-sm">
         <dt className="text-muted">{t('dashboard.pr_road.lift')}</dt>

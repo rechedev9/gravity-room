@@ -22,6 +22,7 @@ import { usePrRoad } from '@/features/dashboard/use-pr-road';
 import { MentorPill } from '@/features/dashboard/mentor-pill';
 import { RecentSessionsList } from '@/features/dashboard/recent-sessions-list';
 import { useDashboardData } from '@/features/dashboard/use-dashboard-data';
+import { HomeHeader } from './home-header';
 import { HomeEmptyState } from './home-empty-state';
 import { HomeGuestResume } from './home-guest-resume';
 import { HomeMentorWidget } from './home-mentor-widget';
@@ -37,14 +38,14 @@ function getMentorTips(t: TFunction): readonly string[] {
 
 function DashboardSkeleton(): React.ReactNode {
   return (
-    <div className="flex flex-col gap-6 max-w-5xl mx-auto px-4 sm:px-6 py-6 animate-pulse">
-      <div className="bg-card border border-rule rounded-[var(--radius-base)] p-8 h-48" />
+    <div className="flex flex-col gap-6 max-w-5xl mx-auto px-5 sm:px-6 py-6 animate-pulse">
+      <div className="bg-card border border-rule rounded-card p-8 h-48" />
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-card border border-rule rounded-[var(--radius-base)] h-24" />
-        <div className="bg-card border border-rule rounded-[var(--radius-base)] h-24" />
-        <div className="bg-card border border-rule rounded-[var(--radius-base)] h-24" />
+        <div className="bg-card border border-rule rounded-card h-24" />
+        <div className="bg-card border border-rule rounded-card h-24" />
+        <div className="bg-card border border-rule rounded-card h-24" />
       </div>
-      <div className="bg-card border border-rule rounded-[var(--radius-base)] h-20" />
+      <div className="bg-card border border-rule rounded-card h-20" />
     </div>
   );
 }
@@ -83,6 +84,15 @@ export function HomePage(): React.ReactNode {
     [dashboard.workoutDates]
   );
 
+  const daysSinceLast = useMemo(() => {
+    const latest = dashboard.workoutDates.reduce<number>((max, d) => {
+      const ms = new Date(d).getTime();
+      return Number.isNaN(ms) ? max : Math.max(max, ms);
+    }, Number.NEGATIVE_INFINITY);
+    if (!Number.isFinite(latest)) return null;
+    return Math.max(0, Math.floor((Date.now() - latest) / 86_400_000));
+  }, [dashboard.workoutDates]);
+
   const streakDays = dashboard.currentStreak;
   const totalSessions = dashboard.totalSessions;
   // Pristine = active program but no sessions logged yet. Show an encouraging
@@ -97,12 +107,21 @@ export function HomePage(): React.ReactNode {
   // lib/guest-storage.ts). If one exists, offer a direct "continue" hero back
   // into the tracker instead of the generic guest empty state. Memoized:
   // localStorage + JSON.parse must not run on every render.
+  const header = (
+    <HomeHeader
+      userName={user?.name ?? null}
+      streakDays={isGuest ? null : streakDays}
+      daysSinceLast={isGuest ? null : daysSinceLast}
+    />
+  );
+
   const guestInstance = useMemo(() => (isGuest ? readActiveGuestInstance() : null), [isGuest]);
 
   if (isGuest) {
     return (
       <div className="min-h-dvh bg-body">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        {header}
+        <div className="max-w-5xl mx-auto px-5 sm:px-6 py-6 sm:py-8">
           <GuestBanner className="mb-6" />
           {guestInstance ? (
             <HomeGuestResume programId={guestInstance.programId} programName={guestInstance.name} />
@@ -117,6 +136,7 @@ export function HomePage(): React.ReactNode {
   if (programsQuery.isLoading || dashboard.isLoading) {
     return (
       <div className="min-h-dvh bg-body">
+        {header}
         <DashboardSkeleton />
       </div>
     );
@@ -128,8 +148,9 @@ export function HomePage(): React.ReactNode {
   if (programsQuery.isError || dashboard.isError) {
     return (
       <div className="min-h-dvh bg-body">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-          <div className="bg-card border border-rule p-6 text-center">
+        {header}
+        <div className="max-w-5xl mx-auto px-5 sm:px-6 py-6">
+          <div className="bg-card rounded-card border border-rule p-6 text-center">
             <p className="text-sm text-muted mb-3">{t('home.load_error')}</p>
             <Button
               onClick={() => {
@@ -148,7 +169,8 @@ export function HomePage(): React.ReactNode {
   if (!activeProgram) {
     return (
       <div className="min-h-dvh bg-body">
-        <div className="flex flex-col gap-6 max-w-5xl mx-auto px-4 sm:px-6 py-6">
+        {header}
+        <div className="flex flex-col gap-6 max-w-5xl mx-auto px-5 sm:px-6 py-6">
           <HomeEmptyState variant="no-program" />
         </div>
       </div>
@@ -172,6 +194,7 @@ export function HomePage(): React.ReactNode {
 
   return (
     <div className="min-h-dvh bg-body">
+      {header}
       <DashboardShell
         mentor={
           <>
@@ -211,12 +234,12 @@ export function HomePage(): React.ReactNode {
         }
       />
       {!isGuest && layout.showQuickLinks ? (
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-8">
+        <div className="max-w-5xl mx-auto px-5 sm:px-6 pb-8">
           <Kicker className="mb-3">{t('home.footer.quick_links')}</Kicker>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Link
               to="/app/profile"
-              className="group flex items-center justify-between gap-3 bg-card border border-rule rounded-[var(--radius-base)] px-4 py-3 hover:border-rule-light transition-colors"
+              className="group flex items-center justify-between gap-3 bg-card border border-rule rounded-card px-4 py-3 hover:border-rule-light transition-colors"
             >
               <span className="text-sm text-main">{t('home.footer.view_stats')}</span>
               <span
@@ -228,7 +251,7 @@ export function HomePage(): React.ReactNode {
             </Link>
             <Link
               to="/app/profile"
-              className="group flex items-center justify-between gap-3 bg-card border border-rule rounded-[var(--radius-base)] px-4 py-3 hover:border-rule-light transition-colors"
+              className="group flex items-center justify-between gap-3 bg-card border border-rule rounded-card px-4 py-3 hover:border-rule-light transition-colors"
             >
               <span className="text-sm text-main">{t('home.footer.change_language')}</span>
               <span

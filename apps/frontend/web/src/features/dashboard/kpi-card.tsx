@@ -37,7 +37,7 @@ export function KpiCard({
   if (loading) {
     return (
       <div
-        className="bg-card border border-rule p-4 sm:p-5 animate-pulse rounded-[var(--radius-base)]"
+        className="bg-card border border-rule p-4 sm:p-5 animate-pulse rounded-card"
         aria-busy="true"
         aria-label={t('dashboard.kpi_card.loading_label')}
       >
@@ -50,7 +50,7 @@ export function KpiCard({
   return (
     <div
       className={cn(
-        'bg-card border border-rule rounded-[var(--radius-base)] p-5 shadow-[var(--shadow-card)] min-h-28',
+        'bg-card border border-rule rounded-card p-5 shadow-[var(--shadow-card)] min-h-28',
         accent && 'border-t-2 border-t-accent'
       )}
     >

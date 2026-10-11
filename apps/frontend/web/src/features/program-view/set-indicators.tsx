@@ -81,7 +81,7 @@ function InlineStepper({
         onClick={decrement}
         disabled={reps <= MIN_REPS}
         aria-label={t('tracker.set_stepper.decrease_aria')}
-        className="min-w-[36px] min-h-[36px] font-bold border-2 border-rule bg-card text-btn-text cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-title active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default text-sm"
+        className="min-w-[36px] min-h-[36px] font-bold border-2 border-rule bg-card rounded-control text-btn-text cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-title active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default text-sm"
       >
         &minus;
       </button>
@@ -96,7 +96,7 @@ function InlineStepper({
         onClick={increment}
         disabled={reps >= MAX_REPS}
         aria-label={t('tracker.set_stepper.increase_aria')}
-        className="min-w-[36px] min-h-[36px] font-bold border-2 border-rule bg-card text-btn-text cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-title active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default text-sm"
+        className="min-w-[36px] min-h-[36px] font-bold border-2 border-rule bg-card rounded-control text-btn-text cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-title active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default text-sm"
       >
         +
       </button>
@@ -104,7 +104,7 @@ function InlineStepper({
         type="button"
         onClick={handleConfirm}
         aria-label={t('tracker.set_stepper.confirm_aria')}
-        className="min-w-[36px] min-h-[36px] font-bold border-2 border-ok-ring bg-transparent text-ok cursor-pointer transition-all duration-150 hover:bg-ok-bg active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none text-sm"
+        className="min-w-[36px] min-h-[36px] font-bold border-2 border-ok-ring bg-transparent rounded-control text-ok cursor-pointer transition-all duration-150 hover:bg-ok-bg active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none text-sm"
       >
         &#10003;
       </button>
@@ -112,7 +112,7 @@ function InlineStepper({
         type="button"
         onClick={onCancel}
         aria-label={t('tracker.set_stepper.cancel_aria')}
-        className="min-w-[36px] min-h-[36px] font-bold border-2 border-fail-ring bg-transparent text-fail cursor-pointer transition-all duration-150 hover:bg-fail-bg active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none text-sm"
+        className="min-w-[36px] min-h-[36px] font-bold border-2 border-fail-ring bg-transparent rounded-control text-fail cursor-pointer transition-all duration-150 hover:bg-fail-bg active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none text-sm"
       >
         &#10007;
       </button>
@@ -205,7 +205,7 @@ export function SetIndicators({
                   index: i + 1,
                   reps: log.reps,
                 })}
-                className={`relative w-5 h-5 rounded-[2px] border-2 ${colorClass} flex items-center justify-center`}
+                className={`relative w-5 h-5 rounded-md border-2 ${colorClass} flex items-center justify-center`}
               >
                 {showAmrapMark && (
                   <span className="absolute -top-1.5 -right-1.5 text-2xs font-bold text-accent">
@@ -226,7 +226,7 @@ export function SetIndicators({
                   index: i + 1,
                   total: sets,
                 })}
-                className="relative w-7 h-7 rounded-[2px] border-2 border-accent bg-transparent cursor-pointer transition-all duration-150 hover:bg-accent/20 active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none flex items-center justify-center"
+                className="relative w-7 h-7 rounded-md border-2 border-accent bg-transparent cursor-pointer transition-all duration-150 hover:bg-accent/20 active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none flex items-center justify-center"
               >
                 {showAmrapMark && (
                   <span className="absolute -top-1.5 -right-1.5 text-2xs font-bold text-accent">
@@ -241,7 +241,7 @@ export function SetIndicators({
           return (
             <span
               key={i}
-              className="relative w-5 h-5 rounded-[2px] border-2 border-rule bg-transparent opacity-40"
+              className="relative w-5 h-5 rounded-md border-2 border-rule bg-transparent opacity-40"
             >
               {showAmrapMark && (
                 <span className="absolute -top-1.5 -right-1.5 text-2xs font-bold text-accent">
@@ -295,7 +295,7 @@ function renderDecorativeCircles(
         const showAmrapMark = isAmrap && isLast;
 
         return (
-          <span key={i} className={`relative w-5 h-5 rounded-[2px] border-2 ${colorClass}`}>
+          <span key={i} className={`relative w-5 h-5 rounded-md border-2 ${colorClass}`}>
             {showAmrapMark && (
               <span className="absolute -top-1.5 -right-1.5 text-2xs font-bold text-accent">+</span>
             )}

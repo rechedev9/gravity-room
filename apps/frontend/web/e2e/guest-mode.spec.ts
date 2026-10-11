@@ -49,8 +49,8 @@ test.describe('Guest entry (REQ-GUI-001, REQ-GUI-007)', () => {
   test('"Probar sin cuenta" button appears below the auth card', async ({ page }) => {
     await page.goto('/login');
 
-    // Auth card label appears first, guest button below
-    await expect(page.getByText('Autenticar')).toBeVisible();
+    // Auth card appears first, guest button below
+    await expect(page.getByTestId('auth-card')).toBeVisible();
     const btn = page.getByRole('button', { name: 'Probar sin cuenta' });
     await expect(btn).toBeVisible();
   });
@@ -301,7 +301,10 @@ test.describe('Guest stats blocking (REQ-GROUT-005)', () => {
     await generateGuestProgram(page);
 
     await page.goto('/app/profile');
-    await expect(page.getByText('SIN PROGRAMA')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: 'Crear cuenta' }).last()).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText('Tu progreso', { exact: true })).toHaveCount(0);
     await expect(page.getByText('GZCLP')).not.toBeVisible();
   });
 });

@@ -52,9 +52,9 @@ test.describe('Authenticated tracker', () => {
     await ensureCompactView(page);
     await markTierSuccess(page, 'T1');
     await dismissRpeIfPresent(page);
-    // Undo lives on the card that recorded it — there is no chrome-level
-    // "Deshacer" button anymore (session-chrome.tsx).
+    // Undo is offered on the card that recorded the result and in the header.
     await expect(tierUndoButton(page, 'T1', 'éxito')).toBeVisible();
+    await expect(page.getByTestId('session-chrome-undo')).toBeEnabled();
   });
 
   test('profile (where stats now live) is accessible for authenticated users', async ({ page }) => {

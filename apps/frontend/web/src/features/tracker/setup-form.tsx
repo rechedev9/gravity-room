@@ -292,7 +292,7 @@ export function SetupForm({
   const localizedName = localizedProgramName(t, definition.id, definition.name);
   const formContent = (
     <>
-      <h2 className="font-display mb-1.5 leading-none text-title" style={{ fontSize: '28px' }}>
+      <h2 className="mb-1.5 type-display-sm text-title">
         {isEditMode
           ? (definition.configEditTitle ?? t('tracker.setup_form.edit_title_default', { unit }))
           : (definition.configTitle ?? t('tracker.setup_form.create_title_default', { unit }))}
@@ -394,7 +394,7 @@ export function SetupForm({
       {error && (
         <div
           role="alert"
-          className="flex items-start gap-2.5 text-error font-bold mb-3 p-2.5 bg-error-bg border-2 border-error-line"
+          className="rounded-control flex items-start gap-2.5 text-error font-bold mb-3 p-2.5 bg-error-bg border-2 border-error-line"
         >
           <span className="shrink-0 text-sm" aria-hidden="true">
             &#9888;
@@ -458,13 +458,10 @@ export function SetupForm({
     <>
       {isEditMode ? (
         <>
-          <div className="bg-card border border-rule p-4 sm:p-7 mb-7 card">
+          <div className="bg-card rounded-card border border-rule p-4 sm:p-7 mb-7 card">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
-                <h2
-                  className="font-display mb-1 leading-none text-title"
-                  style={{ fontSize: '22px' }}
-                >
+                <h2 className="mb-1 type-title text-title">
                   {definition.configTitle ?? t('tracker.setup_form.collapsed_title')}
                 </h2>
                 {statusNote && (
@@ -488,7 +485,7 @@ export function SetupForm({
               </div>
               <button
                 onClick={() => setIsExpanded(true)}
-                className="px-4 py-2.5 min-h-[44px] border-2 border-btn-ring text-xs font-bold cursor-pointer bg-btn text-btn-text whitespace-nowrap transition-all hover:bg-btn-active hover:text-btn-active-text"
+                className="rounded-control px-4 py-2.5 min-h-[44px] border-2 border-btn-ring text-xs font-bold cursor-pointer bg-btn text-btn-text whitespace-nowrap transition-all hover:bg-btn-active hover:text-btn-active-text"
               >
                 {definition.configEditTitle
                   ? t('tracker.setup_form.edit_button_short')
@@ -499,7 +496,7 @@ export function SetupForm({
 
           <dialog
             ref={editDialogRef}
-            className="relative modal-box bg-card border border-rule p-6 sm:p-8 max-w-2xl w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto shadow-dialog backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+            className="modal-box fixed inset-0 m-auto h-fit bg-card rounded-card border border-rule p-6 sm:p-8 max-w-2xl w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto shadow-dialog backdrop:bg-black/60 backdrop:backdrop-blur-sm"
             onClick={(e) => {
               if (e.target === editDialogRef.current) {
                 setIsExpanded(false);
@@ -522,7 +519,7 @@ export function SetupForm({
           </dialog>
         </>
       ) : (
-        <div className="bg-card border border-rule p-4 sm:p-7 mb-7 max-w-2xl mx-auto card edge-glow-top">
+        <div className="bg-card rounded-card border border-rule p-4 sm:p-7 mb-7 max-w-2xl mx-auto card edge-glow-top">
           {formContent}
         </div>
       )}
