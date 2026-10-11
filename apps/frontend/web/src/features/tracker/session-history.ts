@@ -113,7 +113,7 @@ export function workoutVolume(row: GenericWorkoutRow): number {
   for (const slot of row.slots) {
     if (slot.weight <= 0) continue;
     if (slot.setLogs !== undefined && slot.setLogs.length > 0) {
-      for (const set of slot.setLogs) volume += slot.weight * set.reps;
+      for (const set of slot.setLogs) volume += (set.weight ?? slot.weight) * set.reps;
       continue;
     }
     if (slot.result !== 'success') continue;

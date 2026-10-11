@@ -143,9 +143,14 @@ describe('findNextScheduled', () => {
 describe('workoutVolume', () => {
   it.each([
     {
-      name: 'sums logged sets at the slot weight',
+      name: 'falls back to the slot weight for logged sets without a weight',
       slots: [slot({ setLogs: [{ reps: 3 }, { reps: 3 }, { reps: 5 }] })],
       expected: 1100,
+    },
+    {
+      name: 'counts the weight each logged set was lifted at, not the planned one',
+      slots: [slot({ setLogs: [{ reps: 5, weight: 140 }, { reps: 3 }] })],
+      expected: 1000,
     },
     {
       name: 'expands the prescription when only a slot-level success exists',
