@@ -56,7 +56,7 @@ export const jwtPlugin = new Elysia({ name: 'jwt-plugin' }).use(
   })
 );
 
-const BEARER_RE = new RegExp(`^${BEARER_PREFIX.trim()}[ \t]+([^ \t]+)[ \t]*$`, 'i');
+const BEARER_RE = new RegExp(`^${BEARER_PREFIX.trim()}[ \\t]+([^ \\t]+)[ \\t]*$`, 'i');
 
 export function extractBearerToken(headers: Record<string, string | undefined>): string {
   const authorization = headers['authorization'];
