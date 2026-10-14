@@ -163,7 +163,7 @@ async function fetchResultHistory(userId: string, executor: Executor): Promise<H
  */
 export async function fetchWorkoutRecords(
   userId: string,
-  executor: Executor = getDb()
+  executor: Executor
 ): Promise<WorkoutRecord[]> {
   const rows = await executor
     .select({
