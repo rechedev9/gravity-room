@@ -66,12 +66,16 @@ export function discardGuestMigrationData(): void {
   clearGuestMigrationMarker();
 }
 
-export interface GuestMigrationResult {
-  /** Catalog program id, for localizing the program name in the success toast. */
-  readonly programId: string;
-  /** Stored program name (fallback for localization). */
-  readonly programName: string;
-}
+export type GuestMigrationResult =
+  | {
+      readonly status: 'imported';
+      readonly programId: string;
+      readonly programName: string;
+    }
+  | {
+      readonly status: 'skipped';
+      readonly reason: 'active-program';
+    };
 
 /** Immutable account/session snapshot that received migration consent. */
 export interface GuestMigrationIdentity {
@@ -144,13 +148,6 @@ async function runGuestMigration(
     return null;
   }
 
-  // Never displace an account's real program: creating/importing while one is
-  // active would auto-complete it server-side. Keep the guest data and retry
-  // on a later sign-in.
-  // Loaded on demand: this module hangs off the root layout (via the guest
-  // migration prompt), but the program API surface — and the Zod schemas it
-  // parses with — is only ever needed once a signed-in user confirms a
-  // migration, so it must not sit in the entry chunk.
   const { fetchPrograms, importProgram } = await import('@/lib/api-functions');
 
   try {
@@ -160,7 +157,7 @@ async function runGuestMigration(
     });
     if (programs.some((p) => p.status === 'active')) {
       console.warn('[guest-migration] Account already has an active program; skipping migration.');
-      return null;
+      return { status: 'skipped', reason: 'active-program' };
     }
   } catch (err: unknown) {
     console.warn(
@@ -202,6 +199,7 @@ async function runGuestMigration(
   await queryClient.invalidateQueries({ queryKey: queryKeys.programs.all, exact: true });
 
   return {
+    status: 'imported',
     programId: instance.programId,
     programName: instance.name,
   };
