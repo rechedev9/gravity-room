@@ -41,7 +41,7 @@ if (secret && secret.length < minLen) {
 if (!secret) {
   logger.warn('JWT_SECRET not set — using test-only fallback (NODE_ENV=test).');
 }
-const JWT_SECRET = secret ?? TEST_SECRET;
+export const JWT_SECRET = secret ?? TEST_SECRET;
 
 export const JWT_ISSUER = 'gravity-room-api';
 export const JWT_AUDIENCE = 'gravity-room-clients';
@@ -56,7 +56,7 @@ export const jwtPlugin = new Elysia({ name: 'jwt-plugin' }).use(
   })
 );
 
-const BEARER_RE = new RegExp(`^${BEARER_PREFIX.trim()}[ \\t]+([^ \\t]+)[ \\t]*$`, 'i');
+const BEARER_RE = new RegExp(`^${BEARER_PREFIX.trim()}[ \t]+([^ \t]+)[ \t]*$`, 'i');
 
 export function extractBearerToken(headers: Record<string, string | undefined>): string {
   const authorization = headers['authorization'];

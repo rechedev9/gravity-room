@@ -128,9 +128,9 @@ export const BOOK_IS_SQUAT_D1 = [
 
 /** IS Panca Giorno 1 (OCR p.189) */
 export const BOOK_IS_BENCH_D1 = [
-  { pct: 0.825, sets: 7, reps: 2 }, // 82.5% 2x7s
-  { pct: 0.8, sets: 8, reps: 3 }, // 80% 3x8s (OCR 3x85 → 3x8s)
-  { pct: 0.75, sets: 4, reps: 2 }, // light + optional 82.5% single block
+  { kind: 'heavy' as const, pct: 0.825, sets: 7, reps: 2 },
+  { kind: 'volume' as const, pct: 0.8, sets: 8, reps: 3 }, // 80% 3x8s (OCR 3x85 → 3x8s)
+  { kind: 'light' as const, pct: 0.75, sets: 4, reps: 2 }, // light + optional 82.5% single block
 ] as const;
 
 export const FZ_EXIT_NOTES =

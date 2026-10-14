@@ -10,12 +10,17 @@ export type ThemeId = (typeof THEME_IDS)[number];
 
 export const THEME_STORAGE_KEY = 'gravity-room:theme-preference';
 
-const RETIRED_DARK_THEME = 'classic-dark';
+export const RETIRED_DARK_THEME = 'classic-dark';
 
 /** Custom event name dispatched on document when the theme changes. */
 export const THEME_CHANGE_EVENT = 'gravity-room:theme-change';
 
 export const DEFAULT_THEME: ThemeId = 'gold';
+
+export const THEME_COLOR_SCHEME: Record<ThemeId, 'dark' | 'light'> = {
+  gold: 'dark',
+  'classic-light': 'light',
+};
 
 /** Theme-color meta values that match each skin's accent for mobile chrome. */
 export const THEME_COLOR_META: Record<ThemeId, string> = {
@@ -23,6 +28,32 @@ export const THEME_COLOR_META: Record<ThemeId, string> = {
   // Deep gold for contrast on light paper (matches --color-accent on classic-light).
   'classic-light': '#9a6b14',
 };
+
+export function buildThemeBootScript(): string {
+  const allowed = THEME_IDS.map((id) => `stored === '${id}'`).join(' || ');
+  const scheme = THEME_IDS.map((id) => `theme === '${id}' ? '${THEME_COLOR_SCHEME[id]}'`).join(
+    ' : '
+  );
+  const color = THEME_IDS.map((id) => `theme === '${id}' ? '${THEME_COLOR_META[id]}'`).join(' : ');
+  return `(function () {
+  try {
+    var key = '${THEME_STORAGE_KEY}';
+    var stored = localStorage.getItem(key);
+    var theme = ${allowed} ? stored : '${DEFAULT_THEME}';
+    if (stored === '${RETIRED_DARK_THEME}') {
+      localStorage.setItem(key, theme);
+    }
+    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.style.colorScheme = ${scheme} : '${THEME_COLOR_SCHEME[DEFAULT_THEME]}';
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      meta.setAttribute('content', ${color} : '${THEME_COLOR_META[DEFAULT_THEME]}');
+    }
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', '${DEFAULT_THEME}');
+  }
+})();`;
+}
 
 let bootstrapped = false;
 let crossTabInstalled = false;
