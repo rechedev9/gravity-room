@@ -4,7 +4,6 @@
 import type { SlotDef, SetPrescription } from './shared';
 import { prescriptionSlot, gppSlot as sharedGppSlot } from './shared';
 
-// ── Slot counter (deterministic IDs across all days) ──
 
 let slotCounter = 0;
 
@@ -18,7 +17,6 @@ export function resetSlotCounter(): void {
   slotCounter = 0;
 }
 
-// ── Exercise ID constants ──
 
 export const SQ = {
   competition: 'squat',
@@ -80,10 +78,9 @@ export const GPP = {
   biceps: 'biceps',
   frenchPress: 'french-press',
   frontSquat: 'front-squat',
-  squatGpp: 'squat',
+  squatGpp: SQ.competition,
 } as const;
 
-// ── Slot factory functions ──
 
 /** Competition lift slot with prescription ladder. */
 export function compSlot(
@@ -102,7 +99,6 @@ export function gpp(exerciseId: string, reps: number, sets: number): SlotDef {
   return sharedGppSlot(id, exerciseId, reps, sets);
 }
 
-// ── Prescription shorthand helpers ──
 
 /** Create a prescription entry: { percent, reps, sets }. */
 export function p(percent: number, reps: number, sets: number): SetPrescription {
@@ -139,7 +135,6 @@ export function buildSheikoDays(weeklyPlans: readonly SheikoWeekPlan[]): readonl
   return days;
 }
 
-// ── Sheiko exercise map builder ──
 
 /** Build the exercises record for a ProgramDefinition from the exercise IDs used in the days. */
 export function buildExerciseMap(
@@ -207,7 +202,6 @@ export function buildExerciseMap(
     [GPP.biceps]: 'Biceps',
     [GPP.frenchPress]: 'Press Frances',
     [GPP.frontSquat]: 'Sentadilla frontal',
-    // GPP.squatGpp ('squat') shares the same exercise ID as SQ.competition — already mapped above
   };
 
   const result: Record<string, { readonly name: string }> = {};

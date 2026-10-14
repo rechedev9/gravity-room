@@ -1,13 +1,8 @@
-// Auth: auth-guard captures JWT_SECRET at import time, so the token helper below
-// reads it at call time. Do NOT assign process.env['JWT_SECRET'] at module top level —
-// that would override the value AFTER auth-guard already captured it.
 process.env['LOG_LEVEL'] = 'silent';
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// ---------------------------------------------------------------------------
 // Mocks — must be called BEFORE importing the tested module
-// ---------------------------------------------------------------------------
 
 // vitest isolates the module registry per test file, so these mocks are scoped
 // to this file automatically — no manual capture/restore is needed.
@@ -50,6 +45,7 @@ vi.mock('../services/insights', () => ({
 
 import { Elysia } from 'elysia';
 import { ApiError } from '../middleware/error-handler';
+import { JWT_SECRET } from '../middleware/auth-guard';
 import { insightsRoutes } from './insights';
 import { INSIGHT_TYPES } from '../lib/insight-types';
 
@@ -68,14 +64,9 @@ const testApp = new Elysia()
   })
   .use(insightsRoutes);
 
-// ---------------------------------------------------------------------------
-// JWT helper
-// ---------------------------------------------------------------------------
 
 async function makeValidJwt(userId: string): Promise<string> {
-  // Fallback matches auth-guard's TEST_SECRET (the NODE_ENV=test fallback) so the
-  // token verifies when JWT_SECRET is unset, e.g. under `bun test src/routes`.
-  const secret = process.env['JWT_SECRET'] ?? 'test-secret-do-not-use-outside-tests';
+  const secret = JWT_SECRET;
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(
     JSON.stringify({
@@ -104,9 +95,6 @@ function get(path: string, headers: Record<string, string>): Promise<Response> {
   return testApp.handle(new Request(`http://localhost${path}`, { headers }));
 }
 
-// ---------------------------------------------------------------------------
-// Test data
-// ---------------------------------------------------------------------------
 
 const USER_ID = '00000000-0000-0000-0000-000000000001';
 const FROZEN = new Date('2026-04-17T12:00:00Z');
@@ -127,9 +115,6 @@ const VOLUME_TREND_ROW: InsightRow = {
   validUntil: null,
 };
 
-// ---------------------------------------------------------------------------
-// Scenario coverage
-// ---------------------------------------------------------------------------
 
 describe('GET /insights — types query validation', () => {
   beforeEach(() => {
