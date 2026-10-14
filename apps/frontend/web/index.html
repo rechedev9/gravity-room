@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#c8a84e" />
     <!-- CSP is served as a response header by Vercel; see the `headers` block in vercel.json. -->
     <link rel="icon" type="image/webp" href="/favicon.webp" />
-    <title>Gravity Room — Planes de fuerza gratis con progresión automática</title>
+    <title>__DEFAULT_PAGE_TITLE__</title>
     <meta
       name="description"
       content="Deja de adivinar en el gimnasio. Programas de entrenamiento con progresión automática de peso, series y repeticiones. 100% gratis."
@@ -27,15 +27,11 @@
          prerendered page (program/legal) and falsely advertise the landing as
          their language alternate. -->
 
-    <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="es_ES" />
     <meta property="og:url" content="https://gravityroom.app/" />
     <meta property="og:site_name" content="Gravity Room" />
-    <meta
-      property="og:title"
-      content="Gravity Room — Planes de fuerza gratis con progresión automática"
-    />
+    <meta property="og:title" content="__DEFAULT_PAGE_TITLE__" />
     <meta
       property="og:description"
       content="Deja de adivinar en el gimnasio. Programas de entrenamiento con progresión automática de peso, series y repeticiones. 100% gratis."
@@ -50,13 +46,9 @@
       content="Gravity Room — training tracker with automatic weight progression"
     />
 
-    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="https://gravityroom.app/og-image.jpg" />
-    <meta
-      name="twitter:title"
-      content="Gravity Room — Planes de fuerza gratis con progresión automática"
-    />
+    <meta name="twitter:title" content="__DEFAULT_PAGE_TITLE__" />
     <meta
       name="twitter:description"
       content="Deja de adivinar en el gimnasio. Programas de entrenamiento con progresión automática de peso, series y repeticiones. 100% gratis."
@@ -94,7 +86,6 @@
       }
     </script>
 
-    <!-- JSON-LD: SoftwareApplication -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -123,34 +114,14 @@
     -->
   </head>
   <body>
-    <!-- Apply stored theme before paint to avoid a gold flash on the light skin. -->
-    <script>
-      (function () {
-        try {
-          var key = 'gravity-room:theme-preference';
-          var stored = localStorage.getItem(key);
-          var theme = stored === 'gold' || stored === 'classic-light' ? stored : 'gold';
-          if (stored === 'classic-dark') {
-            localStorage.setItem(key, theme);
-          }
-          document.documentElement.setAttribute('data-theme', theme);
-          document.documentElement.style.colorScheme = theme === 'classic-light' ? 'light' : 'dark';
-          var meta = document.querySelector('meta[name="theme-color"]');
-          if (meta) {
-            meta.setAttribute('content', theme === 'classic-light' ? '#9a6b14' : '#c8a84e');
-          }
-        } catch (e) {
-          document.documentElement.setAttribute('data-theme', 'gold');
-        }
-      })();
-    </script>
+    __THEME_BOOT__
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
 
     <!-- Fallback for non-JS crawlers (AI bots, search engines, accessibility tools) -->
     <noscript>
       <div style="max-width: 800px; margin: 0 auto; padding: 40px 20px; font-family: sans-serif">
-        <h1>Gravity Room — Planes de fuerza gratis con progresión automática</h1>
+        <h1>__DEFAULT_PAGE_TITLE__</h1>
         <p>
           Stop guessing at the gym. Follow proven programs that automatically adjust weight, sets,
           and reps — so every session moves you forward.

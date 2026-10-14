@@ -52,6 +52,7 @@ vi.mock('../lib/program-cache', () => ({
 
 import { Elysia } from 'elysia';
 import { ApiError } from '../middleware/error-handler';
+import { JWT_SECRET } from '../middleware/auth-guard';
 import { resultRoutes } from './results';
 
 // Wrap resultRoutes with the same error handler as the main app.
@@ -94,7 +95,7 @@ function del(path: string, headers?: Record<string, string>): Promise<Response> 
 }
 
 async function makeValidJwt(userId: string): Promise<string> {
-  const secret = process.env['JWT_SECRET'] ?? 'test-secret-do-not-use-outside-tests';
+  const secret = JWT_SECRET;
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(
     JSON.stringify({

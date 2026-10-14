@@ -22,6 +22,7 @@ import type {
 } from '@gzclp/domain/schemas/exercises';
 import type { InsightItem } from '@gzclp/domain/schemas/insights';
 import { isRecord } from '@gzclp/domain/type-guards';
+import { MAX_PROGRAM_LIST_PAGES } from '@gzclp/domain/program-list';
 import { collectCursorPages } from '@gzclp/api-client/cursor-pages';
 import * as requests from '@gzclp/api-client/program-requests';
 import { readApiError } from '@gzclp/api-client/response-error';
@@ -48,31 +49,17 @@ export { parseUserSafe };
 export { apiFetch, fetchMe, updateProfile, deleteAccount };
 export type { ApiFetchOptions };
 
-// ---------------------------------------------------------------------------
-// API Functions
-// ---------------------------------------------------------------------------
-
-const ProgramSummaryListSchema = z.array(ProgramSummarySchema);
 
 function send(request: requests.ApiRequest): Promise<unknown> {
   return apiFetch(request.path, requests.toRequestInit(request));
 }
 
-/** Upper bound on list pages: the server caps a user at 100 plans, 20 per page. */
-const MAX_PROGRAM_LIST_PAGES = 50;
-
-/** Fetch every program instance for the current user, following the page cursor. */
 export async function fetchPrograms(): Promise<ProgramSummary[]> {
   return collectCursorPages({
     maxPages: MAX_PROGRAM_LIST_PAGES,
     fetchPage: async (cursor) => {
       const data = await send(requests.listPrograms(cursor));
-      // Legacy responses were a bare array with no further pages.
-      if (Array.isArray(data)) {
-        return { data: ProgramSummaryListSchema.parse(data), nextCursor: null };
-      }
-      if (isRecord(data) && Array.isArray(data.data)) return ProgramListPageSchema.parse(data);
-      return { data: [], nextCursor: null };
+      return ProgramListPageSchema.parse(data);
     },
   });
 }
@@ -174,9 +161,6 @@ export async function fetchOnlineCount(): Promise<number | null> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Generic API Functions (slot-keyed, no legacy conversion)
-// ---------------------------------------------------------------------------
 
 /** Fetch a program instance with results in generic slot-keyed format (no legacy conversion). */
 export async function fetchGenericProgramDetail(id: string): Promise<GenericProgramDetail> {
@@ -208,9 +192,6 @@ export async function deleteGenericResult(
   await send(requests.deleteResult({ instanceId, workoutIndex, slotId }));
 }
 
-// ---------------------------------------------------------------------------
-// Catalog API functions (public, no auth required)
-// ---------------------------------------------------------------------------
 
 const CatalogEntryListSchema = z.array(CatalogEntrySchema);
 
@@ -228,9 +209,6 @@ export async function fetchCatalogDetail(programId: string): Promise<ProgramDefi
   return ProgramDefinitionSchema.parse(data);
 }
 
-// ---------------------------------------------------------------------------
-// Exercise filter types + helpers
-// ---------------------------------------------------------------------------
 
 export interface ExerciseFilter {
   readonly q?: string;
@@ -262,9 +240,6 @@ function buildExerciseQueryString(filter?: ExerciseFilter): string {
   return qs ? `?${qs}` : '';
 }
 
-// ---------------------------------------------------------------------------
-// Exercise API functions
-// ---------------------------------------------------------------------------
 
 /** Exported for testing — parses a raw API response object into a typed ExerciseEntry. */
 export function parseExerciseEntry(raw: unknown): ExerciseEntry {
@@ -295,9 +270,6 @@ export async function fetchMuscleGroups(): Promise<readonly MuscleGroupEntry[]> 
   return MuscleGroupEntryListSchema.parse(data);
 }
 
-// ---------------------------------------------------------------------------
-// Insights
-// ---------------------------------------------------------------------------
 
 /** Fetch pre-computed insights for the current user. */
 export async function fetchInsights(types?: string[]): Promise<InsightItem[]> {
