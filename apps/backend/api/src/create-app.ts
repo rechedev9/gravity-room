@@ -17,7 +17,6 @@ import { logger } from './lib/logger';
 import { formatValidationError, validateEnv } from './lib/env-validation';
 import { MAX_GATEWAY_BODY_BYTES as MAX_REQUEST_BODY_BYTES } from './lib/node-gateway';
 
-
 async function bufferUndeclaredRequestBodyWithinLimit(
   request: Request
 ): Promise<Request | undefined> {
