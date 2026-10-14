@@ -1,9 +1,47 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { VitePWA } from 'vite-plugin-pwa';
 import { PUBLIC_API_CACHE_PATTERN, PWA_REGISTER_TYPE } from './src/lib/pwa-config';
+import { DEFAULT_PAGE_TITLE } from './src/lib/page-title';
+import { buildThemeBootScript } from './src/lib/theme-preference';
+
+const ENTRY_ZOD_MODULES = [
+  /\/src\/lib\/api-functions\.ts$/,
+  /\/src\/lib\/guest-migration\.ts$/,
+  /\/src\/lib\/guest-storage\.ts$/,
+  /\/node_modules\/zod\//,
+];
+
+function htmlSharedStrings(): Plugin {
+  const boot = `<script>${buildThemeBootScript()}</script>`;
+  return {
+    name: 'html-shared-strings',
+    transformIndexHtml(html: string): string {
+      return html
+        .replaceAll('__DEFAULT_PAGE_TITLE__', DEFAULT_PAGE_TITLE)
+        .replace('__THEME_BOOT__', boot);
+    },
+  };
+}
+
+function forbidZodInEntry(): Plugin {
+  return {
+    name: 'forbid-zod-in-entry',
+    generateBundle(_options, bundle) {
+      for (const output of Object.values(bundle)) {
+        if (output.type !== 'chunk' || !output.isEntry) continue;
+        const hits = Object.keys(output.modules).filter((id) =>
+          ENTRY_ZOD_MODULES.some((pattern) => pattern.test(id))
+        );
+        if (hits.length > 0) {
+          this.error(`Entry chunk must stay free of Zod-bearing modules:\n${hits.join('\n')}`);
+        }
+      }
+    },
+  };
+}
 
 export default defineConfig(({ mode }) => {
   // loadEnv reads .env / .env.[mode] files before the guard runs, so we don't
@@ -24,6 +62,8 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [
+      htmlSharedStrings(),
+      forbidZodInEntry(),
       react({
         babel: {
           plugins: ['babel-plugin-react-compiler'],
