@@ -1,5 +1,7 @@
+import { MAX_PROGRAM_INSTANCES } from '@gzclp/domain/program-list';
+
 export const USER_DATA_LIMITS = {
-  programInstances: 100,
+  programInstances: MAX_PROGRAM_INSTANCES,
   workoutResults: 20_000,
   undoEntries: 5_000,
   customExercises: 250,
