@@ -95,7 +95,7 @@ export function useGuestMigration(): GuestMigrationPromptState {
         pending.identity,
         readCurrentIdentity
       );
-      if (result) {
+      if (result?.status === 'imported') {
         setPending(null);
         toast({
           message: t('guest_migration.success', {

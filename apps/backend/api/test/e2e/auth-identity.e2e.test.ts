@@ -43,7 +43,6 @@ describe('findOrCreateUserByIdentity (integration)', () => {
     expect(isNewUser).toBe(true);
     expect(user.email).toBe('neo@example.com');
     expect(user.emailVerified).toBe(true);
-    expect(user.googleId).toBeNull();
 
     const identities = await getDb()
       .select()

@@ -1,17 +1,3 @@
-/**
- * Core auth-aware fetch layer.
- *
- * Split out of api-functions.ts on purpose: auth-context needs `apiFetch` and
- * `fetchMe` before the first paint, so anything this module imports lands in
- * the entry chunk of every page. api-functions.ts pulls in every domain Zod
- * schema (programs, catalog, exercises, insights) plus the Zod runtime, none of
- * which the public landing or login routes ever use. Keeping the shared fetch
- * primitives here lets those heavy schemas stay in the lazy route chunks that
- * actually parse with them.
- *
- * Feature code should keep importing from api-functions.ts, which re-exports
- * everything here.
- */
 import { API_URL, getAccessToken, refreshAccessToken } from './api';
 import { parseUser } from '@gzclp/domain/schemas/user';
 import type { UserInfo } from '@gzclp/domain/schemas/user';
@@ -19,9 +5,6 @@ import type { WeightUnit } from '@gzclp/domain/weight-unit';
 import { mergeHeaders } from '@gzclp/api-client/merge-headers';
 import { readApiError } from '@gzclp/api-client/response-error';
 
-// ---------------------------------------------------------------------------
-// Auth-aware fetch wrapper with automatic retry on 401
-// ---------------------------------------------------------------------------
 
 export interface ApiFetchOptions extends RequestInit {
   /**
@@ -69,9 +52,6 @@ export async function apiFetch(path: string, options: ApiFetchOptions = {}): Pro
   return res.json();
 }
 
-// ---------------------------------------------------------------------------
-// User profile
-// ---------------------------------------------------------------------------
 
 /** Fetch the authenticated user's profile. */
 export async function fetchMe(): Promise<UserInfo> {

@@ -62,7 +62,11 @@ beforeEach(() => {
   mocks.toast.mockReset();
   mocks.readActive.mockReturnValue({ id: 'guest-program' });
   mocks.hasFreshIntent.mockReturnValue(true);
-  mocks.migrate.mockResolvedValue({ programId: 'gzclp', programName: 'GZCLP' });
+  mocks.migrate.mockResolvedValue({
+    status: 'imported',
+    programId: 'gzclp',
+    programName: 'GZCLP',
+  });
 });
 
 describe('useGuestMigration', () => {
