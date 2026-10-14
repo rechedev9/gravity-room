@@ -1,1 +1,488 @@
-PLACEHOLDER
+import {
+  pgTable,
+  pgEnum,
+  uuid,
+  varchar,
+  text,
+  timestamp,
+  jsonb,
+  smallint,
+  bigserial,
+  index,
+  unique,
+  uniqueIndex,
+  boolean,
+  integer,
+  foreignKey,
+  check,
+} from 'drizzle-orm/pg-core';
+import { relations, desc, sql } from 'drizzle-orm';
+import { MAX_REPS } from '@gzclp/domain/schemas/instance';
+import type { WeightUnit } from '@gzclp/domain/weight-unit';
+
+
+export const instanceStatusEnum = pgEnum('instance_status', ['active', 'completed', 'archived']);
+
+export const resultTypeEnum = pgEnum('result_type', ['success', 'fail']);
+
+export const programDefinitionStatusEnum = pgEnum('program_definition_status', [
+  'draft',
+  'pending_review',
+  'approved',
+  'rejected',
+]);
+
+
+export const users = pgTable(
+  'users',
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    /** Unique among active (non-soft-deleted) rows — see users_email_active_uq. */
+    email: varchar({ length: 255 }).notNull(),
+    /** argon2id hash for the email/password method (NULL for OAuth-only users). */
+    passwordHash: text('password_hash'),
+    /** True once the email is provider-verified (OAuth) or confirmed via link. */
+    emailVerified: boolean('email_verified').notNull().default(false),
+    /** Incremented whenever every session must be invalidated. Embedded in access JWTs. */
+    authVersion: integer('auth_version').notNull().default(0),
+    name: varchar({ length: 100 }),
+    avatarUrl: text('avatar_url'),
+    /** Display unit for weights ('kg' | 'lbs'); stored weights are always kg. */
+    weightUnit: varchar('weight_unit', { length: 3 }).$type<WeightUnit>().notNull().default('kg'),
+    /**
+     * Soft-delete timestamp. When set, the user is in a 30-day grace period
+     * before `purge-deleted-users.ts` hard-deletes (CASCADE) the row and all
+     * related data. The `/me` and token-refresh paths filter
+     * `WHERE deleted_at IS NULL` (via `findUserById()` and token rotation), so a
+     * soft-deleted user cannot fetch their profile or obtain new tokens. The
+     * resource-route guard also reloads the active user and compares
+     * `auth_version`, so deletion or explicit all-session revocation rejects
+     * existing access tokens immediately.
+     */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    // Partial index for the soft-delete purge job (scans only deleted rows).
+    index('users_deleted_at_idx')
+      .on(table.deletedAt)
+      .where(sql`${table.deletedAt} IS NOT NULL`),
+    // Soft-deleted emails do not block re-registration once the grace row is gone
+    // (or while deleted — a new active row may claim the address).
+    uniqueIndex('users_email_active_uq')
+      .on(table.email)
+      .where(sql`${table.deletedAt} IS NULL`),
+    check('chk_users_weight_unit', sql`${table.weightUnit} IN ('kg', 'lbs')`),
+  ]
+);
+
+export const usersRelations = relations(users, ({ many }) => ({
+  refreshTokens: many(refreshTokens),
+  identities: many(userIdentities),
+  programInstances: many(programInstances),
+  programDefinitions: many(programDefinitions),
+  userInsights: many(userInsights),
+}));
+
+
+export const refreshTokens = pgTable(
+  'refresh_tokens',
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    tokenHash: varchar('token_hash', { length: 64 }).unique().notNull(),
+    familyId: uuid('family_id').defaultRandom(),
+    /**
+     * Hash of the immediate predecessor. Consumed rows are retained as
+     * tombstones, so this link remains available for benign double-refresh
+     * detection and full-family replay response.
+     */
+    previousTokenHash: varchar('previous_token_hash', { length: 64 }),
+    /** Set atomically when this token is rotated. NULL means it is the active family tip. */
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('refresh_tokens_user_id_idx').on(table.userId),
+    index('refresh_tokens_family_id_idx').on(table.familyId),
+    index('refresh_tokens_expires_at_idx').on(table.expiresAt),
+    // A family has exactly one unconsumed tip. The unique partial index is a
+    // database backstop in addition to the row lock used during rotation.
+    uniqueIndex('refresh_tokens_one_active_per_family_uq')
+      .on(table.familyId)
+      .where(sql`${table.consumedAt} IS NULL`),
+    index('refresh_tokens_previous_token_hash_partial_idx')
+      .on(table.previousTokenHash)
+      .where(sql`${table.previousTokenHash} IS NOT NULL`),
+  ]
+);
+
+export const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
+  user: one(users, { fields: [refreshTokens.userId], references: [users.id] }),
+}));
+
+// user_identities — external auth providers linked to a user
+//
+// One user can own many identities. `(provider, provider_account_id)` is
+// globally unique, so the same provider account can never map to two users.
+// For the 'password' provider the account id is the user's own id.
+
+export const userIdentities = pgTable(
+  'user_identities',
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    provider: varchar({ length: 20 }).notNull(),
+    providerAccountId: varchar('provider_account_id', { length: 255 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique('user_identities_provider_account_uq').on(table.provider, table.providerAccountId),
+    index('user_identities_user_id_idx').on(table.userId),
+    check(
+      'user_identities_provider_chk',
+      sql`${table.provider} IN ('google', 'apple', 'github', 'microsoft', 'password')`
+    ),
+  ]
+);
+
+export const userIdentitiesRelations = relations(userIdentities, ({ one }) => ({
+  user: one(users, { fields: [userIdentities.userId], references: [users.id] }),
+}));
+
+// password_reset_tokens / email_verification_tokens — single-use, short-lived
+// tokens (SHA-256 hashed) for the email/password method (consumed in PR2).
+
+export const passwordResetTokens = pgTable(
+  'password_reset_tokens',
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    tokenHash: varchar('token_hash', { length: 64 }).unique().notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('password_reset_tokens_user_id_idx').on(table.userId),
+    index('password_reset_tokens_expires_at_idx').on(table.expiresAt),
+  ]
+);
+
+export const passwordResetTokensRelations = relations(passwordResetTokens, ({ one }) => ({
+  user: one(users, { fields: [passwordResetTokens.userId], references: [users.id] }),
+}));
+
+export const emailVerificationTokens = pgTable(
+  'email_verification_tokens',
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    tokenHash: varchar('token_hash', { length: 64 }).unique().notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('email_verification_tokens_user_id_idx').on(table.userId),
+    index('email_verification_tokens_expires_at_idx').on(table.expiresAt),
+  ]
+);
+
+export const emailVerificationTokensRelations = relations(emailVerificationTokens, ({ one }) => ({
+  user: one(users, { fields: [emailVerificationTokens.userId], references: [users.id] }),
+}));
+
+
+export const programInstances = pgTable(
+  'program_instances',
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    templateId: varchar('template_id', { length: 50 }).notNull(),
+    /** UUID FK to program_definitions — set when the user forks/customises a program. */
+    definitionId: uuid('definition_id'),
+    /** Inline snapshot of the forked definition (denormalised for offline / fast reads). */
+    customDefinition: jsonb('custom_definition'),
+    name: varchar({ length: 100 }).notNull(),
+    programConfig: jsonb('program_config').notNull(),
+    metadata: jsonb('metadata'),
+    status: instanceStatusEnum().notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.definitionId],
+      foreignColumns: [programDefinitions.id],
+      name: 'program_instances_definition_id_program_definitions_id_fk',
+    }).onDelete('set null'),
+    index('program_instances_user_status_idx').on(table.userId, table.status),
+    index('program_instances_user_created_id_idx').on(
+      table.userId,
+      desc(table.createdAt),
+      table.id
+    ),
+  ]
+);
+
+export const programInstancesRelations = relations(programInstances, ({ one, many }) => ({
+  user: one(users, { fields: [programInstances.userId], references: [users.id] }),
+  programTemplate: one(programTemplates, {
+    fields: [programInstances.templateId],
+    references: [programTemplates.id],
+  }),
+  definition: one(programDefinitions, {
+    fields: [programInstances.definitionId],
+    references: [programDefinitions.id],
+  }),
+  workoutResults: many(workoutResults),
+  undoEntries: many(undoEntries),
+}));
+
+
+export const workoutResults = pgTable(
+  'workout_results',
+  {
+    id: bigserial({ mode: 'number' }).primaryKey(),
+    instanceId: uuid('instance_id')
+      .references(() => programInstances.id, { onDelete: 'cascade' })
+      .notNull(),
+    workoutIndex: smallint('workout_index').notNull(),
+    slotId: varchar('slot_id', { length: 50 }).notNull(),
+    /** Stable exercise identity captured from the exact definition used for validation. */
+    exerciseId: varchar('exercise_id', { length: 100 }),
+    /** Program-definition version that supplied exerciseId. Nullable only for unresolved legacy rows. */
+    definitionVersion: smallint('definition_version'),
+    result: resultTypeEnum().notNull(),
+    amrapReps: smallint('amrap_reps'),
+    rpe: smallint('rpe'),
+    setLogs: jsonb('set_logs'),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique('workout_results_instance_slot_uq').on(
+      table.instanceId,
+      table.workoutIndex,
+      table.slotId
+    ),
+    check(
+      'chk_workout_results_amrap_reps',
+      sql`${table.amrapReps} IS NULL OR ${table.amrapReps} BETWEEN 0 AND ${sql.raw(String(MAX_REPS))}`
+    ),
+    index('workout_results_instance_id_idx').on(table.instanceId),
+    index('workout_results_instance_workout_idx').on(table.instanceId, table.workoutIndex),
+  ]
+);
+
+export const workoutResultsRelations = relations(workoutResults, ({ one }) => ({
+  instance: one(programInstances, {
+    fields: [workoutResults.instanceId],
+    references: [programInstances.id],
+  }),
+}));
+
+// undo_entries — ordered undo stack (LIFO via serial PK)
+
+export const undoEntries = pgTable(
+  'undo_entries',
+  {
+    id: bigserial({ mode: 'number' }).primaryKey(),
+    instanceId: uuid('instance_id')
+      .references(() => programInstances.id, { onDelete: 'cascade' })
+      .notNull(),
+    workoutIndex: smallint('workout_index').notNull(),
+    slotId: varchar('slot_id', { length: 50 }).notNull(),
+    previousResult: resultTypeEnum('previous_result'),
+    previousAmrapReps: smallint('previous_amrap_reps'),
+    previousRpe: smallint('previous_rpe'),
+    previousSetLogs: jsonb('previous_set_logs'),
+    previousExerciseId: varchar('previous_exercise_id', { length: 100 }),
+    previousDefinitionVersion: smallint('previous_definition_version'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    check(
+      'chk_undo_entries_previous_amrap_reps',
+      sql`${table.previousAmrapReps} IS NULL OR ${table.previousAmrapReps} BETWEEN 0 AND ${sql.raw(String(MAX_REPS))}`
+    ),
+    index('undo_entries_instance_id_idx').on(table.instanceId),
+    index('undo_entries_instance_recency_idx').on(table.instanceId, table.id),
+  ]
+);
+
+export const undoEntriesRelations = relations(undoEntries, ({ one }) => ({
+  instance: one(programInstances, {
+    fields: [undoEntries.instanceId],
+    references: [programInstances.id],
+  }),
+}));
+
+//
+// ARCHITECTURE NOTE: program_templates vs program_definitions
+//
+// These two tables serve different roles in the program lifecycle:
+//
+//   program_templates  — Curated catalog of programs (GZCLP, 5/3/1 BBB, etc.).
+//                        Seeded by admins. `program_instances.templateId` FK
+//                        points here — only catalog programs can be instantiated.
+//
+//   program_definitions — User-submitted custom programs going through an
+//                         approval workflow (draft → pending_review → approved).
+//                         Once approved, a program_definition is promoted into
+//                         program_templates to become instantiable.
+//
+// Long-term: these may unify into a single table with a `source` discriminator.
+// For now, keep them separate to maintain the admin approval gate.
+//
+
+export const programDefinitions = pgTable(
+  'program_definitions',
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    definition: jsonb().notNull(),
+    status: programDefinitionStatusEnum().notNull().default('draft'),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('program_definitions_user_id_idx').on(table.userId),
+    index('program_definitions_status_idx').on(table.status),
+    // Performance index for list query: WHERE user_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC
+    index('program_definitions_user_deleted_updated_idx').on(
+      table.userId,
+      table.deletedAt,
+      table.updatedAt
+    ),
+  ]
+);
+
+export const programDefinitionsRelations = relations(programDefinitions, ({ one }) => ({
+  user: one(users, { fields: [programDefinitions.userId], references: [users.id] }),
+}));
+
+
+export const muscleGroups = pgTable('muscle_groups', {
+  id: varchar({ length: 50 }).primaryKey(),
+  name: varchar({ length: 100 }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+
+export const exercises = pgTable(
+  'exercises',
+  {
+    id: varchar({ length: 100 }).primaryKey(),
+    name: varchar({ length: 100 }).notNull(),
+    muscleGroupId: varchar('muscle_group_id', { length: 50 })
+      .references(() => muscleGroups.id, { onDelete: 'restrict' })
+      .notNull(),
+    equipment: varchar({ length: 50 }),
+    isCompound: boolean('is_compound').notNull().default(false),
+    isSystem: boolean('is_system').notNull().default(true),
+    /**
+     * Owner of custom exercises. `onDelete: 'set null'` means user deletion
+     * orphans the exercise (is_system=false, created_by_user_id=NULL). The partial
+     * index `exercises_orphaned_idx` enables efficient cleanup queries.
+     */
+    createdByUserId: uuid('created_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    forceType: varchar('force_type', { length: 20 }),
+    level: varchar({ length: 20 }),
+    movementMechanic: varchar('movement_mechanic', { length: 20 }),
+    category: varchar({ length: 50 }),
+    secondaryMuscles: text('secondary_muscles').array(),
+  },
+  (table) => [
+    index('exercises_muscle_group_id_idx').on(table.muscleGroupId),
+    index('exercises_created_by_idx').on(table.createdByUserId),
+    // Performance indexes (migration 0015_add_performance_indexes)
+    index('exercises_filter_composite_idx').on(
+      table.isSystem,
+      table.level,
+      table.equipment,
+      table.category
+    ),
+    index('exercises_is_compound_idx').on(table.isCompound),
+    index('exercises_orphaned_idx')
+      .on(table.createdByUserId)
+      .where(sql`${table.isSystem} = false AND ${table.createdByUserId} IS NULL`),
+    // NOTE: exercises_name_trgm_idx (GIN pg_trgm) is migration-only —
+    // Drizzle's index() builder does not support GIN indexes.
+  ]
+);
+
+export const exercisesRelations = relations(exercises, ({ one }) => ({
+  muscleGroup: one(muscleGroups, {
+    fields: [exercises.muscleGroupId],
+    references: [muscleGroups.id],
+  }),
+  creator: one(users, {
+    fields: [exercises.createdByUserId],
+    references: [users.id],
+  }),
+}));
+
+
+export const programTemplates = pgTable(
+  'program_templates',
+  {
+    id: varchar({ length: 50 }).primaryKey(),
+    name: varchar({ length: 100 }).notNull(),
+    description: text().notNull().default(''),
+    author: varchar({ length: 100 }).notNull().default(''),
+    version: smallint().notNull().default(1),
+    category: varchar({ length: 50 }).notNull().default('strength'),
+    level: varchar({ length: 20 }).notNull().default('intermediate'),
+    source: varchar({ length: 10 }).notNull().default('preset'),
+    definition: jsonb().notNull(),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index('program_templates_is_active_idx').on(table.isActive)]
+);
+
+
+export const userInsights = pgTable(
+  'user_insights',
+  {
+    id: bigserial({ mode: 'number' }).primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    insightType: varchar('insight_type', { length: 50 }).notNull(),
+    exerciseId: varchar('exercise_id', { length: 100 }),
+    payload: jsonb().notNull(),
+    computedAt: timestamp('computed_at', { withTimezone: true }).defaultNow().notNull(),
+    validUntil: timestamp('valid_until', { withTimezone: true }),
+  },
+  (table) => [
+    unique('user_insights_user_type_exercise_uq')
+      .on(table.userId, table.insightType, table.exerciseId)
+      .nullsNotDistinct(),
+    index('user_insights_user_type_idx').on(table.userId, table.insightType),
+  ]
+);
+
+export const userInsightsRelations = relations(userInsights, ({ one }) => ({
+  user: one(users, { fields: [userInsights.userId], references: [users.id] }),
+}));
