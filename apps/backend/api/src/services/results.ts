@@ -18,9 +18,6 @@ import type { SetLogEntry } from '@gzclp/domain/types';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import { assertUserDataQuotas, lockUserForDataMutation } from './data-quotas';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 type WorkoutResultRow = typeof workoutResults.$inferSelect;
 type UndoEntryRow = typeof undoEntries.$inferSelect;
@@ -34,9 +31,6 @@ interface RecordResultInput {
   readonly setLogs?: readonly SetLogEntry[];
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 const MAX_UNDO_STACK = 50;
 
@@ -104,7 +98,7 @@ async function getOwnedInstanceContext(
 }
 
 async function resolveHistoricalDefinition(programId: string): Promise<ProgramDefinition> {
-  const result = await getHistoricalProgramDefinition(programId);
+  const result = await getHistoricalProgramDefinition(programId, getDb());
   if (result.status === 'found') return result.definition;
   throw new ApiError(
     409,
@@ -195,9 +189,6 @@ async function syncCompletedAt(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Record a workout result
-// ---------------------------------------------------------------------------
 
 const MAX_RESULT_WORKOUT_INDEX = MAX_TOTAL_WORKOUTS - 1;
 
@@ -244,8 +235,6 @@ export async function recordResult(
 
   const setLogsValue = input.setLogs ?? null;
 
-  // Resolve before opening the transaction: the runtime pool has one connection,
-  // so catalog hydration must not recursively borrow it while a tx is open.
   const context = await getOwnedInstanceContext(userId, instanceId);
   const definition = await resolveHistoricalDefinition(context.templateId);
   const identity = resolveSlotIdentity(definition, input.workoutIndex, input.slotId);
@@ -340,9 +329,6 @@ export async function recordResult(
   return result;
 }
 
-// ---------------------------------------------------------------------------
-// Delete a workout result
-// ---------------------------------------------------------------------------
 
 export async function deleteResult(
   userId: string,
@@ -396,9 +382,6 @@ export async function deleteResult(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Undo last action
-// ---------------------------------------------------------------------------
 
 export async function undoLast(userId: string, instanceId: string): Promise<UndoEntryRow | null> {
   const context = await getOwnedInstanceContext(userId, instanceId);
