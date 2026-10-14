@@ -143,7 +143,7 @@ describe('analytics user selection', () => {
     });
     activeDb = executor;
 
-    await expect(fetchWorkoutRecords('u1')).resolves.toMatchObject([
+    await expect(fetchWorkoutRecords('u1', activeDb as Parameters<typeof fetchWorkoutRecords>[1])).resolves.toMatchObject([
       { exerciseId: 'squat', definitionVersion: 1, weight: 80, tier: 't1' },
     ]);
     expect(limit).toHaveBeenCalledWith(MAX_ANALYTICS_RECORDS_PER_USER);
@@ -189,11 +189,9 @@ describe('analytics user selection', () => {
     const { executor } = fakeExecutor({ window: resultRows, instances: instanceRows });
     activeDb = executor;
 
-    // A row whose definition is gone has no weight to analyse and is dropped.
-    await expect(fetchWorkoutRecords('u1')).resolves.toMatchObject([
-      { instanceId: 'i1', weight: 60 },
-    ]);
-    // The pool holds one connection: a lookup outside the executor would hang.
+    await expect(
+      fetchWorkoutRecords('u1', activeDb as Parameters<typeof fetchWorkoutRecords>[1])
+    ).resolves.toMatchObject([{ instanceId: 'i1', weight: 60 }]);
     expect(mockGetHistoricalProgramDefinition).toHaveBeenCalledWith('gzclp', executor);
   });
 
@@ -245,7 +243,7 @@ describe('analytics user selection', () => {
       instances: [{ id: 'i1', templateId: 'gzclp', config: {}, customDefinition: null }],
     }).executor;
 
-    const records = await fetchWorkoutRecords('u1');
+    const records = await fetchWorkoutRecords('u1', activeDb as Parameters<typeof fetchWorkoutRecords>[1]);
     expect(records.map((r) => [r.workoutIndex, r.tier, r.weight])).toEqual([
       [0, 't1', 80],
       [2, 't2', 60],
@@ -295,7 +293,7 @@ describe('analytics user selection', () => {
     });
     activeDb = executor;
 
-    const records = await fetchWorkoutRecords('u1');
+    const records = await fetchWorkoutRecords('u1', activeDb as Parameters<typeof fetchWorkoutRecords>[1]);
 
     // The early fail holds squat at 60 kg; three pulldown successes reach 35 kg.
     expect(records.map((r) => [r.exerciseId, r.workoutIndex, r.weight])).toEqual([
@@ -334,7 +332,7 @@ describe('analytics user selection', () => {
       instances: [{ id: 'i1', templateId: 'gzclp', config: {}, customDefinition: null }],
     }).executor;
 
-    const records = await fetchWorkoutRecords('u1');
+    const records = await fetchWorkoutRecords('u1', activeDb as Parameters<typeof fetchWorkoutRecords>[1]);
     expect(records.map((r) => r.seriesKey)).toEqual(['squat:t1']);
   });
 
@@ -365,7 +363,7 @@ describe('analytics user selection', () => {
     }).executor;
     const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
 
-    const records = await fetchWorkoutRecords('u1');
+    const records = await fetchWorkoutRecords('u1', activeDb as Parameters<typeof fetchWorkoutRecords>[1]);
 
     expect(records.map((r) => r.seriesKey)).toEqual(['bench']);
     // One report per series: the long lift in T1 and in T2.
