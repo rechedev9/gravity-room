@@ -96,253 +96,267 @@
     {
       "idx": 13,
       "version": "7",
-      "when": 1772000000003,
-      "tag": "0013_add_program_instances_fk",
-      "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "7",
       "when": 1772100000000,
       "tag": "0014_add_exercise_metadata",
       "breakpoints": true
     },
     {
-      "idx": 15,
+      "idx": 14,
       "version": "7",
       "when": 1772200000000,
       "tag": "0015_add_performance_indexes",
       "breakpoints": true
     },
     {
-      "idx": 16,
+      "idx": 15,
       "version": "7",
       "when": 1772300000000,
       "tag": "0016_add_undo_entries_composite_index",
       "breakpoints": true
     },
     {
-      "idx": 17,
+      "idx": 16,
       "version": "7",
       "when": 1772400000000,
       "tag": "0017_enable_pg_stat_statements",
       "breakpoints": true
     },
     {
-      "idx": 18,
+      "idx": 17,
       "version": "7",
       "when": 1772500000000,
       "tag": "0018_gzclp_t1_amrap",
       "breakpoints": true
     },
     {
-      "idx": 19,
+      "idx": 18,
       "version": "7",
       "when": 1772600000000,
       "tag": "0019_one_active_program_per_user",
       "breakpoints": true
     },
     {
-      "idx": 20,
+      "idx": 19,
       "version": "7",
       "when": 1772700000000,
       "tag": "0020_auto_updated_at_trigger",
       "breakpoints": true
     },
     {
-      "idx": 21,
+      "idx": 20,
       "version": "7",
       "when": 1772700000001,
       "tag": "0021_add_exercises_orphan_index",
       "breakpoints": true
     },
     {
-      "idx": 22,
+      "idx": 21,
       "version": "7",
       "when": 1772700000002,
       "tag": "0022_add_workout_results_compound_index",
       "breakpoints": true
     },
     {
-      "idx": 23,
+      "idx": 22,
       "version": "7",
       "when": 1772700000003,
       "tag": "0023_add_workout_results_updated_at",
       "breakpoints": true
     },
     {
-      "idx": 24,
+      "idx": 23,
       "version": "7",
       "when": 1772700000004,
       "tag": "0024_bigserial_pks",
       "breakpoints": true
     },
     {
-      "idx": 25,
+      "idx": 24,
       "version": "7",
       "when": 1772700000005,
       "tag": "0025_pagination_covering_index",
       "breakpoints": true
     },
     {
-      "idx": 26,
+      "idx": 25,
       "version": "7",
       "when": 1772700000006,
       "tag": "0026_add_metadata_to_program_instances",
       "breakpoints": true
     },
     {
-      "idx": 27,
+      "idx": 26,
       "version": "7",
       "when": 1772827638593,
       "tag": "0027_dear_barracuda",
       "breakpoints": true
     },
     {
-      "idx": 28,
+      "idx": 27,
       "version": "7",
       "when": 1772886585166,
       "tag": "0028_giant_psylocke",
       "breakpoints": true
     },
     {
-      "idx": 29,
+      "idx": 28,
       "version": "7",
       "when": 1773000000000,
       "tag": "0029_rename_program_ids",
       "breakpoints": true
     },
     {
-      "idx": 30,
+      "idx": 29,
       "version": "7",
       "when": 1773100000000,
       "tag": "0030_add_custom_definition_columns",
       "breakpoints": true
     },
     {
-      "idx": 31,
+      "idx": 30,
       "version": "7",
       "when": 1773200000000,
       "tag": "0031_add_check_constraints",
       "breakpoints": true
     },
     {
-      "idx": 32,
+      "idx": 31,
       "version": "7",
       "when": 1773300000000,
       "tag": "0032_widen_exercises_id",
       "breakpoints": true
     },
     {
-      "idx": 33,
+      "idx": 32,
       "version": "7",
       "when": 1773400000000,
       "tag": "0033_add_user_insights",
       "breakpoints": true
     },
     {
-      "idx": 34,
+      "idx": 33,
       "version": "7",
       "when": 1773500000000,
       "tag": "0034_index_renames",
       "breakpoints": true
     },
     {
-      "idx": 35,
+      "idx": 34,
       "version": "7",
       "when": 1773500000001,
       "tag": "0035_undo_entries_renames",
       "breakpoints": true
     },
     {
-      "idx": 36,
+      "idx": 35,
       "version": "7",
       "when": 1773500000002,
       "tag": "0036_perf_indexes",
       "breakpoints": true
     },
     {
-      "idx": 37,
+      "idx": 36,
       "version": "7",
       "when": 1773500000003,
       "tag": "0037_program_instances_renames",
       "breakpoints": true
     },
     {
-      "idx": 38,
+      "idx": 37,
       "version": "7",
       "when": 1773500000004,
       "tag": "0038_exercises_renames",
       "breakpoints": true
     },
     {
-      "idx": 39,
+      "idx": 38,
       "version": "7",
       "when": 1773500000005,
       "tag": "0039_partial_indexes",
       "breakpoints": true
     },
     {
-      "idx": 40,
+      "idx": 39,
       "version": "7",
       "when": 1773500000006,
       "tag": "0040_user_insights_nulls_not_distinct",
       "breakpoints": true
     },
     {
-      "idx": 41,
+      "idx": 40,
       "version": "7",
       "when": 1773500000007,
       "tag": "0041_multi_auth_identities",
       "breakpoints": true
     },
     {
-      "idx": 42,
+      "idx": 41,
       "version": "7",
       "when": 1783637300000,
       "tag": "0042_users_auth_version",
       "breakpoints": true
     },
     {
-      "idx": 43,
+      "idx": 42,
       "version": "7",
       "when": 1785098517542,
       "tag": "0043_schema_baseline",
       "breakpoints": true
     },
     {
-      "idx": 44,
+      "idx": 43,
       "version": "7",
       "when": 1785654317044,
       "tag": "0044_sweet_morg",
       "breakpoints": true
     },
     {
-      "idx": 45,
+      "idx": 44,
       "version": "7",
       "when": 1785654476158,
       "tag": "0045_overrated_leech",
       "breakpoints": true
     },
     {
-      "idx": 46,
+      "idx": 45,
       "version": "7",
       "when": 1786300000000,
       "tag": "0046_security_hardening",
       "breakpoints": true
     },
     {
-      "idx": 47,
+      "idx": 46,
       "version": "7",
       "when": 1788605462178,
       "tag": "0047_daily_spencer_smythe",
       "breakpoints": true
     },
     {
-      "idx": 48,
+      "idx": 47,
       "version": "7",
       "when": 1791589778953,
       "tag": "0048_low_kulan_gath",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1791589778954,
+      "tag": "0049_repair_skipped_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1791589778955,
+      "tag": "0050_drop_users_google_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1791589778956,
+      "tag": "0051_user_identities_provider_check",
       "breakpoints": true
     }
   ]
