@@ -4,31 +4,44 @@ import { tmNcSlot } from './shared';
 import { freeNoteSlot, ACC, TM } from './brunetti-slots';
 import { BOOK_IS_SQUAT_D1, BOOK_IS_BENCH_D1 } from './brunetti-book-tables';
 
+const IS_CYCLES = ['heavy', 'volume', 'light'] as const;
+type IsCycle = (typeof IS_CYCLES)[number];
+
+function cycleForWeek(week: number): IsCycle {
+  const cycle = IS_CYCLES[(week - 1) % IS_CYCLES.length];
+  if (!cycle) throw new Error(`week ${week} is outside the IS cycle`);
+  return cycle;
+}
+
+function bookRow<T extends { readonly kind: IsCycle }>(rows: readonly T[], cycle: IsCycle): T {
+  const row = rows.find((candidate) => candidate.kind === cycle);
+  if (!row) throw new Error(`missing IS book row for ${cycle}`);
+  return row;
+}
+
 export function buildFaseIS(): ProgramDay[] {
   const days: ProgramDay[] = [];
 
   for (let week = 1; week <= 12; week++) {
     const sf = week <= 6 ? 1 : 2;
     const sfLabel = `S${sf}`;
-    const cycle = ((week - 1) % 3) as 0 | 1 | 2; // 0 heavy, 1 volume, 2 light
+    const cycle = cycleForWeek(week);
     const bcNote =
       sf === 1
         ? "B.C. Sottofase 1: 2 ejercicios por grupo, 5–6 series totales, reps 6–12, recupero 1:30–2'. Sin forzar lattacido."
         : 'B.C. Sottofase 2: 1–2 ejercicios (preferible monoarticulares), 5–8 series, reps 12–30, recuperos cortos. Alto stress metabolico localizado.';
 
     // Squat D1 from Soluzione A
-    const squatD1 = BOOK_IS_SQUAT_D1[cycle];
-    const benchD1 = BOOK_IS_BENCH_D1[cycle];
-    // After week 6 (buco), libro suggests slightly higher load / lower volume on squat D1
-    const sqPctAdj = sf === 2 && squatD1.kind === 'heavy' ? -0.0 : 0;
-    // D1 heavy stays 80% / 3x7s etc; buco mods for weeks 7+ use slightly lower volume variants in book p.184
+    const squatD1 = bookRow(BOOK_IS_SQUAT_D1, cycle);
+    const benchD1 = bookRow(BOOK_IS_BENCH_D1, cycle);
+    // D1 heavy stays 80% / 3x7s; weeks 7+ do not apply the lower-volume variants on book p.184.
 
     const d1: SlotDef[] = [
       tmNcSlot(
         `is_sq_d1_w${week}`,
         'squat',
         TM.SQUAT,
-        squatD1.main.pct + sqPctAdj,
+        squatD1.main.pct,
         squatD1.main.sets,
         squatD1.main.reps,
         'main',
@@ -146,9 +159,9 @@ export function buildFaseIS(): ProgramDay[] {
 
     // Giorno Tre — stacco main, panca tech, squat fermo
     const squatD3Notes =
-      cycle === 0
+      cycle === 'heavy'
         ? 'Squat fermo 2" abajo: ramping x2@8 poi −5% 2×3s (RPE abierto).'
-        : cycle === 1
+        : cycle === 'volume'
           ? 'Squat fermo 2": ramping x3@8 poi −5% 3×4s (RPE).'
           : 'Squat fermo 1" 4×3s @RPE6 salita normal.';
 
@@ -159,9 +172,9 @@ export function buildFaseIS(): ProgramDay[] {
           `is_dl_d3_w${week}`,
           'deadlift',
           TM.DEADLIFT,
-          cycle === 0 ? 0.8 : cycle === 1 ? 0.75 : 0.7,
-          cycle === 0 ? 3 : 4,
-          cycle === 0 ? 3 : 4,
+          cycle === 'heavy' ? 0.8 : cycle === 'volume' ? 0.75 : 0.7,
+          cycle === 'heavy' ? 3 : 4,
+          cycle === 'heavy' ? 3 : 4,
           'main',
           'Stacco Giorno Tre (frecuencia alta IS). Intensidad segun semana Pesante/Volume/Leggera.'
         ),
