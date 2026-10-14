@@ -15,9 +15,8 @@ import { insightsRoutes } from './routes/insights';
 import { internalRoutes } from './routes/internal';
 import { logger } from './lib/logger';
 import { formatValidationError, validateEnv } from './lib/env-validation';
+import { MAX_GATEWAY_BODY_BYTES as MAX_REQUEST_BODY_BYTES } from './lib/node-gateway';
 
-/** Keep in lockstep with `MAX_GATEWAY_BODY_BYTES` in lib/node-gateway.ts. */
-const MAX_REQUEST_BODY_BYTES = 1 * 1024 * 1024;
 
 async function bufferUndeclaredRequestBodyWithinLimit(
   request: Request
@@ -65,9 +64,6 @@ async function bufferUndeclaredRequestBodyWithinLimit(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Options
-// ---------------------------------------------------------------------------
 
 export type CreateAppOptions = {
   corsOrigins: string | string[];
@@ -121,9 +117,6 @@ function publicServerErrorMessage(statusCode: number): string {
   return 'Internal server error';
 }
 
-// ---------------------------------------------------------------------------
-// Factory
-// ---------------------------------------------------------------------------
 
 export function createApp(options: CreateAppOptions) {
   const { corsOrigins, csp, permissionsPolicy } = options;
