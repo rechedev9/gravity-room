@@ -1,34 +1,36 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_THEME, THEME_COLOR_META, THEME_IDS, THEME_STORAGE_KEY } from './theme-preference';
+import { DEFAULT_PAGE_TITLE } from './page-title';
+import {
+  buildThemeBootScript,
+  DEFAULT_THEME,
+  RETIRED_DARK_THEME,
+  THEME_COLOR_META,
+  THEME_COLOR_SCHEME,
+  THEME_IDS,
+  THEME_STORAGE_KEY,
+} from './theme-preference';
 
-/**
- * The FOUC boot script in index.html cannot import TS — keep it in lockstep
- * with the canonical exports so a rename/meta edit cannot drift silently.
- */
-describe('theme boot script parity', () => {
+describe('theme boot script', () => {
   const html = readFileSync(resolve(__dirname, '../../index.html'), 'utf8');
+  const script = buildThemeBootScript();
 
-  it('embeds the same storage key as THEME_STORAGE_KEY', () => {
-    expect(html).toContain(`'${THEME_STORAGE_KEY}'`);
-  });
-
-  it('embeds every theme id and the default fallback', () => {
+  it('is injected from the shared theme exports', () => {
+    expect(html).toContain('__THEME_BOOT__');
+    expect(script).toContain(`'${THEME_STORAGE_KEY}'`);
     for (const id of THEME_IDS) {
-      expect(html).toContain(`'${id}'`);
+      expect(script).toContain(`'${id}'`);
+      expect(script).toContain(THEME_COLOR_META[id]);
+      expect(script).toContain(THEME_COLOR_SCHEME[id]);
     }
-    expect(html).toContain(`'${DEFAULT_THEME}'`);
+    expect(script).toContain(`'${DEFAULT_THEME}'`);
+    expect(script).toContain(`stored === '${RETIRED_DARK_THEME}'`);
+    expect(script).toContain('localStorage.setItem(key, theme)');
   });
 
-  it('embeds every THEME_COLOR_META accent hex', () => {
-    for (const id of THEME_IDS) {
-      expect(html).toContain(THEME_COLOR_META[id]);
-    }
-  });
-
-  it('migrates the retired dark preference to the default theme before paint', () => {
-    expect(html).toContain("if (stored === 'classic-dark')");
-    expect(html).toContain('localStorage.setItem(key, theme)');
+  it('shares the default document title with index.html', () => {
+    expect(html).toContain('__DEFAULT_PAGE_TITLE__');
+    expect(html).not.toContain(DEFAULT_PAGE_TITLE);
   });
 });

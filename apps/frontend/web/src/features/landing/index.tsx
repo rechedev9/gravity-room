@@ -1,13 +1,14 @@
+import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
 import { ES_CONTENT } from './content';
 import { LandingPageShell } from './landing-page-shell';
 
 const ES_HEAD = {
-  title: 'Gravity Room — Planes de fuerza gratis con progresión automática',
+  title: DEFAULT_PAGE_TITLE,
   description:
     'Crea un plan de fuerza gratis, sigue programas probados y deja que Gravity Room calcule pesos, series y ajustes de cada entrenamiento.',
   canonical: 'https://gravityroom.app/',
   ogLocale: 'es_ES',
-  ogTitle: 'Gravity Room — Planes de fuerza gratis con progresión automática',
+  ogTitle: DEFAULT_PAGE_TITLE,
   ogDescription:
     'Crea un plan de fuerza gratis, sigue programas probados y deja que Gravity Room calcule pesos, series y ajustes de cada entrenamiento.',
   ogUrl: 'https://gravityroom.app/',

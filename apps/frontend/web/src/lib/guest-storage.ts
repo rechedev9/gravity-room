@@ -8,11 +8,6 @@ import { GUEST_STORAGE_KEY } from './guest-storage-keys';
  * this is the only persistence layer they get. Data is Zod-validated on read
  * so a corrupted or hand-edited localStorage value degrades to "no guest
  * data" instead of crashing the app.
- *
- * Only the readers below pull in the Zod schema; the schema-free keys, writes
- * and clears live in guest-storage-keys.ts and are re-exported here so callers
- * keep a single import site. Modules on the pre-paint path (guest-context)
- * should import from guest-storage-keys.ts directly — see that file for why.
  */
 
 export {

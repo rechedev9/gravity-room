@@ -1,14 +1,3 @@
-/**
- * Schema-free half of the guest localStorage layer: keys, writes, clears and
- * the migration marker.
- *
- * Split from guest-storage.ts because guest-context sits on the pre-paint path
- * and only clears data / stamps the migration marker. Reading guest data is the
- * one operation that needs `ProgramInstanceMapSchema`, and importing that from
- * the entry graph dragged the Zod runtime (~20 KB gz) into every page load,
- * including the public landing. Keeping the write-side here lets the schema
- * stay in the lazy chunks that actually read guest data.
- */
 import type { ProgramInstanceMap } from '@gzclp/domain/types/program';
 
 export const GUEST_STORAGE_KEY = 'gzclp_guest_v1' as const;
