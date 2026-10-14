@@ -19,6 +19,7 @@
     "./catalog": "./src/catalog.ts",
     "./catalog-filter": "./src/catalog-filter.ts",
     "./program-cover": "./src/program-cover.ts",
+    "./program-list": "./src/program-list.ts",
     "./generic-engine": "./src/generic-engine.ts",
     "./generic-stats": "./src/generic-stats.ts",
     "./graduation": "./src/graduation.ts",
