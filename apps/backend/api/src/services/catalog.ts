@@ -28,9 +28,6 @@ import { ApiError } from '../middleware/error-handler';
 const listFlight = new SingleflightMap<readonly CatalogEntry[]>();
 const detailFlight = new SingleflightMap<GetProgramDefinitionResult>();
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 /** Result of getProgramDefinition — distinguishes "not found" from "hydration failure". */
 export type GetProgramDefinitionResult =
@@ -38,9 +35,6 @@ export type GetProgramDefinitionResult =
   | { readonly status: 'not_found' }
   | { readonly status: 'hydration_failed'; readonly error: unknown };
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 /** Shape returned by the explicit column projection in listPrograms(). */
 interface CatalogProjectedRow {
@@ -91,9 +85,6 @@ function isCatalogEntryArray(value: unknown): value is readonly CatalogEntry[] {
   return isRecord(first) && typeof first['id'] === 'string' && typeof first['name'] === 'string';
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
 
 /** List all active program templates as catalog entries. */
 export async function listPrograms(): Promise<readonly CatalogEntry[]> {
@@ -202,19 +193,14 @@ export async function getProgramDefinition(programId: string): Promise<GetProgra
 /**
  * Resolve an existing instance's definition independently of catalog visibility.
  * Historical result validation must continue after a template is retired.
- * A caller inside a transaction passes it as `reader`: the pool holds one
- * connection, so a second handle would wait on the caller forever.
  */
 export function getHistoricalProgramDefinition(
   programId: string,
-  reader?: Reader
+  reader: Reader
 ): Promise<GetProgramDefinitionResult> {
   return hydrateStoredProgramDefinition(programId, true, reader);
 }
 
-// ---------------------------------------------------------------------------
-// Preview
-// ---------------------------------------------------------------------------
 
 const MAX_PREVIEW_ROWS = 10;
 
@@ -249,7 +235,3 @@ export function previewDefinition(
     throw new ApiError(500, 'Preview computation failed', 'INTERNAL_ERROR');
   }
 }
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------

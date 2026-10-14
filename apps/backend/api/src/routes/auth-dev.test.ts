@@ -41,6 +41,9 @@ const mockMarkEmailVerified = vi.fn<() => Promise<typeof PW_USER | undefined>>((
   Promise.resolve({ ...PW_USER })
 );
 const mockHashPassword = vi.fn(() => Promise.resolve('hashed-password'));
+const mockFindOrCreateDevUser = vi.fn<() => Promise<typeof PW_USER>>(() =>
+  Promise.resolve({ ...PW_USER })
+);
 
 vi.mock('../services/auth', () => ({
   hashToken: vi.fn(() => Promise.resolve('a'.repeat(64))),
@@ -69,6 +72,7 @@ vi.mock('../services/auth', () => ({
   updateUserProfile: vi.fn(() => Promise.resolve({ ...PW_USER })),
   softDeleteUser: vi.fn(() => Promise.resolve()),
   findOrCreateGoogleUser: vi.fn(() => Promise.resolve({ user: { ...PW_USER }, isNewUser: false })),
+  findOrCreateDevUser: mockFindOrCreateDevUser,
   findOrCreateUserByIdentity: vi.fn(() =>
     Promise.resolve({ user: { ...PW_USER }, isNewUser: false })
   ),
@@ -133,6 +137,25 @@ function post(path: string, body: unknown, headers?: Record<string, string>): Pr
     })
   );
 }
+
+describe('POST /auth/dev', () => {
+  beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockFindOrCreateDevUser.mockClear();
+    mockFindOrCreateDevUser.mockImplementation(() => Promise.resolve({ ...PW_USER }));
+  });
+
+  it('reuses the email and does not mint a google identity', async () => {
+    const res = await post(
+      '/auth/dev',
+      { email: 'dev@example.com' },
+      { 'x-dev-auth-secret': 'test-dev-auth-secret' }
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockFindOrCreateDevUser).toHaveBeenCalledWith('dev@example.com');
+  });
+});
 
 describe('POST /auth/dev/password-user', () => {
   beforeEach(() => {
