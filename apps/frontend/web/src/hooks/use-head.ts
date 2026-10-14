@@ -177,6 +177,11 @@ export function useHead({
     if (ogLocale !== undefined) cleanups.push(setMetaProperty('og:locale', ogLocale));
     if (robots !== undefined) cleanups.push(setMetaName('robots', robots));
 
+    document.documentElement.dataset.headReady = '1';
+    cleanups.push(() => {
+      delete document.documentElement.dataset.headReady;
+    });
+
     // Always own the hreflang surface: set the provided triple, or clear
     // leftovers so single-URL pages never inherit landing/wiki alternates.
     if (alternates !== undefined) {
