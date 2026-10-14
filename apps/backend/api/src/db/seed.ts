@@ -28,7 +28,6 @@ async function seed(): Promise<void> {
     .insert(users)
     .values({
       email: 'test@example.com',
-      googleId: 'dev-seed-google-id',
       name: 'Test User',
     })
     .onConflictDoNothing()
