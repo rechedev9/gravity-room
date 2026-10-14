@@ -158,6 +158,7 @@ vi.mock('../db', () => ({
 // Must import AFTER mock.module
 const { listPrograms, getProgramDefinition, getHistoricalProgramDefinition } =
   await import('./catalog');
+const { getDb } = await import('../db');
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -326,7 +327,7 @@ describe('getProgramDefinition', () => {
     templateRows = [{ ...ACTIVE_TEMPLATE, isActive: false }];
     exerciseSelectRows = EXERCISE_ROWS;
 
-    const result = await getHistoricalProgramDefinition('gzclp');
+    const result = await getHistoricalProgramDefinition('gzclp', getDb());
 
     // The mock hydration may lack a complete exercise projection, but an
     // inactive row must still be selected rather than hidden as not_found.
