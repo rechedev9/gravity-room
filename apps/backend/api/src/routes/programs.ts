@@ -2,6 +2,7 @@
  * Program routes — CRUD for program instances. All routes require auth.
  */
 import { Elysia, t } from 'elysia';
+import { MAX_PROGRAM_LIST_PAGE_SIZE } from '@gzclp/domain/program-list';
 import { jwtPlugin, resolveUserId } from '../middleware/auth-guard';
 import { rateLimit } from '../middleware/rate-limit';
 import { requestLogger } from '../middleware/request-logger';
@@ -153,7 +154,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
     },
     {
       query: t.Object({
-        limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })),
+        limit: t.Optional(t.Numeric({ minimum: 1, maximum: MAX_PROGRAM_LIST_PAGE_SIZE })),
         cursor: t.Optional(t.String({ maxLength: MAX_PROGRAM_CURSOR_CHARS })),
       }),
       detail: {
