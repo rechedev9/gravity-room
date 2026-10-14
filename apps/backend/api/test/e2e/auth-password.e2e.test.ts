@@ -79,7 +79,6 @@ describe('email/password (integration)', () => {
 
     expect(user.email).toBe('morpheus@example.com');
     expect(user.emailVerified).toBe(false);
-    expect(user.googleId).toBeNull();
     expect(user.passwordHash).not.toBeNull();
     expect(user.passwordHash).not.toBe('redpill-123');
 

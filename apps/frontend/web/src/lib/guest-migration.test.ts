@@ -30,9 +30,6 @@ import {
   type GuestMigrationIdentity,
 } from './guest-migration';
 
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
 
 function guestMapWithProgram(): ProgramInstanceMap {
   return {
@@ -104,9 +101,6 @@ beforeEach(() => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 describe('migrateGuestDataToAccount', () => {
   it('returns null and does nothing when there is no guest data', async () => {
@@ -151,7 +145,7 @@ describe('migrateGuestDataToAccount', () => {
     const workout0 = (payload.results as Record<string, Record<string, unknown>>)['0'];
     expect(workout0 && 'lat-t3' in workout0).toBe(false);
     expect(typeof payload.exportDate).toBe('string');
-    expect(result).toEqual({ programId: 'gzclp', programName: 'GZCLP' });
+    expect(result).toEqual({ status: 'imported', programId: 'gzclp', programName: 'GZCLP' });
   });
 
   it('clears guest storage after a successful migration', async () => {
@@ -170,7 +164,7 @@ describe('migrateGuestDataToAccount', () => {
 
     const result = await migrateGuestDataToAccount(freshQueryClient());
 
-    expect(result).toBeNull();
+    expect(result).toEqual({ status: 'skipped', reason: 'active-program' });
     expect(mockImportProgram).not.toHaveBeenCalled();
     expect(localStorage.getItem(GUEST_STORAGE_KEY)).not.toBeNull();
   });
@@ -328,7 +322,9 @@ describe('migrateGuestDataToAccount', () => {
     resolveImport?.();
     const results = await Promise.all(attempts);
 
-    expect(results.every((result) => result?.programId === 'gzclp')).toBe(true);
+    expect(results.every((result) => result?.status === 'imported' && result.programId === 'gzclp')).toBe(
+      true
+    );
     expect(mockImportProgram).toHaveBeenCalledTimes(1);
   });
 });
