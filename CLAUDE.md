@@ -16,8 +16,6 @@ Shared standing law for every agent that touches this repo. If it is not here, i
 - **PR quality CI** (PRs and `main`): `CI frontend`, `CI backend`, `CI infra`. Not Playwright e2e. Not a hit on gravityroom.app.
 - **Claude review is off** (King, 2026-08-30). Do not restore `claude.yml` or `claude-code-review.yml`.
 - **Production smoke stays:** `.github/workflows/production-smoke.yml` against https://gravityroom.app after Production deploy / cron. Do not run it on PRs.
-- **Hard contracts** in this file still bind: domain SoT, DB SoT, generated web API client, same-origin prod, no boot-time DDL.
-- **Do not reintroduce:** Python analytics service, Docker/VPS/Caddy deploy, aggregate CI `Validate` workflow, Claude review.
 
 ## Layout
 
@@ -97,7 +95,6 @@ duplicated in `apps/frontend/web` and `apps/frontend/mobile` belongs in a packag
 
 - No `as any`, no silence-casts, no non-null `!`. No barrel re-exports of foreign modules.
 - Route I/O: TypeBox (`t` from `elysia`). Business/shared validation: Zod in `@gzclp/domain`.
-- Independent async work → `Promise.all`.
 - Web UI strings → i18next (`t` / `<Trans>`); 0 missing keys in every locale.
 - Loading buttons → `isLoading` prop only.
 - Images → WebP by default; do not rename existing asset extensions.
@@ -142,5 +139,3 @@ Single-context. The repo has no `CONTEXT.md` or `docs/adr/` yet, so there is no 
 - `/metrics` + prom-client, `REDIS_URL`, `METRICS_TOKEN`, `DB_POOL_SIZE`, `COMPUTE_INTERVAL_HOURS`
 - Per-package `.env*.example` (root `.env.example` only)
 - Boot-time DDL, cross-origin split in production
-
-Active GitHub workflows: `ci-frontend.yml`, `ci-backend.yml`, `ci-infra.yml`, `production-smoke.yml`.
