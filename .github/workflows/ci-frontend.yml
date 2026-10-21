@@ -1,21 +1,28 @@
 name: CI frontend
 
 on:
+  # Deploy runs the web checks on every push to main, so this push run is for mobile.
   push:
     branches: [main]
-    paths-ignore:
-      - 'apps/backend/**'
-      - 'api/**'
-      - 'docs/**'
+    paths:
+      - 'apps/frontend/mobile/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
   schedule:
     - cron: '0 3 * * *'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      web-only:
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  # A called workflow sees the caller's name in github.workflow, so the group names this file.
+  group: ci-frontend-${{ inputs.web-only }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -46,18 +53,23 @@ jobs:
         run: pnpm --filter web test
 
       - name: Typecheck mobile
+        if: ${{ !inputs.web-only }}
         run: pnpm --filter mobile typecheck
 
       - name: Lint mobile and verify architecture rules
+        if: ${{ !inputs.web-only }}
         run: pnpm --filter mobile lint && pnpm run test:mobile:lint
 
       - name: Test mobile
+        if: ${{ !inputs.web-only }}
         run: pnpm --filter mobile test
 
       - name: Verify mobile SQLite migrations
+        if: ${{ !inputs.web-only }}
         run: pnpm run test:mobile:sqlite
 
       - name: Export Android production bundle
+        if: ${{ !inputs.web-only }}
         env:
           EXPO_PUBLIC_API_URL: https://gravityroom.app
         run: pnpm --filter mobile exec expo export --platform android --output-dir "$RUNNER_TEMP/gravity-android"

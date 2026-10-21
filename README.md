@@ -64,19 +64,19 @@ Apps never reimplement or adjust this math. The database seeds in [`packages/dat
 
 ## Workspace
 
-pnpm monorepo. Production is one same-origin Vercel project: the Vite SPA is served as static files and the Elysia API runs as a serverless function.
+pnpm monorepo. Production runs same-origin on a VPS: Caddy serves the Vite SPA from the `web` container and Node runs the Elysia API in the `api` container. A push to `main` deploys both through `.github/workflows/deploy.yml`.
 
-| Path                   | Role                                                                | Run or test                                                         |
-| ---------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `apps/frontend/web`    | React 19 and Vite SPA with TanStack Router and Query, Tailwind, PWA | `pnpm run dev`, `pnpm --filter web test`, `pnpm run e2e`            |
-| `apps/frontend/mobile` | Expo 54 and React Native app with offline SQLite storage            | `pnpm --filter mobile dev`, `pnpm run test:mobile`                  |
-| `apps/backend/api`     | ElysiaJS REST API: auth, programs, results, insights, cron jobs     | `pnpm run dev:api`, `pnpm run test:api`                             |
-| `packages/domain`      | `@gzclp/domain`: progression engine, program catalog, Zod schemas   | `pnpm run test:domain`                                              |
-| `packages/database`    | `@gzclp/database`: Drizzle schema, migrations, seeds                | `pnpm run test:database`, `pnpm run db:generate` after schema edits |
-| `packages/api-client`  | `@gzclp/api-client`: shared typed fetch helpers                     | `pnpm run test:api-client`                                          |
-| `packages/design-tokens` | `@gzclp/design-tokens`: design tokens and their CSS output        | `pnpm run test:design-tokens`                                       |
-| `api/index.ts`         | Generated Vercel function bundle, do not edit by hand               | `pnpm run bundle:api:check`                                         |
-| `scripts/`             | Vercel build, API bundling, load test, security checks              | see `package.json`                                                  |
+| Path                     | Role                                                                | Run or test                                                         |
+| ------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `apps/frontend/web`      | React 19 and Vite SPA with TanStack Router and Query, Tailwind, PWA | `pnpm run dev`, `pnpm --filter web test`, `pnpm run e2e`            |
+| `apps/frontend/mobile`   | Expo 54 and React Native app with offline SQLite storage            | `pnpm --filter mobile dev`, `pnpm run test:mobile`                  |
+| `apps/backend/api`       | ElysiaJS REST API: auth, programs, results, insights, cron jobs     | `pnpm run dev:api`, `pnpm run test:api`                             |
+| `packages/domain`        | `@gzclp/domain`: progression engine, program catalog, Zod schemas   | `pnpm run test:domain`                                              |
+| `packages/database`      | `@gzclp/database`: Drizzle schema, migrations, seeds                | `pnpm run test:database`, `pnpm run db:generate` after schema edits |
+| `packages/api-client`    | `@gzclp/api-client`: shared typed fetch helpers                     | `pnpm run test:api-client`                                          |
+| `packages/design-tokens` | `@gzclp/design-tokens`: design tokens and their CSS output          | `pnpm run test:design-tokens`                                       |
+| `api/index.ts`           | Generated bundle for the old Vercel target, do not edit by hand     | `pnpm run bundle:api:check`                                         |
+| `scripts/`               | Vercel build, API bundling, load test, security checks              | see `package.json`                                                  |
 
 To run the mobile app on Android, use `pnpm --filter mobile android`.
 

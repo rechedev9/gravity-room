@@ -1,0 +1,40 @@
+name: Deploy
+
+# Ships the API and the web app to the VPS. The mobile app ships through EAS, not here.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'apps/frontend/mobile/**'
+      - 'docs/**'
+      - '**/*.md'
+  workflow_dispatch:
+
+# A newer push waits for the running deploy instead of cutting it in half.
+concurrency: deploy
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    uses: ./.github/workflows/ci-backend.yml
+
+  web:
+    uses: ./.github/workflows/ci-frontend.yml
+    with:
+      web-only: true
+
+  deploy:
+    needs: [backend, web]
+    # A manual run on another branch would ship unreviewed code.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: rechedev9/vps-deploy/deploy@main
+        with:
+          app: gravity-room
+          key: ${{ secrets.VPS_DEPLOY_KEY }}

@@ -1,14 +1,17 @@
 # Architecture
 
-pnpm monorepo: web + mobile + API, shared TS packages. Production is **one
-same-origin Vercel project** — Vite SPA (static) + ElysiaJS API (serverless
-`api/index.ts`). Agent contracts: root `CLAUDE.md` / `AGENTS.md`.
+pnpm monorepo: web + mobile + API, shared TS packages. Production runs
+**same-origin on the VPS**: the `web` container (Caddy with the Vite SPA) and the
+`api` container (Node with the ElysiaJS API). A push to `main` runs
+`.github/workflows/deploy.yml`: the checks, then `rechedev9/vps-deploy` builds both
+images and ships them, with a health check and a rollback. Agent contracts: root
+`CLAUDE.md` / `AGENTS.md`.
 
 ## Layout
 
 ```
 gravity-room/
-├── api/index.ts              ← generated Vercel catch-all (do not hand-edit)
+├── api/index.ts              ← generated bundle for the old Vercel target (do not hand-edit)
 ├── apps/frontend/web/        ← React 19 + Vite SPA (PWA)
 ├── apps/frontend/mobile/     ← Expo 54 / RN
 ├── apps/backend/api/         ← ElysiaJS (create-app.ts; analytics under src/analytics)
@@ -18,7 +21,7 @@ gravity-room/
 ├── packages/design-tokens/   ← @gzclp/design-tokens — shared colors, spacing, radii, type
 ├── scripts/                  ← vercel-build, bundle-api, loadtest, security checks
 ├── docs/                     ← this file + security runbooks
-└── vercel.json               ← build, function, rewrites, crons
+└── vercel.json               ← old Vercel target, not live
 ```
 
 ## Path map
@@ -60,9 +63,9 @@ gravity-room/
 - **`generated.ts` is a drift artifact** — regenerate it after route changes (`api:types` with API up). It is not a runtime client and app code never imports it; web and mobile call the API through hand-written code on the shared builders.
 - **Sharing** — training rules in `@gzclp/domain`, wire mechanics in `@gzclp/api-client`, visual tokens in `@gzclp/design-tokens`; see "Sharing rules" in `CLAUDE.md`.
 - **Auth** — JWT access + refresh rotation; multi-method (Google, Apple, GitHub, Microsoft, email/password).
-- **API is HTTP-only** — SPA is static on Vercel; `create-app.ts` never serves assets.
+- **API is HTTP-only** — the `web` container serves the SPA; `create-app.ts` never serves assets.
 - **Analytics in-process** — pipelines in `src/analytics/`, stored in `user_insights`, driven by cron `POST /api/internal/analytics/compute`. Golden parity: `__fixtures__/golden.json`. A series is one lift in one tier (`exerciseId:tier` when the lift has several tiers, the bare id otherwise; `@gzclp/domain/insight-series`), because T1 and T2 of a lift carry different loads.
-- **Migrations build-time** — `db:deploy` at end of `vercel-build.sh` (prod needs `DIRECT_DATABASE_URL`); no boot-time DDL.
+- **Migrations once per deploy** — the `api` container runs `migrate-deploy` before the server (prod needs `DIRECT_DATABASE_URL`); no boot-time DDL in `create-app.ts`.
 
 ## Local dev
 
@@ -101,7 +104,7 @@ Postgres required (`DATABASE_URL`). Upstash Redis optional locally, required in 
 | Insights           | `apps/backend/api/src/analytics/`                                                                                                                           |
 | New shared type    | Training rule or data shape → `packages/domain/src/`; paths, requests, errors → `packages/api-client/src/`; colors, spacing → `packages/design-tokens/src/` |
 | DB table change    | `packages/database/src/schema.ts` → `pnpm run db:generate`                                                                                                  |
-| Prod infra         | `vercel.json` + `scripts/vercel-build.sh`                                                                                                                   |
+| Prod infra         | `.github/workflows/deploy.yml`, `apps/*/*/Dockerfile`, `rechedev9/vps-deploy`                                                                               |
 
 ## Other docs
 

@@ -1,19 +1,18 @@
 name: CI backend
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - 'apps/frontend/web/**'
   schedule:
     - cron: '0 3 * * *'
   workflow_dispatch:
+  # deploy.yml runs these checks before it ships.
+  workflow_call:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  # A called workflow sees the caller's name in github.workflow, so the group names this file.
+  group: ci-backend-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:

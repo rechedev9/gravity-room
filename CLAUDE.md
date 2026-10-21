@@ -1,8 +1,10 @@
 # Gravity Room — agent context
 
-GZCLP linear-progression weightlifting tracker. pnpm monorepo deployed as **one
-same-origin Vercel project**: Vite SPA (static) + ElysiaJS API (serverless
-`api/index.ts`).
+GZCLP linear-progression weightlifting tracker. pnpm monorepo deployed **same-origin
+on the VPS** as two containers: `web` (the Vite SPA on Caddy) and `api` (the ElysiaJS
+API on Node). A push to `main` deploys through `.github/workflows/deploy.yml`. The Vercel
+files (`vercel.json`, `api/index.ts`, `scripts/vercel-build.sh`) are the old target and
+are not live.
 
 Deeper docs only when needed: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
 (layout + path map), [`docs/api-and-db.md`](./docs/api-and-db.md)
@@ -13,26 +15,26 @@ Deeper docs only when needed: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
 Shared standing law for every agent that touches this repo. If it is not here, it did not happen. Update this block in the same PR when a law changes.
 
 - **Prove It Works.** Verify the real path, not a proxy. CI, lint, and typecheck are supplemental. Do not call a user-visible change done from code reading alone.
-- **PR quality CI** (PRs and `main`): `CI frontend`, `CI backend`, `CI infra`. Not Playwright e2e. Not a hit on gravityroom.app.
+- **CI**: `Deploy` runs `CI backend` and the web checks before it ships `main`. `CI frontend` and `CI infra` run on push to `main`, and every workflow runs nightly. Not Playwright e2e. Not a hit on gravityroom.app.
 - **Claude review is off** (King, 2026-08-30). Do not restore `claude.yml` or `claude-code-review.yml`.
-- **Production smoke stays:** `.github/workflows/production-smoke.yml` against https://gravityroom.app after Production deploy / cron. Do not run it on PRs.
+- **Production smoke stays:** `.github/workflows/production-smoke.yml` against https://gravityroom.app after each `Deploy` run and nightly. Do not run it on PRs.
 - **Hard contracts** in this file still bind: domain SoT, DB SoT, generated web API client, same-origin prod, no boot-time DDL.
-- **Do not reintroduce:** Python analytics service, Docker/VPS/Caddy deploy, aggregate CI `Validate` workflow, Claude review.
+- **Do not reintroduce:** Python analytics service, aggregate CI `Validate` workflow, Claude review.
 
 ## Layout
 
-| Path                             | Role                                                                                                                          |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `apps/frontend/web`              | React 19 + Vite 7 SPA (TanStack Router/Query, Tailwind 4, i18next)                                                            |
-| `apps/frontend/mobile`           | Expo 54 / RN (hand-written API calls; no generated client)                                                                    |
-| `apps/backend/api`               | ElysiaJS API — `src/create-app.ts`; local `src/dev-server.ts`; Vercel source `src/vercel-handler.ts` → bundled `api/index.ts` |
-| `apps/backend/api/src/analytics` | Insight pipelines (cron-driven; not a separate service)                                                                       |
-| `apps/backend/api/src/routes`    | HTTP handlers                                                                                                                 |
-| `packages/domain`                | `@gzclp/domain` — Zod schemas + GZCLP engine + every rule web and mobile share (**SoT for training rules**)                   |
-| `packages/database`              | `@gzclp/database` — Drizzle schema, migrations, seeds                                                                         |
-| `packages/api-client`            | Wire mechanics web and mobile share: path encoding, request builders, error decoding, cursor paging. No training rules        |
-| `packages/design-tokens`         | `@gzclp/design-tokens` — colors, spacing, radii, type scale; web CSS is generated from it, mobile imports it                  |
-| `scripts/`                       | `vercel-build.sh`, `bundle-api-function.mjs`, loadtest, security checks                                                       |
+| Path                             | Role                                                                                                                                    |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/frontend/web`              | React 19 + Vite 7 SPA (TanStack Router/Query, Tailwind 4, i18next)                                                                      |
+| `apps/frontend/mobile`           | Expo 54 / RN (hand-written API calls; no generated client)                                                                              |
+| `apps/backend/api`               | ElysiaJS API — `src/create-app.ts`; Node server `src/dev-server.ts` (VPS image and local dev); old Vercel entry `src/vercel-handler.ts` |
+| `apps/backend/api/src/analytics` | Insight pipelines (cron-driven; not a separate service)                                                                                 |
+| `apps/backend/api/src/routes`    | HTTP handlers                                                                                                                           |
+| `packages/domain`                | `@gzclp/domain` — Zod schemas + GZCLP engine + every rule web and mobile share (**SoT for training rules**)                             |
+| `packages/database`              | `@gzclp/database` — Drizzle schema, migrations, seeds                                                                                   |
+| `packages/api-client`            | Wire mechanics web and mobile share: path encoding, request builders, error decoding, cursor paging. No training rules                  |
+| `packages/design-tokens`         | `@gzclp/design-tokens` — colors, spacing, radii, type scale; web CSS is generated from it, mobile imports it                            |
+| `scripts/`                       | `vercel-build.sh`, `bundle-api-function.mjs`, loadtest, security checks                                                                 |
 
 ## Hard contracts (do not violate)
 
@@ -41,8 +43,9 @@ Shared standing law for every agent that touches this repo. If it is not here, i
    `@gzclp/domain`. Never reimplement or clamp on top in app code.
 2. **Server DB SoT** — Postgres schema/migrations/seeds only in `packages/database`. Edit
    `packages/database/src/schema.ts` → `pnpm run db:generate`. Migrations run
-   **build-time** via `pnpm --filter api db:deploy` (advisory-locked,
-   `DIRECT_DATABASE_URL` in prod) — **never** boot-time DDL in `create-app.ts`. Mobile offline SQLite has a separate
+   **once per deploy**: the `api` container runs `src/scripts/migrate-deploy.ts`
+   (advisory-locked, `DIRECT_DATABASE_URL` in prod) before it starts the server —
+   **never** boot-time DDL in `create-app.ts`. Mobile offline SQLite has a separate
    [storage contract](docs/agents/mobile-storage.md) in `apps/frontend/mobile/src/lib/db`.
 3. **`generated.ts` is a drift artifact, not a client** — after route changes, with
    API running: `pnpm --filter web api:types` and commit
@@ -59,14 +62,14 @@ Shared standing law for every agent that touches this repo. If it is not here, i
    `routes/auth.ts`, `services/auth.ts`, `middleware/auth-guard.ts`.
 7. **Internal/cron** — `/api/internal/*` accepts `CRON_SECRET` or
    `INTERNAL_SECRET` Bearer; fails closed if neither set. Crons:
-   `analytics/compute` + `maintenance` (see `vercel.json`).
+   `analytics/compute` + `maintenance` (VPS `/etc/cron.d/gravity-room`).
 8. **Same-origin prod** — `CORS_ORIGIN` empty, `VITE_API_URL=""`. Pooled
    `DATABASE_URL` at request time; direct `DIRECT_DATABASE_URL` only for
    migrations. Redis = Upstash REST only (`UPSTASH_REDIS_*`); optional locally,
    required in prod.
 9. **New required-in-prod env** — update all three:
-   `apps/backend/api/src/lib/env-validation.ts`, root `.env.example`, Vercel env
-   (Production + Preview).
+   `apps/backend/api/src/lib/env-validation.ts`, root `.env.example`, and the VPS
+   env file `/opt/gravity-room-deploy/.env`.
 
 ## Sharing rules (web and mobile)
 
@@ -117,7 +120,7 @@ pnpm run e2e
 pnpm run bundle:api:check     # api/index.ts drift
 ```
 
-Local setup details → skill `local-dev`. Deploy diagnosis → skill `vercel-deploy`.
+Local setup details → skill `local-dev`. Deploy diagnosis → skill `vps-deploy`.
 
 ## Agent skills
 
@@ -138,9 +141,9 @@ Single-context. The repo has no `CONTEXT.md` or `docs/adr/` yet, so there is no 
 
 ## Do not reintroduce
 
-- Python analytics service, Docker/VPS/Caddy deploy, aggregate CI `Validate` workflow, Claude review
+- Python analytics service, aggregate CI `Validate` workflow, Claude review
 - `/metrics` + prom-client, `REDIS_URL`, `METRICS_TOKEN`, `DB_POOL_SIZE`, `COMPUTE_INTERVAL_HOURS`
 - Per-package `.env*.example` (root `.env.example` only)
 - Boot-time DDL, cross-origin split in production
 
-Active GitHub workflows: `ci-frontend.yml`, `ci-backend.yml`, `ci-infra.yml`, `production-smoke.yml`.
+Active GitHub workflows: `deploy.yml`, `ci-frontend.yml`, `ci-backend.yml`, `ci-infra.yml`, `production-smoke.yml`.
