@@ -34,7 +34,15 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: rechedev9/vps-deploy/deploy@main
+      # A public repo cannot call an action from a private repo, so it reads vps-deploy with a read-only deploy key.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: rechedev9/vps-deploy
+          ssh-key: ${{ secrets.VPS_DEPLOY_ACTION_KEY }}
+          path: .github/vps-deploy
+          persist-credentials: false
+
+      - uses: ./.github/vps-deploy/deploy
         with:
           app: gravity-room
           key: ${{ secrets.VPS_DEPLOY_KEY }}
