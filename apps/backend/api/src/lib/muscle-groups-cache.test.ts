@@ -79,7 +79,7 @@ describe('getCachedMuscleGroups', () => {
   });
 
   it('returns cached array on hit', async () => {
-    // Arrange — Upstash auto-deserializes, so the client returns the array.
+    // Arrange — the client decodes JSON, so it returns the array.
     mockGet.mockResolvedValueOnce(CACHED_MUSCLE_GROUPS);
 
     // Act

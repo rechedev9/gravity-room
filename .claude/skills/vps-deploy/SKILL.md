@@ -18,7 +18,7 @@ previous images back. `/opt/gravity-room-app/REVISION` names the commit that run
 | `/opt/gravity-room-app/compose.yaml`  | `api` (host network, port 3001) and `web` (127.0.0.1:8114). VPS-only file.      |
 | `/opt/gravity-room-deploy/.env`       | Production env, read by the `api` container.                                    |
 | `/opt/gravity-room-deploy/Caddyfile`  | Shared edge Caddy: `/api/*` to 3001, the rest to 8114, security headers.        |
-| `/opt/gravity-room-deploy/` compose   | Postgres (127.0.0.1:5433), Redis and its REST proxy (127.0.0.1:8079), the Caddy. |
+| `/opt/gravity-room-deploy/` compose   | Postgres (127.0.0.1:5433), Redis (the api reads it over TCP via `REDIS_URL`), the Caddy. |
 | `/etc/cron.d/gravity-room`            | Analytics and maintenance crons (127.0.0.1:3001) and the nightly `backup.sh`.  |
 
 The `api` container runs `migrate-deploy` before the server, so a failing migration fails the

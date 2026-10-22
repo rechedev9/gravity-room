@@ -1,61 +1,32 @@
-/**
- * rate-limit unit tests — verify the Upstash-backed sliding-window limiter.
- *
- * Strategy: mock @upstash/ratelimit with a deterministic in-memory counter so
- * we can drive the limit/allow decision, and mock ../lib/redis so the limiter
- * believes Upstash is configured. Each test uses a unique endpoint+IP key to
- * avoid cross-test contamination in the module-level limiter cache.
- */
+// slidingWindow is an in-memory fake here; the Lua script runs against a real
+// Redis in lib/redis.integration.test.ts.
 process.env['LOG_LEVEL'] = 'silent';
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// ---------------------------------------------------------------------------
-// Mocks — must be declared before importing the SUT
-// ---------------------------------------------------------------------------
-
 let redisAvailable = true;
 let limiterFailure: Error | undefined;
 
-vi.mock('../lib/redis', () => ({
-  // Truthy stub; the mocked Ratelimit below ignores the client entirely.
-  getRedis: (): unknown => (redisAvailable ? {} : undefined),
-}));
-
-// Per-key hit counter shared across mocked Ratelimit instances.
 const counts = new Map<string, number>();
 
-vi.mock('@upstash/ratelimit', () => {
-  class Ratelimit {
-    private readonly max: number;
-    private readonly windowMs: number;
-    constructor(opts: { limiter: { max: number; windowMs: number } }) {
-      this.max = opts.limiter.max;
-      this.windowMs = opts.limiter.windowMs;
-    }
-    static slidingWindow(max: number, window: string): { max: number; windowMs: number } {
-      return { max, windowMs: Number(window.replace(/\s*ms$/, '')) };
-    }
-    limit(
-      key: string,
-      options?: { rate?: number }
-    ): Promise<{ success: boolean; reset: number; pending: Promise<unknown> }> {
-      if (limiterFailure) return Promise.reject(limiterFailure);
-      const n = (counts.get(key) ?? 0) + (options?.rate ?? 1);
-      counts.set(key, n);
-      // Mirror the real client: `reset` is the absolute ms timestamp at which the
-      // current window clears, so rate-limit.ts can derive Retry-After from it.
-      // `pending` is the background multi-region sync promise the real limiter
-      // returns; rate-limit.ts hands it to keepAlive().
-      return Promise.resolve({
-        success: n <= this.max,
-        reset: Date.now() + this.windowMs,
-        pending: Promise.resolve(),
-      });
-    }
-  }
-  return { Ratelimit };
-});
+vi.mock('../lib/redis', () => ({
+  getRedis: (): unknown =>
+    redisAvailable
+      ? {
+          slidingWindow(opts: {
+            key: string;
+            limit: number;
+            windowMs: number;
+            cost: number;
+          }): Promise<{ success: boolean; reset: number }> {
+            if (limiterFailure) return Promise.reject(limiterFailure);
+            const n = (counts.get(opts.key) ?? 0) + opts.cost;
+            counts.set(opts.key, n);
+            return Promise.resolve({ success: n <= opts.limit, reset: Date.now() + opts.windowMs });
+          },
+        }
+      : undefined,
+}));
 
 // Must import AFTER mock.module
 import { rateLimit } from './rate-limit';
@@ -177,10 +148,10 @@ describe('rateLimit function', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Dev no-op — when Upstash is not configured the limiter never throws
+// Dev no-op — when Redis is not configured the limiter never throws
 // ---------------------------------------------------------------------------
 
-describe('rateLimit without Upstash (dev no-op)', () => {
+describe('rateLimit without Redis (dev no-op)', () => {
   it('permits every request when getRedis() returns undefined', async () => {
     redisAvailable = false;
     await rateLimit('ip-noop', 'TEST /noop', { maxRequests: 1 });
@@ -190,12 +161,12 @@ describe('rateLimit without Upstash (dev no-op)', () => {
 
 describe('rateLimit backend failures', () => {
   it('remains fail-open by default for ordinary API availability', async () => {
-    limiterFailure = new Error('Upstash unavailable');
+    limiterFailure = new Error('Redis unavailable');
     await expect(rateLimit('ip-open', 'GET /catalog')).resolves.toBeUndefined();
   });
 
   it('fails closed with 503 for credential-accepting endpoints', async () => {
-    limiterFailure = new Error('Upstash unavailable');
+    limiterFailure = new Error('Redis unavailable');
 
     try {
       await rateLimit('ip-closed', 'POST /auth/login', { failClosed: true });

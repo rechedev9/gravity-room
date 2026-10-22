@@ -63,7 +63,7 @@ Shared standing law for every agent that touches this repo. If it is not here, i
    `analytics/compute` + `maintenance` (VPS `/etc/cron.d/gravity-room`).
 8. **Same-origin prod** — `CORS_ORIGIN` empty, `VITE_API_URL=""`. Pooled
    `DATABASE_URL` at request time; direct `DIRECT_DATABASE_URL` only for
-   migrations. Redis = Upstash REST only (`UPSTASH_REDIS_*`); optional locally,
+   migrations. Redis over TCP via `REDIS_URL` (ioredis); optional locally,
    required in prod.
 9. **New required-in-prod env** — update all three:
    `apps/backend/api/src/lib/env-validation.ts`, root `.env.example`, and the VPS
@@ -139,7 +139,7 @@ Single-context. The repo has no `CONTEXT.md` or `docs/adr/` yet, so there is no 
 ## Do not reintroduce
 
 - Python analytics service, aggregate CI `Validate` workflow, Claude review
-- `/metrics` + prom-client, `REDIS_URL`, `METRICS_TOKEN`, `DB_POOL_SIZE`, `COMPUTE_INTERVAL_HOURS`
+- `/metrics` + prom-client, `METRICS_TOKEN`, `DB_POOL_SIZE`, `COMPUTE_INTERVAL_HOURS`
 - Per-package `.env*.example` (root `.env.example` only)
 - Boot-time DDL, cross-origin split in production
 

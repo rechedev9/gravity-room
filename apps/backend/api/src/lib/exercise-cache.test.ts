@@ -195,7 +195,7 @@ describe('getCachedExercises', () => {
   });
 
   it('returns cached paginated result on hit', async () => {
-    // Arrange — Upstash auto-deserializes, so the client returns the object.
+    // Arrange — the client decodes JSON, so it returns the object.
     mockGet.mockResolvedValueOnce(CACHED_EXERCISES);
 
     // Act

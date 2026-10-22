@@ -23,10 +23,10 @@ const queryLogger = {
   },
 };
 
-/** Closes the database connection pool, for scripts and tests that need a teardown. */
-export async function closeDb(): Promise<void> {
+/** Closes the pool; with timeoutSeconds, queries still running after it are cut off. */
+export async function closeDb(timeoutSeconds?: number): Promise<void> {
   if (_client) {
-    await _client.end();
+    await _client.end({ timeout: timeoutSeconds });
     _client = undefined;
     _db = undefined;
   }

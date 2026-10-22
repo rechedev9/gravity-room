@@ -97,9 +97,8 @@ export async function getCachedExercises(
   const key = userId ? userKey(userId, filterHash) : presetKey(filterHash);
 
   try {
-    // Upstash automatically deserializes JSON values on read.
-    const parsed = await redis.get<unknown>(key);
-    if (parsed === null || parsed === undefined) return undefined;
+    const parsed = await redis.get(key);
+    if (parsed === null) return undefined;
 
     if (!isPaginatedExercises(parsed)) {
       logger.warn('exercise-cache: corrupt entry, evicting');
@@ -127,7 +126,6 @@ export async function setCachedExercises(
   const ttl = userId ? USER_TTL_SECONDS : PRESET_TTL_SECONDS;
 
   try {
-    // Upstash serializes the value to JSON; read paths deserialize it back.
     await redis.set(key, result, { ex: ttl });
   } catch (err: unknown) {
     logger.warn({ err }, 'exercise-cache: set failed');

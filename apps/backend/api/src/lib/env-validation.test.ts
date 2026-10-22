@@ -10,6 +10,7 @@ function fullProdEnv(): Record<string, string> {
   }
   env['INTERNAL_SECRET'] = `internal-${'a'.repeat(55)}`;
   env['CRON_SECRET'] = `cron-${'b'.repeat(59)}`;
+  env['TRUSTED_PROXY'] = 'true';
   return env;
 }
 
@@ -40,22 +41,22 @@ describe('validateEnv', () => {
 
   it('treats whitespace-only values as missing', () => {
     const env = fullProdEnv();
-    env['UPSTASH_REDIS_REST_URL'] = '   ';
+    env['REDIS_URL'] = '   ';
     env['DATABASE_URL'] = '\t\n';
     const result = validateEnv(env, 'production');
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('unreachable');
-    expect(result.missing).toContain('UPSTASH_REDIS_REST_URL');
+    expect(result.missing).toContain('REDIS_URL');
     expect(result.missing).toContain('DATABASE_URL');
   });
 
-  it('flags UPSTASH_REDIS_REST_URL when it is unset', () => {
+  it('flags REDIS_URL when it is unset', () => {
     const env = fullProdEnv();
-    delete env['UPSTASH_REDIS_REST_URL'];
+    delete env['REDIS_URL'];
     const result = validateEnv(env, 'production');
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('unreachable');
-    expect(result.missing).toContain('UPSTASH_REDIS_REST_URL');
+    expect(result.missing).toContain('REDIS_URL');
   });
 
   it('does not flag vars that are in REQUIRED_ENV but not required-in-prod', () => {
@@ -66,6 +67,15 @@ describe('validateEnv', () => {
     // None of the optional vars are set, yet validation must still pass.
     for (const spec of optional) delete env[spec.name];
     expect(validateEnv(env, 'production')).toEqual({ ok: true });
+  });
+
+  it('flags a TRUSTED_PROXY other than "true" in production', () => {
+    const env = fullProdEnv();
+    env['TRUSTED_PROXY'] = 'false';
+    const result = validateEnv(env, 'production');
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('unreachable');
+    expect(result.errors).toContain('TRUSTED_PROXY must be "true" in production (got "false")');
   });
 
   it('flags JWT_SECRET shorter than 64 chars in production', () => {

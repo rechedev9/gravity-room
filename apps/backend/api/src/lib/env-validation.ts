@@ -8,8 +8,8 @@
 //     500s per-request)
 //   - scripts/check-env.ts as a CLI (local + pre-deploy gate)
 //
-// The Elysia API runs as one Node process on the VPS, backed by Postgres and an
-// Upstash-compatible Redis REST endpoint. The analytics pipelines run in-process
+// The Elysia API runs as one Node process on the VPS, backed by Postgres and
+// Redis. The analytics pipelines run in-process
 // under src/analytics, driven by the VPS cron, so every var below is consumed by the api.
 
 export const MIN_INTERNAL_SECRET_LENGTH = 32;
@@ -35,20 +35,12 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     example: 'postgresql://USER:PASSWORD@HOST:5432/gravity',
   },
   {
-    name: 'UPSTASH_REDIS_REST_URL',
+    name: 'REDIS_URL',
     service: 'api',
     requiredInProd: true,
     description:
-      'Upstash Redis REST endpoint backing presence, caches, and rate limiting via the connectionless @upstash/redis client. Mandatory in production (startup crash if unset). Degrades gracefully when unset in local dev.',
-    example: 'https://YOUR-DB.upstash.io',
-  },
-  {
-    name: 'UPSTASH_REDIS_REST_TOKEN',
-    service: 'api',
-    requiredInProd: true,
-    description:
-      'Upstash Redis REST token, paired with UPSTASH_REDIS_REST_URL. Mandatory in production.',
-    example: '<upstash-rest-token>',
+      'Redis connection string backing presence, caches, and rate limiting. Mandatory in production (startup crash if unset). Degrades gracefully when unset in local dev.',
+    example: 'redis://:PASSWORD@127.0.0.1:6379',
   },
   {
     name: 'INTERNAL_SECRET',
@@ -112,7 +104,7 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: false,
     description:
-      'Runtime mode. Setting to "production" arms hard-fail checks (DATABASE_URL, UPSTASH_REDIS_REST_*, INTERNAL_SECRET, CRON_SECRET, GOOGLE_CLIENT_ID(S), JWT min-len).',
+      'Runtime mode. Setting to "production" arms hard-fail checks (DATABASE_URL, REDIS_URL, TRUSTED_PROXY, INTERNAL_SECRET, CRON_SECRET, GOOGLE_CLIENT_ID(S), JWT min-len).',
     example: 'production',
   },
   {
@@ -164,9 +156,9 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
   {
     name: 'TRUSTED_PROXY',
     service: 'api',
-    requiredInProd: false,
+    requiredInProd: true,
     description:
-      'Set to the literal string "true" only when self-hosting behind a trusted reverse proxy. Other values, including "false", do not enable X-Forwarded-For trust.',
+      'Must be the literal string "true" in production, where the edge Caddy appends the client address to X-Forwarded-For. Without it every client shares one rate-limit bucket.',
     example: 'true',
   },
   {
@@ -321,7 +313,7 @@ export function validateEnv(
   nodeEnv: string = env['NODE_ENV'] ?? 'development'
 ): ValidateEnvResult {
   // Validation is only enforced in production. Dev/test envs are permissive
-  // because dev workflows routinely run with partial config (no UPSTASH_*,
+  // because dev workflows routinely run with partial config (no REDIS_URL,
   // no GOOGLE_CLIENT_*, etc.) and we don't want to break `bun run dev:api`.
   if (nodeEnv !== 'production') return { ok: true };
 
@@ -352,6 +344,11 @@ export function validateEnv(
   }
   if (internalSecret && cronSecret && internalSecret === cronSecret) {
     errors.push('INTERNAL_SECRET and CRON_SECRET must be different values in production');
+  }
+
+  const trustedProxy = env['TRUSTED_PROXY'];
+  if (isPresent(trustedProxy) && trustedProxy !== 'true') {
+    errors.push(`TRUSTED_PROXY must be "true" in production (got "${trustedProxy}")`);
   }
 
   if (env['LOG_AUTH_ACTION_LINKS'] === 'true') {

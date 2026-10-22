@@ -22,9 +22,8 @@ export async function getCachedCatalogList(): Promise<unknown> {
   if (!redis) return undefined;
 
   try {
-    // Upstash automatically deserializes JSON values on read.
-    const parsed = await redis.get<unknown>(CATALOG_LIST_KEY);
-    if (parsed === null || parsed === undefined) return undefined;
+    const parsed = await redis.get(CATALOG_LIST_KEY);
+    if (parsed === null) return undefined;
 
     if (!Array.isArray(parsed)) {
       logger.warn('catalog-cache: corrupt list entry, evicting');
@@ -74,9 +73,8 @@ export async function getCachedCatalogDetail(
   if (!redis) return undefined;
 
   try {
-    // Upstash automatically deserializes JSON values on read.
-    const parsed = await redis.get<unknown>(detailKey(programId));
-    if (parsed === null || parsed === undefined) return undefined;
+    const parsed = await redis.get(detailKey(programId));
+    if (parsed === null) return undefined;
 
     if (!isProgramDefinition(parsed)) {
       logger.warn({ programId }, 'catalog-cache: corrupt detail entry, evicting');

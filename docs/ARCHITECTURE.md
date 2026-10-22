@@ -70,7 +70,7 @@ pnpm run dev:api    # :3001
 pnpm run dev        # :5173
 ```
 
-Postgres required (`DATABASE_URL`). Upstash Redis optional locally, required in prod.
+Postgres required (`DATABASE_URL`). Redis (`REDIS_URL`) optional locally, required in prod.
 
 ## Validation
 
