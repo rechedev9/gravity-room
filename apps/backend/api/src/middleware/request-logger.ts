@@ -4,29 +4,9 @@ import { isIP } from 'node:net';
 import type { Logger } from 'pino';
 import { logger } from '../lib/logger';
 
-/**
- * Whether to trust a forwarded-client header for rate-limit keying.
- *
- * On Vercel the platform terminates the connection and injects the real client
- * IP into the `x-vercel-forwarded-for` header, which Vercel sets and overwrites
- * on every request — the client cannot influence it. We use that header (not the
- * leftmost `x-forwarded-for` entry, which a client can prepend to spoof) whenever
- * `VERCEL` is set (Vercel sets `VERCEL=1`). Off-Vercel the header is only trusted
- * when `TRUSTED_PROXY=true` is explicitly set, and there the proxy appends the
- * real peer address, so the RIGHTMOST `x-forwarded-for` entry is the trustworthy
- * one (anti-spoof). When untrusted there is no socket address in a serverless
- * runtime, so the IP is reported as 'unknown' rather than a client-controlled value.
- *
- * The `=== 'true'` comparison is strict — `!!process.env['…']` would treat the
- * string "false" (and any other non-empty value) as truthy, silently enabling
- * proxy trust when an operator meant to disable it.
- */
-export function isVercelEnvironment(value: string | undefined): boolean {
-  return value === '1';
-}
-
-const ON_VERCEL = isVercelEnvironment(process.env['VERCEL']);
-const TRUSTED_PROXY = process.env['TRUSTED_PROXY'] === 'true' || ON_VERCEL;
+// Strict `=== 'true'`, so "false" never enables X-Forwarded-For trust for
+// rate-limit keying; the edge Caddy appends the real peer as the rightmost entry.
+const TRUSTED_PROXY = process.env['TRUSTED_PROXY'] === 'true';
 
 /**
  * Extracts the client IP from an X-Forwarded-For header behind exactly one
@@ -46,41 +26,12 @@ export function clientIpFromXff(xff: string): string | undefined {
 }
 
 /**
- * Extracts the client IP from a Vercel-controlled forwarded header
- * (`x-vercel-forwarded-for`). Vercel sets and overwrites that header with the
- * real client address, so its first valid entry is the trustworthy client IP.
- */
-export function clientIpFromVercelXff(xff: string): string | undefined {
-  for (const raw of xff.split(',')) {
-    const candidate = raw.trim();
-    if (candidate && isIP(candidate) !== 0) return candidate;
-  }
-  return undefined;
-}
-
-/**
  * Derives the trustworthy client IP for rate-limit keying from request headers.
- *
- * On Vercel we read `x-vercel-forwarded-for` — a header Vercel sets and overwrites
- * on every request, so the client cannot influence it. We deliberately do NOT fall
- * back to `x-forwarded-for` here: a client can prepend a spoofed leftmost entry to
- * that header to mint a fresh rate-limit bucket per request and bypass brute-force
- * and email-bomb defenses. Off-Vercel we only trust `x-forwarded-for` when a proxy
- * is explicitly configured (`trustedProxy`), and there the proxy appends the real
- * peer, so the RIGHTMOST entry is the anti-spoof one. In every other case there is
- * no trustworthy socket address, so we report 'unknown' rather than a
- * client-controlled value.
+ * Without a trusted proxy there is no trustworthy address, so it reports 'unknown'
+ * rather than a client-controlled value.
  */
-export function deriveClientIp(
-  headers: Headers,
-  env: { onVercel: boolean; trustedProxy: boolean }
-): string {
-  if (env.onVercel) {
-    const vercelXff = headers.get('x-vercel-forwarded-for');
-    if (vercelXff) return clientIpFromVercelXff(vercelXff) ?? 'unknown';
-    return 'unknown';
-  }
-  if (env.trustedProxy) {
+export function deriveClientIp(headers: Headers, trustedProxy: boolean): string {
+  if (trustedProxy) {
     const xff = headers.get('x-forwarded-for');
     if (xff) return clientIpFromXff(xff) ?? 'unknown';
   }
@@ -165,19 +116,10 @@ export const requestLogger = new Elysia({ name: 'request-logger' })
       const rawReqId = request.headers.get('x-request-id');
       const reqId = rawReqId && REQ_ID_RE.test(rawReqId) ? rawReqId : randomUUID();
       const method = request.method;
-      // Base required: the Vercel Node runtime passes a path-only request.url. The
-      // helper also fails closed to a stable placeholder if an early adapter hands
-      // us a malformed URL, because observability must never become the error source.
+      // Fails closed to a stable placeholder on a malformed URL, because
+      // observability must never become the error source.
       const url = safeRequestPath(request.url);
-      // Untrusted (no socket address in a serverless runtime): report 'unknown'
-      // rather than a client-controlled value. On Vercel the real client IP comes
-      // from the platform-controlled `x-vercel-forwarded-for` header (not the
-      // spoofable leftmost x-forwarded-for entry); off-Vercel behind a single
-      // configured proxy the RIGHTMOST x-forwarded-for entry is the anti-spoof one.
-      const ip = deriveClientIp(request.headers, {
-        onVercel: ON_VERCEL,
-        trustedProxy: TRUSTED_PROXY,
-      });
+      const ip = deriveClientIp(request.headers, TRUSTED_PROXY);
       const startMs = Date.now();
       const reqLogger = logger.child({ reqId, method, url, ip });
       reqLogger.info('incoming request');
@@ -186,9 +128,8 @@ export const requestLogger = new Elysia({ name: 'request-logger' })
   )
   .mapResponse({ as: 'global' }, ({ reqId, reqLogger, startMs, set, responseValue, request }) => {
     // Elysia can reach mapResponse for unmatched or very-early failures before
-    // derive() populated its context. Never assume those fields exist: the old
-    // unconditional reqLogger.info() turned otherwise harmless 404s into failed
-    // Vercel invocations.
+    // derive() populated its context. Never assume those fields exist, or a
+    // harmless 404 turns into a thrown error.
     const hasDerivedContext = validRequestId(reqId) && reqLogger !== undefined;
     const responseReqId = validRequestId(reqId) ? reqId : randomUUID();
     const responseLogger =
@@ -197,10 +138,7 @@ export const requestLogger = new Elysia({ name: 'request-logger' })
         reqId: responseReqId,
         method: request.method,
         url: safeRequestPath(request.url),
-        ip: deriveClientIp(request.headers, {
-          onVercel: ON_VERCEL,
-          trustedProxy: TRUSTED_PROXY,
-        }),
+        ip: deriveClientIp(request.headers, TRUSTED_PROXY),
       });
     const status = resolveResponseStatus(responseValue, set.status);
     const latencyMs = typeof startMs === 'number' ? Date.now() - startMs : undefined;

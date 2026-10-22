@@ -1,8 +1,8 @@
 /**
  * telegram.ts unit tests — verifies send behavior, no-op paths, and error isolation.
  *
- * sendTelegramMessage returns a never-rejecting promise (callers keepAlive it so
- * the send survives serverless freeze-on-response). To test async behavior we let
+ * sendTelegramMessage returns a never-rejecting promise (callers keepAlive it).
+ * To test async behavior we let
  * the internal work settle by awaiting a microtask flush via Promise.resolve().
  *
  * fetch is mocked on globalThis so it is intercepted by the module's internal
@@ -127,8 +127,6 @@ describe('sendTelegramMessage', () => {
     // Arrange & Act
     const result = sendTelegramMessage('hello');
 
-    // Assert — now returns a promise (extended past the response via keepAlive on
-    // Vercel); it settles without throwing.
     expect(result).toBeInstanceOf(Promise);
     await expect(result).resolves.toBeUndefined();
   });

@@ -13,13 +13,12 @@ COPY packages/api-client/package.json packages/api-client/
 COPY packages/database/package.json packages/database/
 COPY packages/design-tokens/package.json packages/design-tokens/
 COPY packages/domain/package.json packages/domain/
-# The root brings esbuild.
-RUN pnpm install --frozen-lockfile --filter gravity-room --filter api... --ignore-scripts
+RUN pnpm install --frozen-lockfile --filter api... --ignore-scripts
 COPY packages/domain packages/domain
 COPY packages/database packages/database
 COPY apps/backend/api apps/backend/api
 # The banner gives bundled CommonJS packages the `require` that ESM lacks.
-RUN node_modules/.bin/esbuild apps/backend/api/src/dev-server.ts apps/backend/api/src/scripts/migrate-deploy.ts \
+RUN apps/backend/api/node_modules/.bin/esbuild apps/backend/api/src/dev-server.ts apps/backend/api/src/scripts/migrate-deploy.ts \
       apps/backend/api/scripts/check-env.ts \
       --bundle --platform=node --format=esm --target=node24 --external:@node-rs/argon2 \
       --entry-names=[name] --out-extension:.js=.mjs --outdir=/out/dist --log-level=warning \

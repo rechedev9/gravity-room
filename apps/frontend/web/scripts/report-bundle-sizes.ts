@@ -90,9 +90,8 @@ async function main(): Promise<void> {
   const indexHtml = existsSync(join(DIST, 'index.html'))
     ? readFileSync(join(DIST, 'index.html'), 'utf8')
     : '';
-  const loginHtml = existsSync(join(DIST, 'login.html'))
-    ? readFileSync(join(DIST, 'login.html'), 'utf8')
-    : '';
+  const loginHtmlPath = join(DIST, 'login', 'index.html');
+  const loginHtml = existsSync(loginHtmlPath) ? readFileSync(loginHtmlPath, 'utf8') : '';
 
   const files = readdirSync(ASSETS).filter((f) => f.endsWith('.js'));
   const rows: ChunkRow[] = [];
@@ -236,7 +235,7 @@ async function main(): Promise<void> {
     failed = true;
   }
   if (loginHasLandingLeak) {
-    console.error('BUDGET FAIL: /login.html modulepreloads include landing chunks');
+    console.error('BUDGET FAIL: /login modulepreloads include landing chunks');
     failed = true;
   }
   if (loginHtml && loginPreloadCount > BUDGETS.loginExtraPreloadMax + 20) {

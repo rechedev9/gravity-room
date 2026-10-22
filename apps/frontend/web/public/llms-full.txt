@@ -4,7 +4,7 @@
 > Summary version: https://gravityroom.app/llms.txt
 
 **Canonical URL**: https://gravityroom.app/llms-full.txt
-**Last updated**: 2026-08-10
+**Last updated**: 2026-10-22
 
 ## Overview
 
@@ -104,9 +104,9 @@ Gravity Room solves all four by implementing the progression rules of establishe
 - PWA via vite-plugin-pwa with Workbox runtime caching
 
 ### Backend (apps/backend/api)
-- ElysiaJS served as a Node.js Vercel serverless function
-- Neon PostgreSQL with Drizzle ORM; pooled connections at request time and direct connections for build-time migrations
-- Upstash Redis REST for rate limiting, presence, and caches
+- ElysiaJS served by a long-lived Node.js process on a VPS
+- PostgreSQL with Drizzle ORM; a connection pool at request time and a direct connection for deploy-time migrations
+- A Redis REST endpoint for rate limiting, presence, and caches
 - Short-lived JWT access tokens plus rotating refresh tokens; session revocation uses an authentication version
 - Email/password authentication and configurable Google, Apple, GitHub, and Microsoft sign-in
 - Sentry for error tracking
@@ -117,13 +117,13 @@ Gravity Room solves all four by implementing the progression rules of establishe
 - Estimated 1RM (e1RM) computation using Epley formula
 - Plateau detection, volume analysis, training frequency insights
 - Forecasts and recommendations stored as pre-computed user insights
-- Protected Vercel Cron endpoint processes a bounded, idempotent batch
+- Protected cron endpoint processes a bounded, idempotent batch
 
 ### Infrastructure
 - Native Node.js and local PostgreSQL for development
-- One same-origin Vercel project: static Vite SPA plus the serverless API
-- Neon PostgreSQL and Upstash Redis provide managed production data services
-- Vercel Cron runs maintenance and analytics jobs
+- One same-origin VPS deployment: the static Vite SPA plus the Node API, as two containers
+- Self-hosted PostgreSQL and Redis (behind a REST proxy) provide production data services
+- A VPS cron runs maintenance and analytics jobs
 - Plausible Analytics (privacy-first, no cookies)
 
 ## Evidence-based Exercise Guides

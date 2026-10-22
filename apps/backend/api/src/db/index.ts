@@ -14,7 +14,6 @@ const MAX_CONNECTION_LIFETIME_SECONDS = 3600;
 
 let _client: postgres.Sql | undefined;
 let _db: DbInstance | undefined;
-let _sessionRlsReady: Promise<void> | undefined;
 
 const queryLogger = {
   logQuery(query: string, params: unknown[]): void {
@@ -24,38 +23,19 @@ const queryLogger = {
   },
 };
 
-/**
- * Closes the database connection pool.
- *
- * NOT part of the serverless request lifecycle: on Vercel the pooled client is a
- * module-scope singleton reused across warm invocations, so no handler or request
- * path calls this. Retained for scripts and tests that need an explicit teardown.
- */
+/** Closes the database connection pool, for scripts and tests that need a teardown. */
 export async function closeDb(): Promise<void> {
   if (_client) {
     await _client.end();
     _client = undefined;
     _db = undefined;
-    _sessionRlsReady = undefined;
   }
-}
-
-/**
- * Ensures the pooled connection carries a session-level service RLS role so
- * non-transactional queries (and work after a user-scoped transaction ends)
- * are not denied by FORCE ROW LEVEL SECURITY. Transaction-local SET LOCAL in
- * `setUserRlsContext` still overrides this for the duration of user work.
- */
-export function ensureSessionServiceRole(): Promise<void> {
-  getDb();
-  return _sessionRlsReady ?? Promise.resolve();
 }
 
 function wrapWithDefaultServiceRole(db: DbInstance): DbInstance {
   const originalTransaction = db.transaction.bind(db);
   const wrappedTransaction: DbInstance['transaction'] = (fn, options) =>
     originalTransaction(async (tx) => {
-      await ensureSessionServiceRole();
       await setServiceRlsContext(tx);
       return fn(tx);
     }, options);
@@ -70,10 +50,10 @@ export function getDb(): DbInstance {
       throw new Error('DATABASE_URL environment variable is required');
     }
     _client = postgres(url, {
-      // Serverless: exactly one connection per warm instance against the pooled
-      // (PgBouncer) endpoint. Hard-coded to 1 — DB_POOL_SIZE was removed.
-      max: 1,
-      idle_timeout: 30,
+      // One long-lived process serves every request, so it needs a real pool.
+      max: 10,
+      // Long enough to keep warm connections and their prepared statements.
+      idle_timeout: 300,
       connect_timeout: 10,
       ssl:
         process.env['DB_SSL'] === 'false'
@@ -81,25 +61,14 @@ export function getDb(): DbInstance {
           : process.env['NODE_ENV'] === 'production'
             ? 'require'
             : false,
-      // Prevent runaway queries from exhausting the pool
-      connection: { statement_timeout: 30_000 },
-      // PgBouncer safety — plain queries instead of prepared statements
-      prepare: false,
+      // Startup parameters reach every pooled connection; the service role keeps
+      // non-transactional queries from being denied by FORCE ROW LEVEL SECURITY.
+      connection: { statement_timeout: 30_000, 'app.service_role': 'on' },
       // TCP keepalive to detect dead connections (interval in seconds)
       keep_alive: KEEP_ALIVE_INTERVAL_SECONDS,
       // Recycle connections after 1 hour
       max_lifetime: MAX_CONNECTION_LIFETIME_SECONDS,
     });
-    _sessionRlsReady = _client`
-      select set_config('app.service_role', 'on', false)
-    `.then(
-      () => undefined,
-      (err: unknown) => {
-        // Local/unit tests may point at a stub URL; RLS setters inside real
-        // transactions still apply when a live database is available.
-        logger.warn({ err }, 'Failed to set session RLS service role');
-      }
-    );
     _db = wrapWithDefaultServiceRole(drizzle(_client, { schema, logger: queryLogger }));
   }
   return _db;

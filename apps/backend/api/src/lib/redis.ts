@@ -5,11 +5,18 @@ import { logger } from './logger';
  * Upstash Redis over the connectionless REST client.
  *
  * Redis is MANDATORY in production: if the Upstash REST env is missing while
- * NODE_ENV=production we throw at module init so the serverless function fails
- * fast on cold start instead of silently degrading. In development without
+ * NODE_ENV=production we throw at module init so the server fails fast at
+ * startup instead of silently degrading. In development without
  * Upstash configured, getRedis() returns undefined and every caller degrades
  * gracefully (presence -> null/zero, caches -> miss, rate limiting -> no-op).
  */
+
+function resolveRedisCredentials(): { url: string | undefined; token: string | undefined } {
+  return {
+    url: process.env['UPSTASH_REDIS_REST_URL'],
+    token: process.env['UPSTASH_REDIS_REST_TOKEN'],
+  };
+}
 
 /**
  * Fails fast at startup when Upstash is not configured in production. Called
@@ -18,24 +25,11 @@ import { logger } from './logger';
  * e.g. when this module is imported before the env is wired in some tests or
  * runtimes - is still seen.
  */
-/**
- * Resolve the Upstash REST credentials. Prefers the canonical
- * UPSTASH_REDIS_REST_URL/TOKEN, falling back to KV_REST_API_URL/TOKEN — the
- * names the Vercel Upstash integration injects — so the connection works out of
- * the box on Vercel without manually duplicating the secrets.
- */
-function resolveRedisCredentials(): { url: string | undefined; token: string | undefined } {
-  return {
-    url: process.env['UPSTASH_REDIS_REST_URL'] ?? process.env['KV_REST_API_URL'],
-    token: process.env['UPSTASH_REDIS_REST_TOKEN'] ?? process.env['KV_REST_API_TOKEN'],
-  };
-}
-
 export function assertRedisConfigured(): void {
   const { url, token } = resolveRedisCredentials();
   if (process.env['NODE_ENV'] === 'production' && (!url || !token)) {
     throw new Error(
-      'UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN (or KV_REST_API_URL/KV_REST_API_TOKEN) are required in production'
+      'UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required in production'
     );
   }
 }

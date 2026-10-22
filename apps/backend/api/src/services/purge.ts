@@ -28,8 +28,8 @@ export async function purgeDeletedUsers(): Promise<PurgeSummary> {
   const cutoff = new Date(Date.now() - PURGE_CUTOFF_MS);
 
   const { deleted, deletedExercises } = await getDb().transaction(async (tx) => {
-    // A bounded, skip-locked batch keeps the daily serverless invocation from
-    // timing out on a backlog and lets concurrent manual invocations cooperate.
+    // A bounded, skip-locked batch keeps the daily run short on a backlog and
+    // lets concurrent manual invocations cooperate.
     const candidates = await tx
       .select({ id: users.id })
       .from(users)
