@@ -2,9 +2,7 @@
 
 GZCLP linear-progression weightlifting tracker. pnpm monorepo deployed **same-origin
 on the VPS** as two containers: `web` (the Vite SPA on Caddy) and `api` (the ElysiaJS
-API on Node). A push to `main` deploys through `.github/workflows/deploy.yml`. The Vercel
-files (`vercel.json`, `api/index.ts`, `scripts/vercel-build.sh`) are the old target and
-are not live.
+API on Node). A push to `main` deploys through `.github/workflows/deploy.yml`.
 
 Deeper docs only when needed: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
 (layout + path map), [`docs/api-and-db.md`](./docs/api-and-db.md)
@@ -23,18 +21,18 @@ Shared standing law for every agent that touches this repo. If it is not here, i
 
 ## Layout
 
-| Path                             | Role                                                                                                                                    |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/frontend/web`              | React 19 + Vite 7 SPA (TanStack Router/Query, Tailwind 4, i18next)                                                                      |
-| `apps/frontend/mobile`           | Expo 54 / RN (hand-written API calls; no generated client)                                                                              |
-| `apps/backend/api`               | ElysiaJS API — `src/create-app.ts`; Node server `src/dev-server.ts` (VPS image and local dev); old Vercel entry `src/vercel-handler.ts` |
-| `apps/backend/api/src/analytics` | Insight pipelines (cron-driven; not a separate service)                                                                                 |
-| `apps/backend/api/src/routes`    | HTTP handlers                                                                                                                           |
-| `packages/domain`                | `@gzclp/domain` — Zod schemas + GZCLP engine + every rule web and mobile share (**SoT for training rules**)                             |
-| `packages/database`              | `@gzclp/database` — Drizzle schema, migrations, seeds                                                                                   |
-| `packages/api-client`            | Wire mechanics web and mobile share: path encoding, request builders, error decoding, cursor paging. No training rules                  |
-| `packages/design-tokens`         | `@gzclp/design-tokens` — colors, spacing, radii, type scale; web CSS is generated from it, mobile imports it                            |
-| `scripts/`                       | `vercel-build.sh`, `bundle-api-function.mjs`, loadtest, security checks                                                                 |
+| Path                             | Role                                                                                                                   |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `apps/frontend/web`              | React 19 + Vite 7 SPA (TanStack Router/Query, Tailwind 4, i18next)                                                     |
+| `apps/frontend/mobile`           | Expo 54 / RN (hand-written API calls; no generated client)                                                             |
+| `apps/backend/api`               | ElysiaJS API — `src/create-app.ts`; Node server `src/dev-server.ts` (VPS image and local dev)                          |
+| `apps/backend/api/src/analytics` | Insight pipelines (cron-driven; not a separate service)                                                                |
+| `apps/backend/api/src/routes`    | HTTP handlers                                                                                                          |
+| `packages/domain`                | `@gzclp/domain` — Zod schemas + GZCLP engine + every rule web and mobile share (**SoT for training rules**)            |
+| `packages/database`              | `@gzclp/database` — Drizzle schema, migrations, seeds                                                                  |
+| `packages/api-client`            | Wire mechanics web and mobile share: path encoding, request builders, error decoding, cursor paging. No training rules |
+| `packages/design-tokens`         | `@gzclp/design-tokens` — colors, spacing, radii, type scale; web CSS is generated from it, mobile imports it           |
+| `scripts/`                       | loadtest, security checks                                                                                              |
 
 ## Hard contracts (do not violate)
 
@@ -117,7 +115,6 @@ pnpm run dev                  # web :5173
 pnpm run typecheck && pnpm run lint && pnpm run test
 pnpm run test:api
 pnpm run e2e
-pnpm run bundle:api:check     # api/index.ts drift
 ```
 
 Local setup details → skill `local-dev`. Deploy diagnosis → skill `vps-deploy`.

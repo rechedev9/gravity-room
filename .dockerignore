@@ -5,7 +5,6 @@
 .github
 .claude
 docs
-api
 apps/frontend/mobile/*
 !apps/frontend/mobile/package.json
 apps/frontend/web/test-results

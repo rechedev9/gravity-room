@@ -21,12 +21,9 @@
  *   GET|POST /api/internal/analytics/compute
  *   GET|POST /api/internal/maintenance        (cleanup-tokens + purge-users)
  *
- * Scheduling note: only `analytics/compute` and `maintenance` are wired to Vercel
- * Cron (see `vercel.json`). The Vercel Hobby plan allows at most two cron jobs,
- * each running once per day, so the two daily maintenance jobs (token cleanup and
- * the soft-deleted-user purge) are folded into the single `maintenance` route to
- * fit one slot, leaving the other for analytics. The standalone `cleanup-tokens`
- * and `purge-users` routes are retained for manual operator invocation.
+ * Scheduling note: only `analytics/compute` and `maintenance` run on a schedule
+ * (VPS `/etc/cron.d/gravity-room`). `maintenance` runs token cleanup and the
+ * soft-deleted-user purge; the standalone routes stay for manual operator use.
  */
 import { Elysia } from 'elysia';
 import { createHash, timingSafeEqual } from 'node:crypto';

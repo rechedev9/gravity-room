@@ -63,7 +63,7 @@ program definition.
 4. Query each constraint predicate in bounded ranges and resolve violations.
 5. Run each `ALTER TABLE ... VALIDATE CONSTRAINT` separately during a low-traffic
    window while watching replica lag, database load, and lock waits. Validation is
-   intentionally outside the Vercel build migration.
+   intentionally outside the deploy-time migration.
 6. Consider stronger non-null contracts only for a new data generation after all
    writers are proven to persist immutable identity. Legacy rows may remain NULL.
 

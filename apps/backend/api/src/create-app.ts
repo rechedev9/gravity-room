@@ -16,7 +16,6 @@ import { internalRoutes } from './routes/internal';
 import { logger } from './lib/logger';
 import { formatValidationError, validateEnv } from './lib/env-validation';
 
-/** Keep in lockstep with `MAX_GATEWAY_BODY_BYTES` in lib/node-gateway.ts. */
 const MAX_REQUEST_BODY_BYTES = 1 * 1024 * 1024;
 
 async function bufferUndeclaredRequestBodyWithinLimit(
@@ -76,10 +75,8 @@ export type CreateAppOptions = {
 };
 
 function shouldDisableHttpCache(request: Request): boolean {
-  // A base is required because the Vercel Node runtime hands the function a
-  // path-only request.url (e.g. "/api/health"), and `new URL(path)` with no base
-  // throws "Invalid URL". The base host is irrelevant — only the pathname is read
-  // — and is ignored when request.url is already absolute (local dev / tests).
+  // The base guards against a path-only request.url, where `new URL(path)` throws.
+  // Only the pathname is read, and the base is ignored when request.url is absolute.
   const url = new URL(request.url, 'http://localhost');
   if (url.pathname.startsWith('/api/auth/')) return true;
   if (url.pathname.startsWith('/api/internal/')) return true;
@@ -106,7 +103,7 @@ function applySecurityHeaders(
   set.headers['content-security-policy'] = csp;
   if (process.env['NODE_ENV'] === 'production') {
     // preload is safe: max-age is 1 year and includeSubDomains is set, the two
-    // preconditions hstspreload.org enforces. Matches the SPA HSTS in vercel.json.
+    // preconditions hstspreload.org enforces. Matches the SPA HSTS from the edge Caddy.
     set.headers['strict-transport-security'] = 'max-age=31536000; includeSubDomains; preload';
   }
   set.headers['permissions-policy'] = permissionsPolicy;
@@ -139,9 +136,8 @@ export function createApp(options: CreateAppOptions) {
 
   const app = new Elysia()
     .onRequest(async (context) => {
-      // Reject oversized payloads before Elysia parses JSON. Vercel enforces its
-      // own platform limit, but this also protects local/self-hosted deployments
-      // and covers chunked bodies with no Content-Length.
+      // Reject oversized payloads before Elysia parses JSON, including chunked
+      // bodies with no Content-Length.
       const bufferedRequest = await bufferUndeclaredRequestBodyWithinLimit(context.request);
       if (bufferedRequest) context.request = bufferedRequest;
     })
@@ -229,7 +225,7 @@ export function createApp(options: CreateAppOptions) {
         .use(statsRoutes)
         .use(insightsRoutes)
         .use(internalRoutes)
-        // Public liveness stays deliberately cheap so Vercel monitoring can keep
+        // Public liveness stays deliberately cheap so uptime monitoring can keep
         // probing the established URL without amplifying unauthenticated traffic
         // into Postgres and Redis. Operators use the secret-guarded
         // GET /api/internal/readiness route for the deep dependency probe.
