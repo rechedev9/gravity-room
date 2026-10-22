@@ -1,9 +1,7 @@
 /**
  * Telegram notification module.
  * Sends a plain-text message to a configured Telegram chat via the Bot API.
- * Returns a promise that never rejects; callers hand it to `keepAlive` so the
- * send survives serverless freeze-on-response (a bare fire-and-forget is dropped
- * the instant the function returns its Response on Vercel).
+ * Returns a promise that never rejects; callers hand it to `keepAlive`.
  * No-ops silently when TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID are absent or empty.
  */
 import { logger } from './logger';
@@ -22,8 +20,7 @@ const TELEGRAM_TIMEOUT_MS = 5_000;
 /**
  * Sends a plain-text message to the configured Telegram chat.
  * Returns a promise that resolves when the send settles and never rejects (all
- * errors are caught and logged). Pass it to `keepAlive` at the call site so the
- * request completes before a serverless function is frozen.
+ * errors are caught and logged). Pass it to `keepAlive` at the call site.
  * No-ops silently when TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID are not set.
  *
  * @param text - The message text to send.

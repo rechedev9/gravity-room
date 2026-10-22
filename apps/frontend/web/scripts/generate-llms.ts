@@ -86,9 +86,9 @@ Each guide identifies its editorial responsibility, technical reviewer, review d
 ## Technical Architecture
 
 - **Frontend**: React 19, Vite, TanStack Router, TanStack Query, Tailwind v4, TypeScript strict
-- **Backend**: ElysiaJS serverless API on Vercel with Drizzle ORM
-- **Data**: Neon PostgreSQL and Upstash Redis REST
-- **Analytics**: TypeScript insight pipelines in the API, computed by a protected Vercel Cron job
+- **Backend**: ElysiaJS API on Node with Drizzle ORM, self-hosted on a VPS
+- **Data**: PostgreSQL and a Redis REST endpoint
+- **Analytics**: TypeScript insight pipelines in the API, computed by a protected cron job
 - **Auth**: rotating JWT sessions; email/password and configurable Google, Apple, GitHub, and Microsoft sign-in
 - **Source**: https://github.com/rechedev9/gravity-room
 

@@ -10,8 +10,9 @@ export interface RlsExecutor {
 }
 
 export async function setServiceRlsContext(tx: RlsExecutor): Promise<void> {
-  await tx.execute(sql`select set_config('app.service_role', 'on', true)`);
-  await tx.execute(sql`select set_config('app.user_id', '', true)`);
+  await tx.execute(
+    sql`select set_config('app.service_role', 'on', true), set_config('app.user_id', '', true)`
+  );
 }
 
 export async function setUserRlsContext(tx: RlsExecutor, userId: string): Promise<void> {
@@ -24,6 +25,7 @@ export async function setUserRlsContext(tx: RlsExecutor, userId: string): Promis
   ) {
     throw new Error('Invalid user id for RLS context');
   }
-  await tx.execute(sql`select set_config('app.user_id', ${userId}, true)`);
-  await tx.execute(sql`select set_config('app.service_role', '', true)`);
+  await tx.execute(
+    sql`select set_config('app.user_id', ${userId}, true), set_config('app.service_role', '', true)`
+  );
 }

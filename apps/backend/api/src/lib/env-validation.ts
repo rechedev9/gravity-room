@@ -1,18 +1,16 @@
-// Centralised env validation for the serverless api and pre-deploy gating.
+// Centralised env validation for the api and pre-deploy gating.
 //
 // REQUIRED_ENV is the single source of truth for "which env vars does the
 // backend consume, and which of them are required when NODE_ENV is
 // 'production'". It is consumed by:
-//   - create-app.ts at cold start (fail-fast with one consolidated error so a
-//     misconfigured production function crashes immediately instead of serving
+//   - create-app.ts at startup (fail-fast with one consolidated error so a
+//     misconfigured production server crashes immediately instead of serving
 //     500s per-request)
 //   - scripts/check-env.ts as a CLI (local + pre-deploy gate)
 //
-// The product runs as ONE same-origin Vercel project: the Elysia API is a Node
-// serverless function (api/[...path].ts) backed by Neon Postgres and Upstash
-// Redis (REST). The analytics insight pipelines were ported to TypeScript and
-// run in-process under src/analytics, driven by Vercel Cron — there is no longer
-// a separate analytics service, so every var below is consumed by the api.
+// The Elysia API runs as one Node process on the VPS, backed by Postgres and an
+// Upstash-compatible Redis REST endpoint. The analytics pipelines run in-process
+// under src/analytics, driven by the VPS cron, so every var below is consumed by the api.
 
 export const MIN_INTERNAL_SECRET_LENGTH = 32;
 export const DEFAULT_ANALYTICS_BATCH_SIZE = 50;
@@ -24,11 +22,6 @@ export type EnvVarSpec = {
   requiredInProd: boolean;
   description: string;
   example?: string;
-  // Alternative env var names that satisfy this one when the canonical name is
-  // unset. Used for managed-integration vars whose injected names differ from
-  // what the code reads (e.g. the Vercel Upstash integration injects
-  // KV_REST_API_URL, which the code consumes as UPSTASH_REDIS_REST_URL).
-  aliases?: readonly string[];
 };
 
 export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
@@ -38,25 +31,23 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: true,
     description:
-      'Neon POOLED (PgBouncer) connection string used at request time; host contains "-pooler". The serverless DB client opens at most one connection per warm instance (pool max=1, prepare:false). Boot-crashes the api if unset in production.',
-    example: 'postgresql://USER:PASSWORD@HOST-pooler.neon.tech/gravity?sslmode=require',
+      'Postgres connection string used at request time. The api keeps a pool of up to 10 connections. Boot-crashes the api if unset in production.',
+    example: 'postgresql://USER:PASSWORD@HOST:5432/gravity',
   },
   {
     name: 'UPSTASH_REDIS_REST_URL',
     service: 'api',
     requiredInProd: true,
-    aliases: ['KV_REST_API_URL'],
     description:
-      'Upstash Redis REST endpoint backing presence, caches, and rate limiting via the connectionless @upstash/redis client. Mandatory in production (cold-start crash if unset); satisfied by the Vercel Upstash integration variable KV_REST_API_URL. Degrades gracefully when unset in local dev.',
+      'Upstash Redis REST endpoint backing presence, caches, and rate limiting via the connectionless @upstash/redis client. Mandatory in production (startup crash if unset). Degrades gracefully when unset in local dev.',
     example: 'https://YOUR-DB.upstash.io',
   },
   {
     name: 'UPSTASH_REDIS_REST_TOKEN',
     service: 'api',
     requiredInProd: true,
-    aliases: ['KV_REST_API_TOKEN'],
     description:
-      'Upstash Redis REST token, paired with UPSTASH_REDIS_REST_URL. Mandatory in production; satisfied by the Vercel Upstash integration variable KV_REST_API_TOKEN.',
+      'Upstash Redis REST token, paired with UPSTASH_REDIS_REST_URL. Mandatory in production.',
     example: '<upstash-rest-token>',
   },
   {
@@ -72,8 +63,8 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: true,
     description:
-      'Required in production. Vercel Cron injects it as Authorization Bearer credentials on scheduled routes only (/api/internal/maintenance, /api/internal/analytics/compute). Must not unlock operator-only internal routes. At least 32 characters of cryptographically random material and distinct from INTERNAL_SECRET.',
-    example: '<vercel-cron-bearer-secret>',
+      'Required in production. The VPS cron presents it as Authorization Bearer credentials on scheduled routes only (/api/internal/maintenance, /api/internal/analytics/compute). Must not unlock operator-only internal routes. At least 32 characters of cryptographically random material and distinct from INTERNAL_SECRET.',
+    example: '<cron-bearer-secret>',
   },
   {
     name: 'JWT_SECRET',
@@ -105,15 +96,15 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: false,
     description:
-      'Neon DIRECT (non-pooled) connection string. Used ONLY by the build-time deploy step `pnpm --filter api db:deploy` (drizzle migrations + idempotent seeds), which must run DDL serially against a direct connection, never PgBouncer. Falls back to the Vercel/Neon integration variable DATABASE_URL_UNPOOLED, then DATABASE_URL, when unset; not consumed at request time.',
-    example: 'postgresql://USER:PASSWORD@HOST.neon.tech/gravity?sslmode=require',
+      'Direct (non-pooled) Postgres connection string. Used ONLY by the deploy step `migrate-deploy` (drizzle migrations + idempotent seeds), which must run DDL serially against a direct connection, never PgBouncer. Falls back to DATABASE_URL when unset, and must not be a PgBouncer URL in production; not consumed at request time.',
+    example: 'postgresql://USER:PASSWORD@HOST:5432/gravity',
   },
   {
     name: 'CORS_ORIGIN',
     service: 'api',
     requiredInProd: false,
     description:
-      'Allowed CORS origin (or comma-separated list); also the SPA base for post-login redirects and email action links. LEAVE EMPTY for the same-origin Vercel deployment, where trusted Vercel system env supplies the origin. Set a value only for split-origin local dev.',
+      'Allowed CORS origin (or comma-separated list); also the SPA base for post-login redirects and email action links. LEAVE EMPTY for the same-origin production deployment, where API_PUBLIC_URL supplies the origin. Set a value only for split-origin local dev.',
     example: '',
   },
   {
@@ -151,7 +142,7 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: false,
     description:
-      'Explicit local-development-only opt-in for logging full verification/reset action links. Rejected in production and ignored on Vercel.',
+      'Explicit local-development-only opt-in for logging full verification/reset action links. Rejected in production.',
     example: 'false',
   },
   {
@@ -175,7 +166,7 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: false,
     description:
-      'Set to the literal string "true" only when self-hosting behind a trusted reverse proxy. Other values, including "false", do not enable X-Forwarded-For trust. Vercel is enabled separately by VERCEL=1.',
+      'Set to the literal string "true" only when self-hosting behind a trusted reverse proxy. Other values, including "false", do not enable X-Forwarded-For trust.',
     example: 'true',
   },
   {
@@ -234,9 +225,9 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
   {
     name: 'API_PUBLIC_URL',
     service: 'api',
-    requiredInProd: false,
+    requiredInProd: true,
     description:
-      'Trusted public origin used for OAuth/OIDC redirect URIs and, in same-origin deployments, email action links. Optional on Vercel because trusted VERCEL_* system env supplies the origin. Production never derives it from request Host headers. Set it to pin the canonical/custom domain; local dev falls back to the request origin or localhost.',
+      'Trusted public origin used for OAuth/OIDC redirect URIs and, in same-origin deployments, email action links. Required in production, which never derives it from request Host headers. Set it to pin the canonical/custom domain; local dev falls back to the request origin or localhost.',
     example: 'https://gravityroom.app',
   },
   {
@@ -325,13 +316,6 @@ function requiredSpecs(): EnvVarSpec[] {
   return out;
 }
 
-// A required spec is satisfied when its canonical name OR any of its aliases is
-// present (aliases cover managed-integration vars with non-canonical names).
-function isSpecSatisfied(spec: EnvVarSpec, env: EnvLike): boolean {
-  if (isPresent(env[spec.name])) return true;
-  return (spec.aliases ?? []).some((alias) => isPresent(env[alias]));
-}
-
 export function validateEnv(
   env: EnvLike = process.env,
   nodeEnv: string = env['NODE_ENV'] ?? 'development'
@@ -345,7 +329,7 @@ export function validateEnv(
   const errors: string[] = [];
 
   for (const spec of requiredSpecs()) {
-    if (!isSpecSatisfied(spec, env)) missing.push(spec.name);
+    if (!isPresent(env[spec.name])) missing.push(spec.name);
   }
 
   // Additional shape checks for vars that ARE present but fail their constraint.

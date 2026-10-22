@@ -1493,8 +1493,8 @@ describe('POST /auth/google — fire-and-forget timing (REQ-AUTH-004)', () => {
   });
 
   it('returns the auth response before the Telegram notification completes', async () => {
-    // Arrange: mock sendTelegramMessage to return a slow promise. Off Vercel,
-    // keepAlive does not await it, so the route still responds immediately.
+    // Arrange: mock sendTelegramMessage to return a slow promise. keepAlive does
+    // not await it, so the route still responds immediately.
     mockFindOrCreateGoogleUser.mockImplementation(() =>
       Promise.resolve({ user: { ...TEST_USER }, isNewUser: true })
     );

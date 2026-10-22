@@ -38,11 +38,8 @@ export function captureException(error: unknown): void {
 }
 
 /**
- * Flush queued Sentry events. @sentry/node delivers events asynchronously, so on a
- * serverless platform that may freeze the function the moment its Response is
- * returned, an in-flight 500 event would be dropped. Awaiting this flush (via
- * keepAlive) keeps delivery alive until it completes or the timeout elapses.
- * Resolves immediately when Sentry is not enabled.
+ * Flush queued Sentry events, up to the timeout. Resolves immediately when Sentry
+ * is not enabled.
  */
 export async function flushSentry(timeoutMs = 2000): Promise<void> {
   if (!dsn) return;

@@ -1,17 +1,16 @@
 /**
  * Internal cron routes.
  *
- * These power Vercel Cron jobs and are NOT behind the normal user JWT auth.
+ * The VPS cron calls these; they are NOT behind the normal user JWT auth.
  * Every route is guarded by a shared secret presented as `Authorization: Bearer
  * <secret>` or `x-internal-secret: <secret>`. Secrets are scoped:
  *   - `INTERNAL_SECRET` — operators (all internal routes) and manual cron invokes.
- *   - `CRON_SECRET`     — only the Vercel-scheduled routes (`/maintenance`,
+ *   - `CRON_SECRET`     — only the scheduled routes (`/maintenance`,
  *     `/analytics/compute`). Injected as `Authorization: Bearer <CRON_SECRET>`.
  *     A leaked cron credential must not unlock readiness/purge standalone ops.
  * The guard fails closed: missing required secrets reject with 401.
  *
- * Maintenance operations answer BOTH GET and POST. Vercel Cron always issues a
- * GET request, while operators may POST manually. The deep readiness probe is
+ * Maintenance operations answer BOTH GET and POST. The deep readiness probe is
  * GET-only. Every method runs behind the same guard and shared attempt budget.
  *
  * Mounted under the `/api` prefix in create-app.ts, giving:
@@ -70,7 +69,7 @@ function extractPresentedSecret(headers: Headers): string | undefined {
  * Which secrets may unlock a given internal route.
  *
  * - `internal` — operator-only (readiness probe, standalone cleanup/purge).
- * - `cron`     — Vercel Cron injects CRON_SECRET; also accepted on the two
+ * - `cron`     — the scheduler presents CRON_SECRET; also accepted on the two
  *                scheduled routes so ops can still invoke them manually with
  *                INTERNAL_SECRET.
  *
@@ -143,7 +142,7 @@ export function resolveBatchSize(): number {
 }
 
 // ---------------------------------------------------------------------------
-// Handlers — shared by the GET (Vercel Cron) and POST (manual ops) registrations
+// Handlers — shared by the GET and POST registrations
 // ---------------------------------------------------------------------------
 
 async function readinessHandler(): Promise<Awaited<ReturnType<typeof checkReadiness>>> {
@@ -190,10 +189,8 @@ async function analyticsComputeHandler(): Promise<{
 
 /**
  * Daily maintenance: runs the expired-token cleanup and the soft-deleted-user
- * purge in one pass. Consolidated into a single endpoint so both jobs share one
- * Vercel Cron slot (the Hobby plan allows only two daily crons; analytics/compute
- * takes the other). The jobs touch independent tables and start together so a
- * slow cleanup cannot prevent the purge from running before the function timeout.
+ * purge in one pass. The jobs touch independent tables and start together so a
+ * slow cleanup cannot delay the purge.
  */
 async function maintenanceHandler(): Promise<{
   tokens: Awaited<ReturnType<typeof cleanupTokensHandler>>;
@@ -216,7 +213,6 @@ export const internalRoutes = new Elysia({ prefix: '/internal' })
     const scopedPath = pathname.replace(/^\/internal/, '') || pathname;
     assertInternalSecret(request.headers, secretScopeForPath(scopedPath));
   })
-  // Vercel Cron invokes these with GET; operators may also POST manually.
   .get('/readiness', readinessHandler)
   .get('/cleanup-tokens', cleanupTokensHandler)
   .post('/cleanup-tokens', cleanupTokensHandler)

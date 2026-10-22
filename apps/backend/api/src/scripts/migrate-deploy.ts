@@ -1,7 +1,7 @@
 /**
  * Standalone deploy step — runs all DDL and reference seeding out of the request
- * path. Intended to be invoked once per deploy (e.g. `bun run db:deploy`) against
- * the direct (non-pooled) Neon endpoint, NOT at module import time.
+ * path. The api container runs it once per deploy, before the server starts,
+ * against the direct (non-pooled) connection, NOT at module import time.
  *
  * Order of operations:
  *   1. Drizzle migrate (applies the SQL in the migrations folder, including the
@@ -25,61 +25,36 @@ import { seedProgramTemplates } from '@gzclp/database/seeds/program-templates-se
 import { logger } from '../lib/logger';
 
 /**
- * Resolve the direct (non-pooled) connection string for build-time DDL + seeds.
- *
- * Production deliberately requires the explicitly managed
- * `DIRECT_DATABASE_URL`; silently falling back to the request-time PgBouncer URL
- * makes DDL behavior dependent on provider integration details. Local and CI
- * environments may fall back to an unpooled integration URL or DATABASE_URL.
+ * Resolve the direct (non-pooled) connection string for DDL + seeds:
+ * DIRECT_DATABASE_URL, then DATABASE_URL. DDL must never go through PgBouncer.
  */
 function resolveDirectDatabaseUrl(): string | undefined {
-  const directUrl = process.env['DIRECT_DATABASE_URL']?.trim();
-  if (process.env['VERCEL_ENV'] === 'production') {
-    if (!directUrl) {
-      throw new Error('DIRECT_DATABASE_URL is required for production database deploys');
-    }
+  const url =
+    process.env['DIRECT_DATABASE_URL']?.trim() || process.env['DATABASE_URL']?.trim() || undefined;
+  if (!url || process.env['NODE_ENV'] !== 'production') return url;
 
-    let parsed: URL;
-    try {
-      parsed = new URL(directUrl);
-    } catch {
-      throw new Error('DIRECT_DATABASE_URL must be a valid PostgreSQL URL');
-    }
-    if (
-      parsed.hostname.toLowerCase().includes('-pooler') ||
-      parsed.searchParams.get('pgbouncer')?.toLowerCase() === 'true'
-    ) {
-      throw new Error('DIRECT_DATABASE_URL must not point at a pooled/PgBouncer endpoint');
-    }
-    return directUrl;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error('The migration database URL must be a valid PostgreSQL URL');
   }
-
-  return (
-    directUrl ||
-    process.env['DATABASE_URL_UNPOOLED']?.trim() ||
-    process.env['DATABASE_URL']?.trim() ||
-    undefined
-  );
+  if (
+    parsed.hostname.toLowerCase().includes('-pooler') ||
+    parsed.searchParams.get('pgbouncer')?.toLowerCase() === 'true'
+  ) {
+    throw new Error('The migration database URL must not point at a pooled/PgBouncer endpoint');
+  }
+  return url;
 }
 
 /**
- * Resolve the postgres-js TLS mode for the build-time deploy connection.
- *
- * Returns 'require' (force TLS) for any managed/remote endpoint and false only
- * for a plainly-local connection or an explicit DB_SSL=false opt-out. NODE_ENV
- * alone is unreliable here: the Vercel build step does not always run with
- * NODE_ENV=production, so a NODE_ENV-only check left ssl=false and Neon rejected
- * the connection ("connection is insecure (try using sslmode=require)"). Detect
- * the Vercel build (VERCEL is set), a Neon host, or an sslmode=require
- * connection string as well.
+ * Resolve the postgres-js TLS mode for the deploy connection: 'require' in
+ * production or for an sslmode=require URL, false on DB_SSL=false.
  */
 function resolveSsl(url: string): 'require' | false {
   if (process.env['DB_SSL'] === 'false') return false;
-  const requiresTls =
-    process.env['NODE_ENV'] === 'production' ||
-    process.env['VERCEL'] !== undefined ||
-    /[?&]sslmode=require/i.test(url) ||
-    /\.neon\.tech/i.test(url);
+  const requiresTls = process.env['NODE_ENV'] === 'production' || /[?&]sslmode=require/i.test(url);
   return requiresTls ? 'require' : false;
 }
 
@@ -232,9 +207,7 @@ const MIGRATION_LOCK_KEY = 20_260_802;
 async function main(): Promise<void> {
   const url = resolveDirectDatabaseUrl();
   if (!url) {
-    throw new Error(
-      'DIRECT_DATABASE_URL, DATABASE_URL_UNPOOLED, or DATABASE_URL environment variable is required'
-    );
+    throw new Error('DIRECT_DATABASE_URL or DATABASE_URL environment variable is required');
   }
 
   const client = postgres(url, { max: 1, ssl: resolveSsl(url) });

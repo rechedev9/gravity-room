@@ -30,7 +30,6 @@ import { connect, createServer } from 'node:net';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Browser, type BrowserContext } from '@playwright/test';
-import serverlessChromium from '@sparticuz/chromium';
 
 import { PROGRAM_CATALOG } from '@gzclp/domain/catalog';
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
@@ -409,23 +408,7 @@ async function writeRouteHtml(path: string, html: string): Promise<void> {
   const trimmed = path === '/' ? '' : path.replace(/^\/+/, '').replace(/\/+$/, '');
   const outDir = trimmed === '' ? DIST_DIR : resolve(DIST_DIR, trimmed);
   await mkdir(outDir, { recursive: true });
-  const directoryIndex = resolve(outDir, 'index.html');
-  if (trimmed === '') {
-    await writeFile(directoryIndex, html, 'utf8');
-    return;
-  }
-
-  // Vercel's cleanUrls filesystem lookup maps `/programs/gzclp` to
-  // `dist/programs/gzclp.html`. Keep the directory-index copy as well for
-  // conventional static servers (`vite preview`, Caddy, object storage).
-  // Without the clean-URL copy, the catch-all SPA rewrite can hide a perfectly
-  // good prerendered directory and serve the root index instead.
-  const cleanUrlFile = resolve(DIST_DIR, `${trimmed}.html`);
-  await mkdir(dirname(cleanUrlFile), { recursive: true });
-  await Promise.all([
-    writeFile(directoryIndex, html, 'utf8'),
-    writeFile(cleanUrlFile, html, 'utf8'),
-  ]);
+  await writeFile(resolve(outDir, 'index.html'), html, 'utf8');
 }
 
 async function prerenderAllRoutes(args: {
@@ -486,18 +469,10 @@ async function writeNotFoundFallback(): Promise<void> {
  * far cheaper than failing the whole build/deploy on a transient hiccup.
  */
 async function launchChromiumWithRetry(attempts = 3): Promise<Browser> {
-  const serverlessLaunchOptions =
-    process.env.VERCEL === '1'
-      ? {
-          args: serverlessChromium.args,
-          executablePath: await serverlessChromium.executablePath(),
-          headless: true,
-        }
-      : {};
   let lastErr: unknown;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      return await chromium.launch({ timeout: 60_000, ...serverlessLaunchOptions });
+      return await chromium.launch({ timeout: 60_000 });
     } catch (err) {
       lastErr = err;
       const msg = err instanceof Error ? err.message : String(err);

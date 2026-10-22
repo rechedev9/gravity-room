@@ -178,8 +178,6 @@ export function createApp(options: CreateAppOptions) {
         );
         if (error.statusCode >= 500) {
           captureException(error);
-          // Flush the queued event past the Response so a serverless freeze does
-          // not drop it. keepAlive uses waitUntil on Vercel, run-to-completion off.
           keepAlive(flushSentry());
           // 5xx ApiErrors often wrap database/provider/configuration failures.
           // Preserve the stable machine code but never expose the internal
@@ -209,8 +207,6 @@ export function createApp(options: CreateAppOptions) {
 
       log.error({ err: error, code, status: 500, latencyMs }, 'unhandled error');
       captureException(error);
-      // Flush the queued event past the Response so a serverless freeze does not
-      // drop it. keepAlive uses waitUntil on Vercel, run-to-completion off.
       keepAlive(flushSentry());
       set.status = 500;
       return { error: 'Internal server error', code: 'INTERNAL_ERROR' };

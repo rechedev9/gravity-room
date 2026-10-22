@@ -37,11 +37,7 @@ export function maskEmailAddress(address: string): string {
 
 /** Full bearer action links may only be logged by an explicit local opt-in. */
 export function shouldLogAuthActionLinks(env: NodeJS.ProcessEnv = process.env): boolean {
-  return (
-    env['LOG_AUTH_ACTION_LINKS'] === 'true' &&
-    env['NODE_ENV'] === 'development' &&
-    env['VERCEL'] !== '1'
-  );
+  return env['LOG_AUTH_ACTION_LINKS'] === 'true' && env['NODE_ENV'] === 'development';
 }
 
 /**

@@ -49,16 +49,7 @@ describe('validateEnv', () => {
     expect(result.missing).toContain('DATABASE_URL');
   });
 
-  it('accepts the Vercel Upstash KV_* aliases in place of UPSTASH_REDIS_REST_*', () => {
-    const env = fullProdEnv();
-    delete env['UPSTASH_REDIS_REST_URL'];
-    delete env['UPSTASH_REDIS_REST_TOKEN'];
-    env['KV_REST_API_URL'] = 'https://example.upstash.io';
-    env['KV_REST_API_TOKEN'] = 'x'.repeat(40);
-    expect(validateEnv(env, 'production')).toEqual({ ok: true });
-  });
-
-  it('still flags UPSTASH_REDIS_REST_URL when neither it nor its KV_* alias is set', () => {
+  it('flags UPSTASH_REDIS_REST_URL when it is unset', () => {
     const env = fullProdEnv();
     delete env['UPSTASH_REDIS_REST_URL'];
     const result = validateEnv(env, 'production');
@@ -156,7 +147,7 @@ describe('formatValidationError', () => {
       errors: [],
     });
     expect(msg).toContain('CRON_SECRET');
-    expect(msg).toContain('Vercel Cron');
+    expect(msg).toContain('VPS cron');
   });
 
   it('includes constraint errors when present', () => {

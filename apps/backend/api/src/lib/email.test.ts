@@ -27,7 +27,6 @@ import {
 } from './email';
 
 const ORIGINAL_NODE_ENV = process.env['NODE_ENV'];
-const ORIGINAL_VERCEL = process.env['VERCEL'];
 const ORIGINAL_LOG_LINKS = process.env['LOG_AUTH_ACTION_LINKS'];
 const ORIGINAL_RESEND_KEY = process.env['RESEND_API_KEY'];
 const ORIGINAL_EMAIL_FROM = process.env['EMAIL_FROM'];
@@ -43,13 +42,11 @@ beforeEach(() => {
   delete process.env['RESEND_API_KEY'];
   delete process.env['EMAIL_FROM'];
   delete process.env['LOG_AUTH_ACTION_LINKS'];
-  delete process.env['VERCEL'];
   process.env['NODE_ENV'] = 'test';
 });
 
 afterEach(() => {
   restore('NODE_ENV', ORIGINAL_NODE_ENV);
-  restore('VERCEL', ORIGINAL_VERCEL);
   restore('LOG_AUTH_ACTION_LINKS', ORIGINAL_LOG_LINKS);
   restore('RESEND_API_KEY', ORIGINAL_RESEND_KEY);
   restore('EMAIL_FROM', ORIGINAL_EMAIL_FROM);
@@ -79,7 +76,6 @@ describe('local action-link logging gate', () => {
     [{ NODE_ENV: 'development', LOG_AUTH_ACTION_LINKS: 'false' }, false],
     [{ NODE_ENV: 'test', LOG_AUTH_ACTION_LINKS: 'true' }, false],
     [{ NODE_ENV: 'production', LOG_AUTH_ACTION_LINKS: 'true' }, false],
-    [{ NODE_ENV: 'development', LOG_AUTH_ACTION_LINKS: 'true', VERCEL: '1' }, false],
   ])('evaluates explicit environment gate %#', (env, expected) => {
     expect(shouldLogAuthActionLinks(env)).toBe(expected);
   });

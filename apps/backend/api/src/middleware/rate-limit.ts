@@ -1,8 +1,8 @@
 /**
  * Rate limiter — sliding-window, backed by Upstash Redis over REST.
  *
- * Distributed counting via @upstash/ratelimit so every serverless invocation
- * shares the same window. A Ratelimit instance is constructed and cached per
+ * Distributed counting via @upstash/ratelimit so every API process shares the
+ * same window. A Ratelimit instance is constructed and cached per
  * distinct {windowMs, maxRequests} configuration. Keys are the caller-supplied
  * client IP (derived upstream from x-forwarded-for) scoped by endpoint.
  *
@@ -94,10 +94,8 @@ export async function rateLimit(
   }
 
   const { success, reset, pending } = result;
-  // @upstash/ratelimit performs background multi-region sync / analytics on the
-  // `pending` promise. On Vercel the function may freeze once the Response is
-  // returned, dropping that work, so keep it alive until it settles. The
-  // synchronous allow/deny decision below is unaffected.
+  // @upstash/ratelimit runs background sync and analytics on `pending`; the
+  // allow/deny decision below does not wait for it.
   keepAlive(pending);
   if (!success) {
     // Retry-After is the seconds until THIS limiter window resets (from the

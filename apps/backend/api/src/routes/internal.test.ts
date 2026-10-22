@@ -267,11 +267,11 @@ describe('internal routes — constant-time secret comparison', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Vercel Cron: GET requests authenticated by the auto-injected CRON_SECRET
+// Cron: GET requests authenticated by CRON_SECRET
 // ---------------------------------------------------------------------------
 
-describe('internal routes — Vercel Cron (GET + CRON_SECRET)', () => {
-  const CRON_SECRET = 'vercel-injected-cron-secret';
+describe('internal routes — cron (GET + CRON_SECRET)', () => {
+  const CRON_SECRET = 'test-cron-secret-value';
 
   it('authenticates a GET cron request via Authorization: Bearer <CRON_SECRET>', async () => {
     process.env['CRON_SECRET'] = CRON_SECRET;
@@ -457,7 +457,7 @@ describe('POST /internal/maintenance', () => {
   });
 
   it('authenticates a GET cron request via the auto-injected CRON_SECRET', async () => {
-    const CRON_SECRET = 'vercel-injected-cron-secret';
+    const CRON_SECRET = 'test-cron-secret-value';
     process.env['CRON_SECRET'] = CRON_SECRET;
     const res = await get('/internal/maintenance', { Authorization: `Bearer ${CRON_SECRET}` });
     expect(res.status).toBe(200);

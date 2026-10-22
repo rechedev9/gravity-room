@@ -46,7 +46,7 @@ vi.mock('@upstash/ratelimit', () => {
       // Mirror the real client: `reset` is the absolute ms timestamp at which the
       // current window clears, so rate-limit.ts can derive Retry-After from it.
       // `pending` is the background multi-region sync promise the real limiter
-      // returns; rate-limit.ts hands it to keepAlive() for serverless durability.
+      // returns; rate-limit.ts hands it to keepAlive().
       return Promise.resolve({
         success: n <= this.max,
         reset: Date.now() + this.windowMs,

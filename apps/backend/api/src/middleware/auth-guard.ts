@@ -165,9 +165,7 @@ export async function resolveUserId({
 
   const redis = getRedis();
   if (redis) {
-    // Best-effort presence heartbeat. On Vercel the function may freeze the
-    // instant the Response is returned, so hand the write to keepAlive() to
-    // extend the lifetime until it settles instead of fire-and-forget.
+    // Best-effort presence heartbeat; it must not delay the response.
     keepAlive(trackPresence(userId, redis));
   }
 
