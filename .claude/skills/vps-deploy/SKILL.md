@@ -6,8 +6,8 @@ description: Diagnose a failed Gravity Room production deploy to the VPS and wat
 # VPS deploy: diagnosis and monitoring
 
 A push to `main` runs `.github/workflows/deploy.yml`: `CI backend` and the web checks, then
-`rechedev9/vps-deploy/deploy@main`. The action builds `gravity-room-api` and `gravity-room-web`
-on the runner, sends them to the VPS over SSH and runs `docker compose up --wait` in
+the `deploy` action of the private `rechedev9/vps-deploy` repo, read with the `VPS_DEPLOY_ACTION_KEY`
+deploy key. The action builds `gravity-room-api` and `gravity-room-web` on the runner, sends them to the VPS over SSH and runs `docker compose up --wait` in
 `/opt/gravity-room-app`. If `http://127.0.0.1:3001/api/health` fails within 60 s, it puts the
 previous images back. `/opt/gravity-room-app/REVISION` names the commit that runs.
 
