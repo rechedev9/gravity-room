@@ -295,12 +295,10 @@ async function prerenderRoute(
 
   // Head + body hygiene for the static snapshot crawlers index:
   //  - drop noscript fallback (duplicate H1 / off-topic bilingual boilerplate)
-  //  - drop cookie banner (client-only notice; pollutes AI/crawler extraction)
   //  - replace hreflang with the exact set for this path (empty = none), so
   //    StrictMode double-mounts or stale tags cannot leak landing alternates
   await page.evaluate((alternates: readonly HreflangAlternate[]) => {
     document.querySelectorAll('noscript').forEach((node) => node.remove());
-    document.querySelectorAll('[data-cookie-banner]').forEach((node) => node.remove());
     document.querySelectorAll('link[rel="alternate"][hreflang]').forEach((node) => node.remove());
     for (const alt of alternates) {
       const el = document.createElement('link');
@@ -550,6 +548,8 @@ async function main(): Promise<void> {
       // snapshot matches <html lang="es"> whatever machine runs the build.
       locale: 'es-ES',
     });
+    // The cookie banner is a client-only notice that pollutes crawler extraction, so it never renders here.
+    await context.addInitScript(() => localStorage.setItem('cookie-banner-dismissed', '1'));
 
     // Intercept all catalog detail calls with hydrated fixtures.
     await context.route('**/api/catalog/*', async (route) => {

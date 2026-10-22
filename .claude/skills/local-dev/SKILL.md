@@ -6,8 +6,8 @@ description: Set up and run the Gravity Room stack locally and E2E-test it as a 
 # Local development & E2E
 
 > Local dev runs **natively** with Node + pnpm + a local Postgres (Upstash Redis optional).
-> There are no Docker images or `docker-compose`; production is serverless on Vercel
-> (`api/index.ts`) and the local API is `src/dev-server.ts` (`@hono/node-server`).
+> Local dev needs no Docker. Production runs the same `src/dev-server.ts` (`@hono/node-server`)
+> in the `api` image on the VPS; see the `vps-deploy` skill.
 
 ### Prerequisites
 
@@ -139,7 +139,7 @@ pnpm run dev:web        # web on :5173 (alias: pnpm run dev)
 curl http://localhost:3001/api/health   # → {"status":"ok","timestamp":"..."} (every route is under /api)
 ```
 
-The dev server (`src/dev-server.ts`) serves the same `createApp()` factory the Vercel function mounts,
+The dev server (`src/dev-server.ts`) serves the same `createApp()` factory as production,
 via `@hono/node-server`. Migrations/seeds are a separate `db:deploy` step (no boot-time DDL). A wrong or
 unreachable `DATABASE_URL` surfaces as `connect ECONNREFUSED` on the first DB-touching request. The web
 app calls the API at `VITE_API_URL`; keep `CORS_ORIGIN=http://localhost:5173` in the API env so the

@@ -1,7 +1,9 @@
 name: Production route smoke
 
 on:
-  deployment_status:
+  workflow_run:
+    workflows: [Deploy]
+    types: [completed]
   workflow_dispatch:
   schedule:
     - cron: '17 4 * * *'
@@ -16,10 +18,10 @@ concurrency:
 jobs:
   routes:
     name: Production routes
+    # Deploy ships only main, so a run on another branch has nothing to smoke.
     if: >-
-      github.event_name != 'deployment_status' ||
-      (github.event.deployment_status.state == 'success' &&
-       github.event.deployment.environment == 'Production')
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
