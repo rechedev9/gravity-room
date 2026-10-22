@@ -1,54 +1,8 @@
-/**
- * Rate limiter — sliding-window, backed by Upstash Redis over REST.
- *
- * Distributed counting via @upstash/ratelimit so every API process shares the
- * same window. A Ratelimit instance is constructed and cached per
- * distinct {windowMs, maxRequests} configuration. Keys are the caller-supplied
- * client IP (derived upstream from x-forwarded-for) scoped by endpoint.
- *
- * In development without Upstash configured, getRedis() returns undefined and
- * the limiter degrades to a permissive no-op (logged once) — it never crashes
- * dev. Redis is mandatory in production (enforced at lib/redis.ts module init).
- */
-import { Ratelimit } from '@upstash/ratelimit';
+// Sliding-window limiter on Redis, keyed by client IP and endpoint. Without Redis
+// (development only) it is a permissive no-op.
 import { ApiError } from './error-handler';
 import { logger } from '../lib/logger';
-import { getRedis } from '../lib/redis';
-import { keepAlive } from '../lib/wait-until';
-
-// ---------------------------------------------------------------------------
-// Limiter cache — one Ratelimit per distinct {windowMs, maxRequests}
-// ---------------------------------------------------------------------------
-
-const limiters = new Map<string, Ratelimit>();
-let _warnedNoRedis = false;
-
-function getLimiter(windowMs: number, maxRequests: number): Ratelimit | undefined {
-  const redis = getRedis();
-  if (!redis) {
-    if (!_warnedNoRedis) {
-      _warnedNoRedis = true;
-      logger.warn('Rate limiter: Upstash not configured, limiting is a no-op');
-    }
-    return undefined;
-  }
-
-  const cacheKey = `${windowMs}:${maxRequests}`;
-  let limiter = limiters.get(cacheKey);
-  if (!limiter) {
-    limiter = new Ratelimit({
-      redis,
-      limiter: Ratelimit.slidingWindow(maxRequests, `${windowMs} ms`),
-      prefix: 'rl',
-    });
-    limiters.set(cacheKey, limiter);
-  }
-  return limiter;
-}
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
+import { getRedis, type SlidingWindowResult } from '../lib/redis';
 
 const DEFAULT_WINDOW_MS = 60_000;
 const DEFAULT_MAX_REQUESTS = 20;
@@ -73,12 +27,17 @@ export async function rateLimit(
     throw new Error('Rate-limit cost must be a positive safe integer');
   }
 
-  const limiter = getLimiter(windowMs, maxRequests);
-  if (!limiter) return; // dev no-op: permissive when Upstash is absent
+  const redis = getRedis();
+  if (!redis) return;
 
-  let result: Awaited<ReturnType<typeof limiter.limit>>;
+  let result: SlidingWindowResult;
   try {
-    result = await limiter.limit(`${endpoint}:${ip}`, { rate: cost });
+    result = await redis.slidingWindow({
+      key: `rl:${endpoint}:${ip}`,
+      limit: maxRequests,
+      windowMs,
+      cost,
+    });
   } catch (err) {
     if (opts?.failClosed) {
       logger.error({ err, endpoint }, 'Rate limiter unavailable on fail-closed endpoint');
@@ -89,14 +48,11 @@ export async function rateLimit(
     // Read-only and authenticated resource endpoints remain fail-open for
     // availability. Credential-accepting routes opt into failClosed above so a
     // Redis outage cannot disable brute-force protection.
-    logger.warn({ err }, 'Rate limiter: Upstash request failed, allowing request (fail-open)');
+    logger.warn({ err }, 'Rate limiter: Redis request failed, allowing request (fail-open)');
     return;
   }
 
-  const { success, reset, pending } = result;
-  // @upstash/ratelimit runs background sync and analytics on `pending`; the
-  // allow/deny decision below does not wait for it.
-  keepAlive(pending);
+  const { success, reset } = result;
   if (!success) {
     // Retry-After is the seconds until THIS limiter window resets (from the
     // limiter's reset timestamp), not the full window length, so clients are not

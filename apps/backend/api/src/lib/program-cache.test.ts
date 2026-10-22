@@ -89,7 +89,7 @@ describe('getCachedInstance', () => {
   });
 
   it('returns parsed data on cache hit', async () => {
-    // Arrange — Upstash auto-deserializes, so the client returns the object.
+    // Arrange — the client decodes JSON, so it returns the object.
     mockGet.mockResolvedValueOnce(0).mockResolvedValueOnce(CACHED_RESPONSE);
 
     // Act

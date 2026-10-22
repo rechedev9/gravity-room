@@ -5,7 +5,7 @@ description: Set up and run the Gravity Room stack locally and E2E-test it as a 
 
 # Local development & E2E
 
-> Local dev runs **natively** with Node + pnpm + a local Postgres (Upstash Redis optional).
+> Local dev runs **natively** with Node + pnpm + a local Postgres (Redis optional).
 > Local dev needs no Docker. Production runs the same `src/dev-server.ts` (`@hono/node-server`)
 > in the `api` image on the VPS; see the `vps-deploy` skill.
 
@@ -16,7 +16,7 @@ description: Set up and run the Gravity Room stack locally and E2E-test it as a 
 | Node          | ≥ 24     | Runtime for the API (via `tsx`), tooling, and tests                           |
 | pnpm          | 11.9.0   | `npm install -g pnpm@11.9.0` (pinned via the `packageManager` field)          |
 | PostgreSQL    | ≥ 14     | Local instance or managed (Neon in production)                                |
-| Upstash Redis | optional | Set `UPSTASH_REDIS_REST_URL`/`_TOKEN` to enable; in-memory fallback otherwise |
+| Redis         | optional | Set `REDIS_URL` to enable; without it rate limiting and caches are off        |
 
 ### Environment
 
@@ -38,8 +38,7 @@ set -a; source .env; set +a   # then run any pnpm script
   GOOGLE_CLIENT_ID=...apps.googleusercontent.com                     # optional; POST /api/auth/dev works without it
   GOOGLE_CLIENT_IDS=...web,...mobile                                 # optional
   CORS_ORIGIN=http://localhost:5173                                  # defaults to this Vite origin in dev
-  # UPSTASH_REDIS_REST_URL=...                                       # optional → in-memory rate limiting
-  # UPSTASH_REDIS_REST_TOKEN=...
+  # REDIS_URL=redis://127.0.0.1:6379                                # optional → no rate limiting or caches without it
   ```
 
   Migrations + reference-data seeds are NOT applied on boot. Run them once with `pnpm --filter api db:deploy` (idempotent, safe to re-run).
@@ -93,8 +92,8 @@ $env:PGPASSWORD = "postgres"
 
 If the cluster password is not `postgres`, set it once with
 `ALTER USER postgres WITH PASSWORD 'postgres';` and update `DATABASE_URL` accordingly.
-Redis is optional in dev - leave `UPSTASH_REDIS_REST_URL`/`_TOKEN` unset and the API falls back to in-memory
-rate-limiting and presence (`redis: disabled` in `GET /api/internal/readiness` is expected, not an error;
+Redis is optional in dev - leave `REDIS_URL` unset and the API turns off rate limiting, caches and
+presence (`redis: disabled` in `GET /api/internal/readiness` is expected, not an error;
 the public `/api/health` never reports dependencies).
 
 **Env files used by the local stack (create once, git-ignored):**

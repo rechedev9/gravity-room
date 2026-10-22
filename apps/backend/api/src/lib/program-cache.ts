@@ -37,7 +37,7 @@ export async function getProgramCacheGeneration(
   const redis = getRedis();
   if (!redis) return 0;
   try {
-    const value = await redis.get<unknown>(generationKey(userId, instanceId));
+    const value = await redis.get(generationKey(userId, instanceId));
     return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 0;
   } catch (err: unknown) {
     logger.warn({ err, userId, instanceId }, 'program-cache: generation get failed');
@@ -54,8 +54,8 @@ async function getAtGeneration(
   if (!redis) return undefined;
   const key = cacheKey(userId, instanceId, generation);
   try {
-    const parsed = await redis.get<unknown>(key);
-    if (parsed === null || parsed === undefined) return undefined;
+    const parsed = await redis.get(key);
+    if (parsed === null) return undefined;
     if (!isProgramInstanceResponse(parsed)) {
       logger.warn({ userId, instanceId, generation }, 'program-cache: corrupt entry, evicting');
       await redis.del(key);

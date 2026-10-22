@@ -44,9 +44,8 @@ export async function getCachedMuscleGroups(): Promise<readonly MuscleGroupEntry
   if (!redis) return undefined;
 
   try {
-    // Upstash automatically deserializes JSON values on read.
-    const parsed = await redis.get<unknown>(CACHE_KEY);
-    if (parsed === null || parsed === undefined) return undefined;
+    const parsed = await redis.get(CACHE_KEY);
+    if (parsed === null) return undefined;
 
     if (!isMuscleGroupEntryArray(parsed)) {
       logger.warn('muscle-groups-cache: corrupt entry, evicting');
