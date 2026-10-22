@@ -11,7 +11,6 @@ images and ships them, with a health check and a rollback. Agent contracts: root
 
 ```
 gravity-room/
-├── api/index.ts              ← generated bundle for the old Vercel target (do not hand-edit)
 ├── apps/frontend/web/        ← React 19 + Vite SPA (PWA)
 ├── apps/frontend/mobile/     ← Expo 54 / RN
 ├── apps/backend/api/         ← ElysiaJS (create-app.ts; analytics under src/analytics)
@@ -19,9 +18,8 @@ gravity-room/
 ├── packages/database/        ← @gzclp/database — schema, migrations, seeds
 ├── packages/api-client/      ← @gzclp/api-client — shared wire mechanics (paths, requests, errors)
 ├── packages/design-tokens/   ← @gzclp/design-tokens — shared colors, spacing, radii, type
-├── scripts/                  ← vercel-build, bundle-api, loadtest, security checks
-├── docs/                     ← this file + security runbooks
-└── vercel.json               ← old Vercel target, not live
+├── scripts/                  ← loadtest, security checks
+└── docs/                     ← this file + security runbooks
 ```
 
 ## Path map
@@ -43,8 +41,6 @@ gravity-room/
 | `apps/backend/api/src/db/`                       | Runtime Postgres pool                | —                                  |
 | `apps/backend/api/src/scripts/migrate-deploy.ts` | Advisory-locked migrate+seed         | `pnpm --filter api db:deploy`      |
 | `apps/backend/api/src/analytics/`                | Insight pipelines + cron compute     | vitest analytics                   |
-| `apps/backend/api/src/vercel-handler.ts`         | Vercel source entry                  | `pnpm run bundle:api:check`        |
-| `api/index.ts`                                   | Generated serverless bundle          | `pnpm run bundle:api:check`        |
 | `packages/domain/`                               | GZCLP engine + Zod schemas           | `pnpm run test:domain`             |
 | `packages/domain/src/generic-engine.ts`          | Progression engine                   | domain tests                       |
 | `packages/database/`                             | Schema, migrations, seeds            | `pnpm run test:database`           |
@@ -52,8 +48,6 @@ gravity-room/
 | `packages/api-client/`                           | Shared wire mechanics, no Zod        | `pnpm run test:api-client`         |
 | `packages/design-tokens/`                        | Shared design tokens                 | `pnpm run test:design-tokens`      |
 | `apps/frontend/web/src/styles/tokens.css`        | Generated from the tokens            | `pnpm --filter web tokens:css`     |
-| `scripts/bundle-api-function.mjs`                | Build/check `api/index.ts`           | `pnpm run bundle:api:check`        |
-| `scripts/vercel-build.sh`                        | Vercel build + prod db:deploy        | Vercel                             |
 | `lefthook.yml`                                   | pre-commit / pre-push gates          | lefthook                           |
 
 ## Contracts
@@ -84,7 +78,6 @@ Postgres required (`DATABASE_URL`). Upstash Redis optional locally, required in 
 | -------------------------------- | ------------------------------------------------------------- |
 | `pnpm run typecheck`             | web + domain + database + api-client + design-tokens + mobile |
 | `pnpm run typecheck:api`         | API                                                           |
-| `pnpm run bundle:api:check`      | `api/index.ts` matches source entry                           |
 | `pnpm run lint` / `format:check` | eslint + prettier                                             |
 | `pnpm run test`                  | web + domain + database + api-client + design-tokens + mobile |
 | `pnpm run test:api`              | API + analytics golden parity                                 |

@@ -71,13 +71,9 @@ todo.md
 scripts/*
 !scripts/loadtest.js
 !scripts/refresh-claude-context.ts
-!scripts/vercel-build.sh
-!scripts/bundle-api-function.mjs
 !scripts/check-dependency-audit.ts
 !scripts/check-dependency-audit.test.ts
 !scripts/check-production-routes.ts
-!scripts/check-vercel-deployment.ts
-!scripts/check-security-headers.ts
 !scripts/check-mobile-migrations.test.mjs
 !scripts/check-mobile-lint.test.mjs
 

@@ -50,6 +50,6 @@ a directory-wide suppression.
 
 ## Production promotion boundary
 
-GitHub rulesets and Vercel project permissions are external to the repository
+GitHub rulesets and VPS deploy permissions are external to the repository
 and must be configured in those dashboards (branch protection, required checks,
 deploy promotion). Code in this repo cannot enforce them.

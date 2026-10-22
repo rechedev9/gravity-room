@@ -63,7 +63,7 @@ beforeEach(() => {
 });
 
 describe('GET /api/health', () => {
-  it('remains a stable public liveness response for Vercel monitoring', async () => {
+  it('remains a stable public liveness response for uptime monitoring', async () => {
     const res = await app.fetch(new Request('http://localhost/api/health'));
     const body = (await res.json()) as Record<string, unknown>;
 

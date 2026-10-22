@@ -8,8 +8,6 @@ import { createApp } from './create-app';
 import { buildAppOptions } from './app-config';
 import { logger } from './lib/logger';
 
-// Env wiring (corsOrigins, csp, permissionsPolicy) comes from the shared app-config.ts,
-// so this server and the old Vercel entry build the same app.
 const app = createApp(buildAppOptions());
 
 const PORT = Number(process.env['PORT']) || 3001;

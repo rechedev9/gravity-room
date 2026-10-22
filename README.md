@@ -75,8 +75,7 @@ pnpm monorepo. Production runs same-origin on a VPS: Caddy serves the Vite SPA f
 | `packages/database`      | `@gzclp/database`: Drizzle schema, migrations, seeds                | `pnpm run test:database`, `pnpm run db:generate` after schema edits |
 | `packages/api-client`    | `@gzclp/api-client`: shared typed fetch helpers                     | `pnpm run test:api-client`                                          |
 | `packages/design-tokens` | `@gzclp/design-tokens`: design tokens and their CSS output          | `pnpm run test:design-tokens`                                       |
-| `api/index.ts`           | Generated bundle for the old Vercel target, do not edit by hand     | `pnpm run bundle:api:check`                                         |
-| `scripts/`               | Vercel build, API bundling, load test, security checks              | see `package.json`                                                  |
+| `scripts/`               | Load test, security checks                                          | see `package.json`                                                  |
 
 To run the mobile app on Android, use `pnpm --filter mobile android`.
 
