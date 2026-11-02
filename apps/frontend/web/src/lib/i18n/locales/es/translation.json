@@ -1030,7 +1030,8 @@
       "set_failed_aria": "Serie fallada",
       "confirm_set_aria": "Confirmar serie {{label}}",
       "logged_reps": "{{reps}} reps",
-      "weight_input_aria": "Peso serie {{label}}"
+      "weight_input_aria": "Peso serie {{label}}",
+      "col_set": "Serie"
     },
     "set_indicators": {
       "sets_aria_one": "{{count}} serie",

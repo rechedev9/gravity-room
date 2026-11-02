@@ -1030,7 +1030,8 @@
       "set_failed_aria": "Set failed",
       "confirm_set_aria": "Confirm set {{label}}",
       "logged_reps": "{{reps}} reps",
-      "weight_input_aria": "Set {{label}} weight"
+      "weight_input_aria": "Set {{label}} weight",
+      "col_set": "Set"
     },
     "set_indicators": {
       "sets_aria_one": "{{count}} set",
