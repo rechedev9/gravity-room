@@ -30,6 +30,8 @@ test.describe('Tracker visual polish', () => {
   });
 
   test('session header is the only band above the exercises', async ({ page }) => {
+    // The week/day chips are the phone band; lg+ uses the single day selector.
+    await page.setViewportSize({ width: 390, height: 844 });
     const chrome = page.getByTestId('session-chrome');
     await expect(chrome).toBeVisible();
     await expect(chrome.getByRole('heading', { level: 1 })).toHaveText('GZCLP');
