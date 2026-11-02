@@ -1,0 +1,27 @@
+{
+  "title": "Gravity Room web: desktop shell, Hoy y Entrenar",
+  "brief": "Own desktop interface for the Gravity Room web app (not a phone layout with a sidebar). One navigation model, a desktop Home (Hoy) and a desktop workout logger (Entrenar). Keep and polish the current industrial identity: gold on warm black, Bebas Neue + Barlow + JetBrains Mono.",
+  "artboards": [
+    {
+      "file": "01-centro-de-mando.html",
+      "title": "01 · Centro de mando",
+      "tradeoff": "Dense, keyboard-first and fast for regular lifters; heavier first impression and more to learn",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "file": "02-foco-en-la-sesion.html",
+      "title": "02 · Foco en la sesión",
+      "tradeoff": "Guided and calm, one lift at a time; less overview of the week and the whole session at once",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "file": "03-cuaderno-de-hierro.html",
+      "title": "03 · Cuaderno de hierro",
+      "tradeoff": "Strongest brand unity with the landing and program-first; fewer dashboard metrics and a bolder, less neutral look",
+      "width": 1440,
+      "height": 900
+    }
+  ]
+}
