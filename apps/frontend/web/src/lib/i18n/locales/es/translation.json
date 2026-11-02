@@ -2172,6 +2172,27 @@
       "language": "Idioma",
       "theme": "Tema",
       "sign_out": "Cerrar sesión"
+    },
+    "palette": {
+      "label": "Buscar o ir a",
+      "open_label": "Buscar o ir a secciones, días y ejercicios",
+      "placeholder": "Buscar o ir a…",
+      "empty": "Sin resultados para «{{query}}»",
+      "idle": "Escribe un día o un ejercicio",
+      "hint_move": "moverse",
+      "hint_open": "abrir",
+      "hint_close": "cerrar",
+      "jump_day": "Ir al día {{day}}",
+      "day_label": "Día {{day}} · Semana {{week}}",
+      "sections": {
+        "go": "Ir a",
+        "days": "Días del programa",
+        "exercises": "Ejercicios del catálogo"
+      },
+      "hints": {
+        "day": "Entrenar",
+        "exercise": "Catálogo"
+      }
     }
   }
 }

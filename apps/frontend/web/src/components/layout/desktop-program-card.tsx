@@ -1,10 +1,7 @@
 import { Link } from '@tanstack/react-router';
-import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { useDashboardData } from '@/features/dashboard/use-dashboard-data';
-import { fetchPrograms } from '@/lib/api-functions';
+import { useActiveProgramProgress } from '@/hooks/use-active-program-progress';
 import { localizedProgramName } from '@/lib/catalog-display';
-import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/cn';
 
 interface DesktopProgramCardProps {
@@ -20,15 +17,7 @@ interface DesktopProgramCardProps {
  */
 export function DesktopProgramCard({ enabled }: DesktopProgramCardProps): React.ReactNode {
   const { t } = useTranslation();
-  const programsQuery = useQuery({
-    queryKey: queryKeys.programs.all,
-    queryFn: fetchPrograms,
-    enabled,
-  });
-  const activeProgram = enabled
-    ? (programsQuery.data?.find((p) => p.status === 'active') ?? null)
-    : null;
-  const { programProgress } = useDashboardData(activeProgram);
+  const { activeProgram, programProgress } = useActiveProgramProgress(enabled);
 
   if (!activeProgram || !programProgress) return null;
 

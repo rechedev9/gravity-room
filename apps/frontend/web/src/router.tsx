@@ -459,9 +459,20 @@ const exploreRoute = createRoute({
   component: ExplorePage,
 });
 
+/**
+ * `?day=N` is the ⌘K palette's day jump. Anything that is not a positive
+ * integer is dropped, so a stale or hand-typed URL keeps the tracker's default
+ * selection instead of asking for an index that does not exist.
+ */
+function validateTrackerSearch(search: Record<string, unknown>): { day?: number } {
+  const day = Number(search['day']);
+  return Number.isInteger(day) && day >= 1 ? { day } : {};
+}
+
 const trackerIndexRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/app/tracker',
+  validateSearch: validateTrackerSearch,
   pendingComponent: AppSkeleton,
   component: TrackerPage,
 });
@@ -469,6 +480,7 @@ const trackerIndexRoute = createRoute({
 const trackerProgramRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/app/tracker/$programId',
+  validateSearch: validateTrackerSearch,
   pendingComponent: AppSkeleton,
   component: TrackerPage,
 });
@@ -490,9 +502,16 @@ const profileRoute = createRoute({
 // In-app exercise wiki — same curated content rendered inside the app shell so
 // navigating to "Ejercicios" from the sidebar keeps the sidebar + active state.
 // The public /ejercicios + /en/exercises routes remain for SEO/prerender.
+/** `?q=` seeds the catalog browser from the ⌘K palette's exercise results. */
+function validateExerciseSearch(search: Record<string, unknown>): { q?: string } {
+  const q = typeof search['q'] === 'string' ? search['q'].trim() : '';
+  return q === '' ? {} : { q };
+}
+
 const appExercisesIndexRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/app/exercises',
+  validateSearch: validateExerciseSearch,
   pendingComponent: ContentPageSkeleton,
   component: AppExerciseWikiIndexPage,
 });

@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
+import { useSearch } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { findFirstPendingIndex, isWorkoutComplete } from '@gzclp/domain/generic-stats';
 import type { ResultValue } from '@gzclp/domain/types';
@@ -134,6 +135,19 @@ export function ProgramApp({
   const completedCount = completedDayIndices.size;
 
   const dayNav = useDayNavigation({ totalWorkouts, firstPendingIdx, config });
+
+  // `?day=N` comes from the ⌘K palette. Apply it once per value, after the
+  // program has loaded, and never over a later manual day change.
+  const search = useSearch({ strict: false });
+  const requestedDay = typeof search.day === 'number' ? search.day : null;
+  const appliedDayRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (requestedDay === null || totalWorkouts === 0) return;
+    if (appliedDayRef.current === requestedDay) return;
+    appliedDayRef.current = requestedDay;
+    dayNav.handleSelectDay(requestedDay - 1);
+  }, [requestedDay, totalWorkouts, dayNav]);
+
   const graduation = useGraduation({
     definition,
     config,

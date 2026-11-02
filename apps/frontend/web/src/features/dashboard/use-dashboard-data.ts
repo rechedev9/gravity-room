@@ -35,6 +35,8 @@ interface DashboardData {
   readonly totalSessions: number;
   /** Total workouts in the active program's definition (0 when none active). */
   readonly totalWorkouts: number;
+  /** Sessions per week in the active program's definition (0 when none active). */
+  readonly workoutsPerWeek: number;
   /** Next day, week and progress through the active program (null when none is active). */
   readonly programProgress: ProgramProgress | null;
 }
@@ -152,6 +154,7 @@ export function useDashboardData(activeProgram: ProgramSummary | null): Dashboar
     currentStreak,
     totalSessions,
     totalWorkouts,
+    workoutsPerWeek,
     programProgress,
   };
 }

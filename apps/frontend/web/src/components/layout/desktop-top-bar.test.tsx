@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
 let mockPathname = '/app';
 vi.mock('@tanstack/react-router', () => ({
@@ -7,6 +7,13 @@ vi.mock('@tanstack/react-router', () => ({
     select({ location: { pathname: mockPathname } }),
 }));
 vi.mock('@/components/online-indicator', () => ({ OnlineIndicator: () => null }));
+vi.mock('./command-palette', () => ({
+  CommandPalette: ({ onClose }: { readonly onClose: () => void }) => (
+    <button type="button" data-testid="palette" onClick={onClose}>
+      palette
+    </button>
+  ),
+}));
 
 import { DesktopTopBar, desktopPageTitleKey } from './desktop-top-bar';
 
@@ -37,6 +44,16 @@ describe('DesktopTopBar', () => {
     const bar = screen.getByTestId('desktop-top-bar');
     expect(bar.className).toContain('hidden');
     expect(bar.className).toContain('lg:flex');
-    expect(bar.textContent).toBe('Progreso');
+    expect(bar.textContent).toContain('Progreso');
+    expect(screen.getByRole('button', { name: /buscar o ir a/i })).toBeTruthy();
+  });
+
+  it('opens the command palette with Cmd+K', () => {
+    mockPathname = '/app';
+    render(<DesktopTopBar />);
+    expect(screen.queryByTestId('palette')).toBeNull();
+
+    fireEvent.keyDown(document, { key: 'k', metaKey: true });
+    expect(screen.getByTestId('palette')).toBeTruthy();
   });
 });
