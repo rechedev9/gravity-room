@@ -8,6 +8,8 @@ import { queryKeys } from '@/lib/query-keys';
 import { fetchPrograms } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { localizedProgramName } from '@/lib/catalog-display';
 import { GuestBanner } from '@/components/guest-banner';
 import { readActiveGuestInstance } from '@/lib/guest-storage';
 import { Kicker } from '@/components/kicker';
@@ -29,6 +31,7 @@ import { HomeMentorWidget } from './home-mentor-widget';
 import { ZoneHint } from './zone-hint';
 import { getHomeDashboardLayout, HOME_SPLIT_MIN_SESSIONS } from './home-dashboard-layout';
 import { EarlyHistoryCard } from './early-history-card';
+import { DesktopHome } from './desktop-home';
 
 function getMentorTips(t: TFunction): readonly string[] {
   const tips = t('home.mentor_tips', { returnObjects: true });
@@ -54,6 +57,7 @@ export function HomePage(): React.ReactNode {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { isGuest } = useGuest();
+  const isDesktop = useIsDesktop();
 
   useDocumentTitle(t('home.page_title'));
 
@@ -173,6 +177,28 @@ export function HomePage(): React.ReactNode {
         <div className="flex flex-col gap-6 max-w-5xl mx-auto px-5 sm:px-6 py-6">
           <HomeEmptyState variant="no-program" />
         </div>
+      </div>
+    );
+  }
+
+  // Desktop Home (artboard 01): same live data, laid out for lg+. The phone
+  // stack below is untouched, and a program without computed progress (nothing
+  // to show yet) falls through to it instead of inventing a day.
+  if (isDesktop && dashboard.programProgress !== null) {
+    return (
+      <div className="min-h-dvh bg-body">
+        <DesktopHome
+          programName={localizedProgramName(t, activeProgram.programId, activeProgram.name)}
+          progress={dashboard.programProgress}
+          rows={dashboard.rows}
+          workoutDates={dashboard.workoutDates}
+          resultTimestamps={dashboard.resultTimestamps}
+          recentSessions={dashboard.recentSessions}
+          milestone={prRoad}
+          totalSessions={totalSessions}
+          totalVolume={dashboard.totalVolume}
+          workoutsPerWeek={dashboard.workoutsPerWeek}
+        />
       </div>
     );
   }

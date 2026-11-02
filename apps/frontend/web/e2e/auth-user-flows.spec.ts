@@ -16,11 +16,14 @@ import {
 /* ── Dashboard with Active Program ─────────────── */
 
 test.describe('Authenticated dashboard', () => {
-  test('shows "Empezar entrenamiento" when user has active program', async ({ page }) => {
+  test('shows the start CTA when user has active program', async ({ page }) => {
     await seedProgram(page);
     await page.goto('/app');
+    // Phone: "Empezar entrenamiento"; lg+ desktop Home: "Empezar sesión".
     await expect(
-      page.getByRole('link', { name: /continuar entrenamiento|empezar entrenamiento/i })
+      page.getByRole('link', {
+        name: /continuar entrenamiento|empezar entrenamiento|empezar sesión/i,
+      })
     ).toBeVisible({
       timeout: 10_000,
     });

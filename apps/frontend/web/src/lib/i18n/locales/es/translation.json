@@ -1747,7 +1747,35 @@
       "Cada entrenamiento es una deuda que el cuerpo agradece.",
       "Más vale peso controlado que ego en el suelo."
     ],
-    "load_error": "No se pudo cargar tu panel de entrenamiento."
+    "load_error": "No se pudo cargar tu panel de entrenamiento.",
+    "desktop": {
+      "greeting": "{{weekday}}. Toca {{lift}}.",
+      "greeting_done": "{{weekday}}. Todo registrado.",
+      "week_summary": "{{done}} de {{total}} sesiones esta semana",
+      "today_title": "Sesión de hoy · Día {{day}}",
+      "all_done": "Programa completado. Buen trabajo.",
+      "rest": "Desc. {{time}}",
+      "start": "Empezar sesión",
+      "week_title": "Esta semana",
+      "week_meta": "{{done}} de {{total}} hechas",
+      "loads_title": "Cargas T1",
+      "loads_meta": "Peso principal por ejercicio",
+      "stage_warning": "{{lift}} · etapa {{scheme}} tras fallo en Día {{day}}.",
+      "milestone_title": "Próximo hito",
+      "milestone_goal": "{{lift}} · {{current}} / {{target}}",
+      "milestone_delta": "{{pct}} % · faltan {{delta}}",
+      "no_milestone": "Sin hito a la vista: registra una sesión para ver el siguiente.",
+      "last_title": "Última sesión",
+      "last_meta": "Día {{day}} · {{date}}",
+      "no_last": "Aún no hay sesiones registradas.",
+      "last_value": "{{weight}} · {{reps}}",
+      "last_reps_only": "{{reps}} reps",
+      "program_title": "Programa",
+      "sessions": "Sesiones",
+      "week": "Semana",
+      "week_value": "{{week}} de {{total}}",
+      "volume": "Volumen total"
+    }
   },
   "mentor_tour": {
     "prompt": {

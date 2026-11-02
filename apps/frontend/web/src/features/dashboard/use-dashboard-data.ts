@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { computeGenericProgram } from '@gzclp/domain/generic-engine';
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 import type { ProgramDefinition, GenericResults } from '@gzclp/domain/types/program';
+import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchGenericProgramDetail, fetchCatalogDetail } from '@/lib/api-functions';
 import type { ProgramSummary } from '@/lib/api-functions';
@@ -37,6 +38,12 @@ interface DashboardData {
   readonly totalWorkouts: number;
   /** Sessions per week in the active program's definition (0 when none active). */
   readonly workoutsPerWeek: number;
+  /** Lifetime tonnage of the logged sets (kg). */
+  readonly totalVolume: number;
+  /** Computed rows behind every view model, for surfaces that need slot detail. */
+  readonly rows: readonly GenericWorkoutRow[];
+  /** ISO timestamp per completed workout index, keyed by row index. */
+  readonly resultTimestamps: Readonly<Record<string, string>>;
   /** Next day, week and progress through the active program (null when none is active). */
   readonly programProgress: ProgramProgress | null;
 }
@@ -155,6 +162,9 @@ export function useDashboardData(activeProgram: ProgramSummary | null): Dashboar
     totalSessions,
     totalWorkouts,
     workoutsPerWeek,
+    totalVolume: profileData?.lifetimeVolumeKg ?? 0,
+    rows,
+    resultTimestamps,
     programProgress,
   };
 }
