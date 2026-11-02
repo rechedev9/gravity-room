@@ -30,6 +30,15 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions): void
         return;
       }
 
+      // Space activates a focused control natively; never double-handle it.
+      if (
+        e.key === ' ' &&
+        e.target instanceof HTMLElement &&
+        e.target.closest('button, a, [role="button"]') !== null
+      ) {
+        return;
+      }
+
       switch (e.key) {
         case 'ArrowLeft':
           optionsRef.current.onPrevDay();
@@ -45,6 +54,11 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions): void
           break;
         case 'u':
           optionsRef.current.onUndo();
+          break;
+        case ' ':
+          // Espacio saltar descanso (S8); Escape stays as the alias.
+          e.preventDefault();
+          optionsRef.current.onSkipRest?.();
           break;
         case 'Escape':
           optionsRef.current.onSkipRest?.();
