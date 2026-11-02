@@ -7,6 +7,7 @@ import {
   buildRecentSessions,
   buildLiftHistory,
   buildWorkoutDates,
+  buildProgramProgress,
 } from './dashboard-view-models';
 
 // Two-day program: Squat (T1) on Day A, Bench (T1) on Day B. T1 slots resolve to
@@ -152,5 +153,45 @@ describe('buildLiftHistory + computePrRoad', () => {
     const road = computePrRoad(buildLiftHistory(rows));
     expect(road?.lift).toBe('Bench');
     expect(road?.deltaToPr).toBe(2.5);
+  });
+});
+
+describe('buildProgramProgress', () => {
+  it('points at day 1 of week 1 before anything is logged', () => {
+    const pristine = computeGenericProgram(DEFINITION, CONFIG, {});
+    expect(buildProgramProgress(pristine, 4, 2)).toEqual({
+      day: 1,
+      totalDays: 4,
+      week: 1,
+      fraction: 0.25,
+    });
+  });
+
+  it('points at the first pending day and its week once sets are logged', () => {
+    expect(buildProgramProgress(rows, 4, 2)).toEqual({
+      day: 3,
+      totalDays: 4,
+      week: 2,
+      fraction: 0.75,
+    });
+  });
+
+  it('stays on the last day when every workout is logged', () => {
+    const all = computeGenericProgram(DEFINITION, CONFIG, {
+      ...RESULTS,
+      2: { 'squat-t1': { result: 'success' } },
+      3: { 'bench-t1': { result: 'success' } },
+    });
+    expect(buildProgramProgress(all, 4, 2)).toEqual({
+      day: 4,
+      totalDays: 4,
+      week: 2,
+      fraction: 1,
+    });
+  });
+
+  it('returns null when the program has no workouts or no weekly rhythm', () => {
+    expect(buildProgramProgress([], 0, 2)).toBeNull();
+    expect(buildProgramProgress(rows, 4, 0)).toBeNull();
   });
 });

@@ -152,7 +152,8 @@ test.describe('Tracker visual polish', () => {
   });
 
   test('classic-light accent is warm gold, not cool indigo', async ({ page }) => {
-    // Locale is es-ES; compact sidebar selector uses aria-label "Claro".
+    // Locale is es-ES; a guest has no Cuenta menu, so the compact sidebar
+    // selector is the theme entry point (aria-label "Claro").
     await page.locator('[data-theme-option="classic-light"]').click();
     await expect
       .poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-theme')))
@@ -172,7 +173,7 @@ test.describe('Tracker visual polish', () => {
   test('theme selector shows short labels and edit weights surfaces recalc callout', async ({
     page,
   }) => {
-    // Compact selector shows the two available themes: Oro / Claro.
+    // The compact guest selector shows the two available themes: Oro / Claro.
     await expect(page.locator('[data-theme-option="gold"]')).toContainText(/oro/i);
     await expect(page.locator('[data-theme-option="classic-light"]')).toContainText(/claro/i);
     await expect(page.locator('[data-theme-option="classic-dark"]')).toHaveCount(0);

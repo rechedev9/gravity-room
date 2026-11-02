@@ -12,7 +12,9 @@ import {
   buildRecentSessions,
   buildLiftHistory,
   buildWorkoutDates,
+  buildProgramProgress,
   type HeroExtras,
+  type ProgramProgress,
   type RecentSessionRow,
 } from './dashboard-view-models';
 import type { LiftHistoryRow } from './use-pr-road';
@@ -33,6 +35,8 @@ interface DashboardData {
   readonly totalSessions: number;
   /** Total workouts in the active program's definition (0 when none active). */
   readonly totalWorkouts: number;
+  /** Next day, week and progress through the active program (null when none is active). */
+  readonly programProgress: ProgramProgress | null;
 }
 
 const EMPTY_HERO: HeroExtras = {};
@@ -121,6 +125,11 @@ export function useDashboardData(activeProgram: ProgramSummary | null): Dashboar
   const currentStreak = profileData?.streak.current ?? 0;
   const totalSessions = profileData?.completion.workoutsCompleted ?? 0;
   const totalWorkouts = definition?.totalWorkouts ?? 0;
+  const workoutsPerWeek = definition?.workoutsPerWeek ?? 0;
+  const programProgress = useMemo(
+    () => (rows.length > 0 ? buildProgramProgress(rows, totalWorkouts, workoutsPerWeek) : null),
+    [rows, totalWorkouts, workoutsPerWeek]
+  );
 
   const isLoading =
     activeProgram !== null && (detailQuery.isLoading || (!isCustom && catalogQuery.isLoading));
@@ -143,5 +152,6 @@ export function useDashboardData(activeProgram: ProgramSummary | null): Dashboar
     currentStreak,
     totalSessions,
     totalWorkouts,
+    programProgress,
   };
 }

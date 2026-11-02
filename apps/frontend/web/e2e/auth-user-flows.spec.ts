@@ -59,9 +59,10 @@ test.describe('Authenticated tracker', () => {
 
   test('profile (where stats now live) is accessible for authenticated users', async ({ page }) => {
     // The tracker's Stats tab was removed; statistics now live only on the
-    // profile page, reached from the sidebar nav item that is guest-hidden
+    // profile page, reached from the desktop Cuenta menu that guests never get
     // (see guest-mode.spec.ts REQ-GROUT-003 / REQ-GROUT-005).
-    await page.getByRole('link', { name: 'Perfil' }).first().click();
+    await page.getByRole('button', { name: /^(cuenta de .+|.+ account)$/i }).click();
+    await page.getByRole('menuitem', { name: 'Perfil' }).click();
     await expect(page).toHaveURL(/\/app\/profile/);
     await expect(page.getByText(/crea una cuenta/i)).not.toBeVisible({ timeout: 2_000 });
   });

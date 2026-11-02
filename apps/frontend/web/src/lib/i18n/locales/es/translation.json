@@ -2138,5 +2138,40 @@
       "row_export": "Exportar CSV y copia de seguridad",
       "row_sync": "Mismo historial en móvil"
     }
+  },
+  "desktop_shell": {
+    "nav_label": "Navegación principal",
+    "brand_tagline": "Registro de fuerza",
+    "nav": {
+      "today": "Hoy",
+      "train": "Entrenar",
+      "programs": "Programas",
+      "progress": "Progreso",
+      "exercises": "Ejercicios"
+    },
+    "titles": {
+      "today": "Hoy",
+      "train": "Entrenar",
+      "programs": "Programas",
+      "progress": "Progreso",
+      "exercises": "Ejercicios",
+      "profile": "Perfil",
+      "start": "Empezar"
+    },
+    "program_card": {
+      "label": "Programa activo",
+      "week": "Semana {{week}}",
+      "day": "Día {{day}} de {{total}}"
+    },
+    "account": {
+      "role": "Cuenta",
+      "trigger_label": "Cuenta de {{name}}",
+      "menu_label": "Cuenta",
+      "profile": "Perfil",
+      "units": "Unidades",
+      "language": "Idioma",
+      "theme": "Tema",
+      "sign_out": "Cerrar sesión"
+    }
   }
 }

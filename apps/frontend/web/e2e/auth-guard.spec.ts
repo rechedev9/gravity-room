@@ -59,9 +59,12 @@ test.describe('App route guard on a cold load', () => {
   test('just signed out: every /app route redirects to /login', async ({ page }) => {
     await createAndAuthUser(page);
     await page.goto('/app');
-    await page.getByRole('button', { name: /menú de usuario|user menu/i }).click();
+    await page.getByRole('button', { name: /^(cuenta de .+|.+ account)$/i }).click();
     await page.getByRole('menuitem', { name: /cerrar sesión|sign out/i }).click();
     await page.waitForURL('**/login', { timeout: 10_000 });
+    // Sign-out replaces the document; let the login page finish loading before the
+    // first goto, or the pending navigation interrupts it.
+    await expect(page.getByRole('heading', { name: 'Entrena con intención.' })).toBeVisible();
 
     for (const route of APP_ROUTES) {
       await expectRedirectedToLogin(page, route);
@@ -74,7 +77,7 @@ test.describe('App route guard on a cold load', () => {
   }) => {
     await createAndAuthUser(page);
     await page.goto('/app/programs');
-    await expect(page.getByRole('button', { name: /menú de usuario|user menu/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^(cuenta de .+|.+ account)$/i })).toBeVisible();
 
     await expireSession(context);
     await page.evaluate(() => window.dispatchEvent(new Event('gravity-room:session-invalidated')));
@@ -86,9 +89,13 @@ test.describe('App route guard on a cold load', () => {
     await createAndAuthUser(page);
     for (const route of ['/app', '/app/programs', '/app/profile', '/app/insights'] as const) {
       await page.goto(route);
-      await expect(page.getByRole('button', { name: /menú de usuario|user menu/i })).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: /^(cuenta de .+|.+ account)$/i })
+      ).toBeVisible();
       await page.reload();
-      await expect(page.getByRole('button', { name: /menú de usuario|user menu/i })).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: /^(cuenta de .+|.+ account)$/i })
+      ).toBeVisible();
       expect(new URL(page.url()).pathname).toBe(route);
     }
   });
@@ -109,7 +116,7 @@ test.describe('App route guard on a cold load', () => {
     await page.waitForURL('**/app**', { timeout: 10_000 });
 
     await page.goto('/app/profile');
-    await expect(page.getByRole('button', { name: /menú de usuario|user menu/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^(cuenta de .+|.+ account)$/i })).toBeVisible();
     expect(new URL(page.url()).pathname).toBe('/app/profile');
   });
 

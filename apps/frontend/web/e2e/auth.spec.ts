@@ -83,7 +83,7 @@ test.describe('Auth flow', () => {
     await createAndAuthUser(page);
     await page.goto('/app');
 
-    await page.getByRole('button', { name: /menú de usuario|user menu/i }).click();
+    await page.getByRole('button', { name: /^(cuenta de .+|.+ account)$/i }).click();
     await page.getByRole('menuitem', { name: /cerrar sesión|sign out/i }).click();
 
     await page.waitForURL('**/login', { timeout: 10_000 });
@@ -101,7 +101,7 @@ test.describe('Auth flow', () => {
     });
     await page.goto('/app');
 
-    await page.getByRole('button', { name: /menú de usuario|user menu/i }).click();
+    await page.getByRole('button', { name: /^(cuenta de .+|.+ account)$/i }).click();
     await page.getByRole('menuitem', { name: /cerrar sesión|sign out/i }).click();
 
     await expect(page).toHaveURL(/\/app/);
@@ -110,7 +110,7 @@ test.describe('Auth flow', () => {
     );
 
     await page.unroute('**/api/auth/signout');
-    await page.getByRole('button', { name: /menú de usuario|user menu/i }).click();
+    await page.getByRole('button', { name: /^(cuenta de .+|.+ account)$/i }).click();
     await page.getByRole('menuitem', { name: /cerrar sesión|sign out/i }).click();
     await page.waitForURL('**/login', { timeout: 10_000 });
   });

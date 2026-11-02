@@ -2137,5 +2137,40 @@
       "row_export": "CSV export and backup",
       "row_sync": "Same history on mobile"
     }
+  },
+  "desktop_shell": {
+    "nav_label": "Main navigation",
+    "brand_tagline": "Strength log",
+    "nav": {
+      "today": "Today",
+      "train": "Train",
+      "programs": "Programs",
+      "progress": "Progress",
+      "exercises": "Exercises"
+    },
+    "titles": {
+      "today": "Today",
+      "train": "Train",
+      "programs": "Programs",
+      "progress": "Progress",
+      "exercises": "Exercises",
+      "profile": "Profile",
+      "start": "Start"
+    },
+    "program_card": {
+      "label": "Active program",
+      "week": "Week {{week}}",
+      "day": "Day {{day}} of {{total}}"
+    },
+    "account": {
+      "role": "Account",
+      "trigger_label": "{{name}} account",
+      "menu_label": "Account",
+      "profile": "Profile",
+      "units": "Units",
+      "language": "Language",
+      "theme": "Theme",
+      "sign_out": "Sign out"
+    }
   }
 }

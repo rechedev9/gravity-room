@@ -4,65 +4,99 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { useSignOut } from '@/hooks/use-sign-out';
-import { AvatarDropdown } from '@/components/layout/avatar-dropdown';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { OnlineIndicator } from '@/components/online-indicator';
-import { ThemeSelector } from '@/components/theme-selector';
 import { cn } from '@/lib/cn';
-import {
-  HomeIcon,
-  TrackerIcon,
-  InsightsIcon,
-  ProgramsIcon,
-  ProfileIcon,
-  ExercisesIcon,
-} from './sidebar-icons';
+import { ThemeSelector } from '@/components/theme-selector';
+import { AccountMenu } from './account-menu';
+import { DesktopProgramCard } from './desktop-program-card';
+import { HomeIcon, TrackerIcon, InsightsIcon, ProgramsIcon, ExercisesIcon } from './sidebar-icons';
 
 const SIDEBAR_FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-sidebar)]';
 
 interface NavItem {
+  readonly id: string;
   readonly to: string;
   readonly labelKey: string;
-  readonly end?: boolean;
   readonly Icon: React.ComponentType<{ readonly className?: string }>;
+  readonly isActive: (pathname: string) => boolean;
   readonly guestHidden?: boolean;
 }
 
-const NAV_ITEMS: readonly NavItem[] = [
-  { to: '/app', labelKey: 'navigation.home', end: true, Icon: HomeIcon },
-  { to: '/app/tracker', labelKey: 'navigation.tracker', Icon: TrackerIcon },
-  { to: '/app/insights', labelKey: 'navigation.insights', Icon: InsightsIcon, guestHidden: true },
-  { to: '/app/programs', labelKey: 'navigation.programs', Icon: ProgramsIcon },
-  { to: '/app/exercises', labelKey: 'navigation.exercises', Icon: ExercisesIcon },
-  { to: '/app/profile', labelKey: 'navigation.profile', Icon: ProfileIcon, guestHidden: true },
-];
-
-function navItemClass(isActive: boolean): string {
-  return cn(
-    'relative flex min-h-11 items-center gap-3 px-3 py-2.5 rounded-control transition-[color,background-color] duration-[var(--duration-instant)] cursor-pointer',
-    SIDEBAR_FOCUS_RING,
-    isActive
-      ? 'text-main bg-[var(--color-sidebar-active)]'
-      : 'text-muted hover:text-main hover:bg-[var(--color-sidebar-active)]/40'
-  );
+function under(pathname: string, base: string): boolean {
+  return pathname === base || pathname.startsWith(`${base}/`);
 }
 
-function SidebarNavLink({ item }: { readonly item: NavItem }): React.ReactNode {
+/** The five desktop sections of artboard 01. Perfil lives in the Cuenta menu. */
+export const DESKTOP_NAV_ITEMS: readonly NavItem[] = [
+  {
+    id: 'today',
+    to: '/app',
+    labelKey: 'desktop_shell.nav.today',
+    Icon: HomeIcon,
+    isActive: (p) => p === '/app' || p === '/app/',
+  },
+  {
+    id: 'train',
+    to: '/app/tracker',
+    labelKey: 'desktop_shell.nav.train',
+    Icon: TrackerIcon,
+    isActive: (p) => under(p, '/app/tracker') || under(p, '/app/start'),
+  },
+  {
+    id: 'programs',
+    to: '/app/programs',
+    labelKey: 'desktop_shell.nav.programs',
+    Icon: ProgramsIcon,
+    isActive: (p) => under(p, '/app/programs') || under(p, '/app/explore'),
+  },
+  {
+    id: 'progress',
+    to: '/app/insights',
+    labelKey: 'desktop_shell.nav.progress',
+    Icon: InsightsIcon,
+    isActive: (p) => under(p, '/app/insights'),
+    guestHidden: true,
+  },
+  {
+    id: 'exercises',
+    to: '/app/exercises',
+    labelKey: 'desktop_shell.nav.exercises',
+    Icon: ExercisesIcon,
+    isActive: (p) => under(p, '/app/exercises'),
+  },
+];
+
+function SidebarNavLink({
+  item,
+  pathname,
+}: {
+  readonly item: NavItem;
+  readonly pathname: string;
+}): React.ReactNode {
   const { t } = useTranslation();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const isActive = item.end ? pathname === item.to : pathname.startsWith(item.to);
+  const isActive = item.isActive(pathname);
 
   return (
-    <Link to={item.to} className={navItemClass(isActive)}>
+    <Link
+      to={item.to}
+      data-nav-item={item.id}
+      aria-current={isActive ? 'page' : undefined}
+      className={cn(
+        'relative flex min-h-10 items-center gap-3 rounded-control px-3 py-2.5 text-sm font-medium transition-[color,background-color] duration-[var(--duration-instant)]',
+        SIDEBAR_FOCUS_RING,
+        isActive
+          ? 'bg-[var(--color-surface-2)] text-main'
+          : 'text-muted hover:bg-[var(--color-surface-2)] hover:text-main'
+      )}
+    >
       {isActive && (
         <span
-          className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-full bg-[var(--color-accent)]"
+          className="absolute inset-y-[7px] left-0 w-[3px] rounded-[3px] bg-accent"
           aria-hidden="true"
         />
       )}
-      <item.Icon className={cn('shrink-0 size-6', isActive && 'text-accent')} />
-      <span className="type-button">{t(item.labelKey)}</span>
+      <item.Icon className="size-[18px] shrink-0" />
+      <span>{t(item.labelKey)}</span>
     </Link>
   );
 }
@@ -74,6 +108,7 @@ export function AppSidebar(): React.ReactNode {
   const { isGuest, exitGuestModeKeepingData } = useGuest();
   const navigate = useNavigate();
   const { signOut, failed: signOutError } = useSignOut();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const handleGuestExit = useCallback((): void => {
     // Keep the guest data - it is migrated to the account after sign-in.
@@ -81,92 +116,78 @@ export function AppSidebar(): React.ReactNode {
     void navigate({ to: '/login' });
   }, [exitGuestModeKeepingData, navigate]);
 
+  const signedIn = !isGuest && user !== null;
+
   return (
     <aside
-      className="hidden lg:flex flex-col h-screen sticky top-0 bg-[var(--color-sidebar)] border-r border-[var(--color-sidebar-border)] shrink-0 overflow-hidden"
+      className="hidden lg:flex sticky top-0 h-screen shrink-0 flex-col overflow-hidden border-r border-[var(--color-sidebar-border)] bg-[var(--color-sidebar)]"
       style={{ width: 'var(--sidebar-width)' }}
     >
-      <TooltipProvider>
-        <nav aria-label={t('navigation.main_nav_label')} className="flex flex-col h-full min-h-0">
-          <div className="border-b border-[var(--color-sidebar-border)] flex items-center px-5 py-4 gap-3 shrink-0">
-            <Link
-              to="/app"
-              className={cn(
-                'flex items-center gap-3 min-w-0 rounded-md hover:opacity-80 transition-opacity duration-150',
-                SIDEBAR_FOCUS_RING
-              )}
-            >
-              <img
-                src="/logo-192.webp"
-                alt="Gravity Room"
-                width={32}
-                height={32}
-                className="rounded-control shrink-0"
-              />
-              <span className="font-display text-xl tracking-[0.06em] text-main whitespace-nowrap">
-                Gravity Room
-              </span>
-            </Link>
-          </div>
-
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-1.5">
-            {NAV_ITEMS.map((item) =>
-              item.guestHidden && isGuest ? null : <SidebarNavLink key={item.to} item={item} />
+      <nav aria-label={t('desktop_shell.nav_label')} className="flex h-full min-h-0 flex-col">
+        <div className="shrink-0 border-b border-[var(--color-sidebar-border)] px-5 pb-4 pt-[22px]">
+          <Link
+            to="/app"
+            className={cn(
+              'block rounded-md transition-opacity hover:opacity-80',
+              SIDEBAR_FOCUS_RING
             )}
-          </div>
+          >
+            <span className="block font-display text-[30px] leading-[0.9] tracking-[1px] text-main">
+              GRAVITY <span className="text-accent">ROOM</span>
+            </span>
+            <span className="mt-1 block font-mono text-[11px] uppercase tracking-[0.8px] text-label">
+              {t('desktop_shell.brand_tagline')}
+            </span>
+          </Link>
+        </div>
 
-          <div className="border-t border-[var(--color-sidebar-border)] p-3 shrink-0">
-            {isGuest ? (
+        <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-3.5">
+          {DESKTOP_NAV_ITEMS.map((item) =>
+            item.guestHidden && isGuest ? null : (
+              <SidebarNavLink key={item.id} item={item} pathname={pathname} />
+            )
+          )}
+        </div>
+
+        <div className="flex shrink-0 flex-col gap-2.5 border-t border-[var(--color-sidebar-border)] p-3">
+          {isGuest ? (
+            <>
               <button
                 type="button"
                 onClick={handleGuestExit}
                 className={cn(
-                  'type-button w-full min-h-11 px-3 py-2 text-left text-muted hover:text-main transition-colors cursor-pointer rounded-control',
+                  'type-button min-h-11 w-full rounded-control px-3 py-2 text-left text-muted transition-colors hover:text-main cursor-pointer',
                   SIDEBAR_FOCUS_RING
                 )}
               >
                 {t('auth.create_account')}
               </button>
-            ) : user ? (
-              <div className="space-y-2">
-                <div className="flex min-w-0 items-center gap-3 rounded-control px-1 py-1">
-                  <AvatarDropdown
-                    user={user}
-                    syncStatus="idle"
-                    onSignOut={() => void signOut()}
-                    dropdownPlacement="top"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="type-kicker text-label">{t('navigation.profile')}</p>
-                    <p className="mt-0.5 truncate text-xs text-main" title={user.email}>
-                      {user.email}
-                    </p>
-                  </div>
-                </div>
-                {signOutError && (
-                  <p role="alert" className="text-xs text-error">
-                    {t('auth.errors.sign_out_failed')}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <AvatarDropdown
-                user={null}
-                syncStatus="idle"
-                onSignOut={() => void signOut()}
-                dropdownPlacement="top"
-              />
-            )}
-            <div className="mt-3 border-t border-[var(--color-sidebar-border)] pt-3">
-              <div className="mb-2 flex min-h-6 items-center justify-between gap-2">
-                <p className="type-kicker text-label">{t('theme_selector.label')}</p>
-                <OnlineIndicator inline />
-              </div>
+              {/* Guests have no Cuenta menu, so the theme keeps a visible control. */}
               <ThemeSelector compact className="w-full" />
-            </div>
-          </div>
-        </nav>
-      </TooltipProvider>
+            </>
+          ) : user ? (
+            <>
+              <DesktopProgramCard enabled={signedIn} />
+              <AccountMenu user={user} onSignOut={() => void signOut()} />
+              {signOutError && (
+                <p role="alert" className="text-xs text-error">
+                  {t('auth.errors.sign_out_failed')}
+                </p>
+              )}
+            </>
+          ) : (
+            <Link
+              to="/login"
+              className={cn(
+                'type-button inline-flex min-h-11 items-center rounded-control border-2 border-btn-ring bg-btn px-3 py-2 text-btn-text transition-colors hover:bg-btn-active hover:text-btn-active-text',
+                SIDEBAR_FOCUS_RING
+              )}
+            >
+              {t('auth.sign_in')}
+            </Link>
+          )}
+        </div>
+      </nav>
     </aside>
   );
 }
