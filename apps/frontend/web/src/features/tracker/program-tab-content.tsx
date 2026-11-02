@@ -2,6 +2,7 @@ import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import type { GenericResults, ProgramDefinition } from '@gzclp/domain/types/program';
 import type { ViewMode } from '@/lib/view-preference';
 import { useTranslation } from 'react-i18next';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { GuestBanner } from '@/components/guest-banner';
 import { CalendarNavigator } from '@/features/program-view/calendar-navigator';
 import { DetailedDayView } from '@/features/program-view/detailed-day-view';
@@ -57,6 +58,10 @@ export function ProgramTabContent({
   const { onMark, onUndo, onSetAmrapReps, onSetRpe, onSetTap, getSetLogs, isSlotLogging } =
     slotActions;
   const { t } = useTranslation();
+  // The desktop tracker always uses the table; the compact/detailed toggle is
+  // phone-only (decision L3, artboard S8).
+  const isDesktop = useIsDesktop();
+  const effectiveViewMode: ViewMode = isDesktop ? 'detailed' : viewMode;
 
   const handleSelectDay = (idx: number): void => {
     onSelectDay(idx);
@@ -88,20 +93,22 @@ export function ProgramTabContent({
                 context="tracker"
                 onSelectDay={handleSelectDay}
                 toolbarEnd={
-                  <button
-                    type="button"
-                    onClick={onToggleView}
-                    aria-label={
-                      viewMode === 'detailed'
-                        ? t('tracker.tab_content.aria_compact_view')
-                        : t('tracker.tab_content.aria_detailed_view')
-                    }
-                    className="type-button min-h-[44px] border border-rule bg-card rounded-control px-3 text-muted transition-colors hover:border-rule-light hover:text-main cursor-pointer"
-                  >
-                    {viewMode === 'detailed'
-                      ? t('tracker.tab_content.compact_view')
-                      : t('tracker.tab_content.detailed_view')}
-                  </button>
+                  isDesktop ? undefined : (
+                    <button
+                      type="button"
+                      onClick={onToggleView}
+                      aria-label={
+                        viewMode === 'detailed'
+                          ? t('tracker.tab_content.aria_compact_view')
+                          : t('tracker.tab_content.aria_detailed_view')
+                      }
+                      className="type-button min-h-[44px] border border-rule bg-card rounded-control px-3 text-muted transition-colors hover:border-rule-light hover:text-main cursor-pointer"
+                    >
+                      {viewMode === 'detailed'
+                        ? t('tracker.tab_content.compact_view')
+                        : t('tracker.tab_content.detailed_view')}
+                    </button>
+                  )
                 }
               />
             </div>
@@ -110,7 +117,7 @@ export function ProgramTabContent({
       )}
 
       {selectedWorkout &&
-        (viewMode === 'detailed' ? (
+        (effectiveViewMode === 'detailed' ? (
           <>
             {showCompletion && (
               <DayCompletedPanel

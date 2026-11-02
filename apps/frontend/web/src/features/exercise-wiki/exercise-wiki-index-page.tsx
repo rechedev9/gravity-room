@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Link } from '@tanstack/react-router';
+import { Link, useSearch } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import type { ArticleLang } from '@gzclp/domain/schemas/exercise-article';
 import { useHead } from '@/hooks/use-head';
@@ -57,11 +57,14 @@ interface ExerciseWikiIndexPageProps {
    * "back to app" affordance is dropped since the sidebar already provides it.
    */
   readonly inApp?: boolean;
+  /** Seeds the catalog search from the ⌘K palette's exercise results. */
+  readonly initialQuery?: string;
 }
 
 export function ExerciseWikiIndexPage({
   lang,
   inApp = false,
+  initialQuery,
 }: ExerciseWikiIndexPageProps): ReactNode {
   const copy = COPY[lang];
   // Canonical/hreflang always point at the public SEO URLs; only the in-shell
@@ -161,7 +164,7 @@ export function ExerciseWikiIndexPage({
       {inApp ? (
         <div className="pt-2 border-t border-rule">
           <div className="pt-6">
-            <ExerciseCatalogBrowser lang={lang} />
+            <ExerciseCatalogBrowser lang={lang} initialQuery={initialQuery} />
           </div>
         </div>
       ) : (
@@ -188,6 +191,9 @@ export function ExerciseWikiIndexPage({
  */
 export function AppExerciseWikiIndexPage(): ReactNode {
   const { i18n } = useTranslation();
+  const { q } = useSearch({ strict: false });
   const lang: ArticleLang = i18n.language.startsWith('en') ? 'en' : 'es';
-  return <ExerciseWikiIndexPage lang={lang} inApp />;
+  return (
+    <ExerciseWikiIndexPage lang={lang} inApp initialQuery={typeof q === 'string' ? q : undefined} />
+  );
 }

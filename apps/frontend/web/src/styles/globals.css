@@ -107,8 +107,8 @@
   --color-sidebar: var(--color-header);
   --color-sidebar-active: var(--color-card);
   --color-sidebar-border: var(--color-rule);
-  --sidebar-width: 224px; /* unified — sidebar is always fully expanded on lg+ (no hover-collapse) */
-  --sidebar-width-collapsed: 224px; /* kept for back-compat; same value to prevent JS-driven width swap */
+  --sidebar-width: 232px; /* unified — sidebar is always fully expanded on lg+ (no hover-collapse) */
+  --sidebar-width-collapsed: 232px; /* kept for back-compat; same value to prevent JS-driven width swap */
   --sidebar-transition: 250ms cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Phone tab bar: 60px, matching the mobile app. Floating chrome sits above it. */

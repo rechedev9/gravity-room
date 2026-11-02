@@ -243,8 +243,10 @@ test.describe('Guest view gating (REQ-GROUT-003)', () => {
     await enterGuestMode(page);
 
     // enterGuestMode gates on guest mode status — home page is loaded
-    // Avatar dropdown trigger (profile entry point) is not rendered for guests
-    await expect(page.getByRole('button', { name: 'Menú de usuario' })).not.toBeVisible();
+    // The Cuenta menu trigger (profile entry point) is not rendered for guests
+    await expect(
+      page.getByRole('button', { name: /^(cuenta de .+|.+ account)$/i })
+    ).not.toBeVisible();
     // "Iniciar Sesión" link is also hidden (guest has "Crear Cuenta" instead)
     await expect(
       page

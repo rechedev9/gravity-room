@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { seedProgram } from './helpers/seed';
 
+// Compact-flow spec: the compact slot-first view is the phone experience now;
+// lg+ always renders the set table (decision L3). Pin the phone viewport.
+test.use({ viewport: { width: 390, height: 844 } });
+
 test.describe('Weight unit preference', () => {
   test('lbs chosen on the profile applies on home and tracker and survives a reload', async ({
     page,

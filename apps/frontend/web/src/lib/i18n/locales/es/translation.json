@@ -1030,7 +1030,8 @@
       "set_failed_aria": "Serie fallada",
       "confirm_set_aria": "Confirmar serie {{label}}",
       "logged_reps": "{{reps}} reps",
-      "weight_input_aria": "Peso serie {{label}}"
+      "weight_input_aria": "Peso serie {{label}}",
+      "col_set": "Serie"
     },
     "set_indicators": {
       "sets_aria_one": "{{count}} serie",
@@ -1227,6 +1228,13 @@
       "success": "Éxito registrado",
       "fail": "Fallo registrado",
       "awaiting": "Resultado pendiente"
+    },
+    "key_bar": {
+      "confirm": "confirmar",
+      "reps": "reps",
+      "day": "día",
+      "undo": "deshacer",
+      "rest": "saltar descanso"
     }
   },
   "profile": {
@@ -1747,7 +1755,35 @@
       "Cada entrenamiento es una deuda que el cuerpo agradece.",
       "Más vale peso controlado que ego en el suelo."
     ],
-    "load_error": "No se pudo cargar tu panel de entrenamiento."
+    "load_error": "No se pudo cargar tu panel de entrenamiento.",
+    "desktop": {
+      "greeting": "{{weekday}}. Toca {{lift}}.",
+      "greeting_done": "{{weekday}}. Todo registrado.",
+      "week_summary": "{{done}} de {{total}} sesiones esta semana",
+      "today_title": "Sesión de hoy · Día {{day}}",
+      "all_done": "Programa completado. Buen trabajo.",
+      "rest": "Desc. {{time}}",
+      "start": "Empezar sesión",
+      "week_title": "Esta semana",
+      "week_meta": "{{done}} de {{total}} hechas",
+      "loads_title": "Cargas T1",
+      "loads_meta": "Peso principal por ejercicio",
+      "stage_warning": "{{lift}} · etapa {{scheme}} tras fallo en Día {{day}}.",
+      "milestone_title": "Próximo hito",
+      "milestone_goal": "{{lift}} · {{current}} / {{target}}",
+      "milestone_delta": "{{pct}} % · faltan {{delta}}",
+      "no_milestone": "Sin hito a la vista: registra una sesión para ver el siguiente.",
+      "last_title": "Última sesión",
+      "last_meta": "Día {{day}} · {{date}}",
+      "no_last": "Aún no hay sesiones registradas.",
+      "last_value": "{{weight}} · {{reps}}",
+      "last_reps_only": "{{reps}} reps",
+      "program_title": "Programa",
+      "sessions": "Sesiones",
+      "week": "Semana",
+      "week_value": "{{week}} de {{total}}",
+      "volume": "Volumen total"
+    }
   },
   "mentor_tour": {
     "prompt": {
@@ -2137,6 +2173,62 @@
       "row_stats": "Estadísticas y gráficas",
       "row_export": "Exportar CSV y copia de seguridad",
       "row_sync": "Mismo historial en móvil"
+    }
+  },
+  "desktop_shell": {
+    "nav_label": "Navegación principal",
+    "brand_tagline": "Registro de fuerza",
+    "nav": {
+      "today": "Hoy",
+      "train": "Entrenar",
+      "programs": "Programas",
+      "progress": "Progreso",
+      "exercises": "Ejercicios"
+    },
+    "titles": {
+      "today": "Hoy",
+      "train": "Entrenar",
+      "programs": "Programas",
+      "progress": "Progreso",
+      "exercises": "Ejercicios",
+      "profile": "Perfil",
+      "start": "Empezar"
+    },
+    "program_card": {
+      "label": "Programa activo",
+      "week": "Semana {{week}}",
+      "day": "Día {{day}} de {{total}}"
+    },
+    "account": {
+      "role": "Cuenta",
+      "trigger_label": "Cuenta de {{name}}",
+      "menu_label": "Cuenta",
+      "profile": "Perfil",
+      "units": "Unidades",
+      "language": "Idioma",
+      "theme": "Tema",
+      "sign_out": "Cerrar sesión"
+    },
+    "palette": {
+      "label": "Buscar o ir a",
+      "open_label": "Buscar o ir a secciones, días y ejercicios",
+      "placeholder": "Buscar o ir a…",
+      "empty": "Sin resultados para «{{query}}»",
+      "idle": "Escribe un día o un ejercicio",
+      "hint_move": "moverse",
+      "hint_open": "abrir",
+      "hint_close": "cerrar",
+      "jump_day": "Ir al día {{day}}",
+      "day_label": "Día {{day}} · Semana {{week}}",
+      "sections": {
+        "go": "Ir a",
+        "days": "Días del programa",
+        "exercises": "Ejercicios del catálogo"
+      },
+      "hints": {
+        "day": "Entrenar",
+        "exercise": "Catálogo"
+      }
     }
   }
 }

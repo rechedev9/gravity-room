@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { computeGenericProgram } from '@gzclp/domain/generic-engine';
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 import type { ProgramDefinition, GenericResults } from '@gzclp/domain/types/program';
+import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchGenericProgramDetail, fetchCatalogDetail } from '@/lib/api-functions';
 import type { ProgramSummary } from '@/lib/api-functions';
@@ -12,7 +13,9 @@ import {
   buildRecentSessions,
   buildLiftHistory,
   buildWorkoutDates,
+  buildProgramProgress,
   type HeroExtras,
+  type ProgramProgress,
   type RecentSessionRow,
 } from './dashboard-view-models';
 import type { LiftHistoryRow } from './use-pr-road';
@@ -33,6 +36,16 @@ interface DashboardData {
   readonly totalSessions: number;
   /** Total workouts in the active program's definition (0 when none active). */
   readonly totalWorkouts: number;
+  /** Sessions per week in the active program's definition (0 when none active). */
+  readonly workoutsPerWeek: number;
+  /** Lifetime tonnage of the logged sets (kg). */
+  readonly totalVolume: number;
+  /** Computed rows behind every view model, for surfaces that need slot detail. */
+  readonly rows: readonly GenericWorkoutRow[];
+  /** ISO timestamp per completed workout index, keyed by row index. */
+  readonly resultTimestamps: Readonly<Record<string, string>>;
+  /** Next day, week and progress through the active program (null when none is active). */
+  readonly programProgress: ProgramProgress | null;
 }
 
 const EMPTY_HERO: HeroExtras = {};
@@ -121,6 +134,11 @@ export function useDashboardData(activeProgram: ProgramSummary | null): Dashboar
   const currentStreak = profileData?.streak.current ?? 0;
   const totalSessions = profileData?.completion.workoutsCompleted ?? 0;
   const totalWorkouts = definition?.totalWorkouts ?? 0;
+  const workoutsPerWeek = definition?.workoutsPerWeek ?? 0;
+  const programProgress = useMemo(
+    () => (rows.length > 0 ? buildProgramProgress(rows, totalWorkouts, workoutsPerWeek) : null),
+    [rows, totalWorkouts, workoutsPerWeek]
+  );
 
   const isLoading =
     activeProgram !== null && (detailQuery.isLoading || (!isCustom && catalogQuery.isLoading));
@@ -143,5 +161,10 @@ export function useDashboardData(activeProgram: ProgramSummary | null): Dashboar
     currentStreak,
     totalSessions,
     totalWorkouts,
+    workoutsPerWeek,
+    totalVolume: profileData?.lifetimeVolumeKg ?? 0,
+    rows,
+    resultTimestamps,
+    programProgress,
   };
 }

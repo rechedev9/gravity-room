@@ -10,6 +10,7 @@ import {
   localizedProgramName,
 } from '@/lib/catalog-display';
 import { useUnitPreference } from '@/hooks/use-unit-preference';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { buildWeightsSummary } from './weights-summary';
 import { IconButton } from '@/components/icon-button';
 import { SessionMenu, type SessionMenuProps } from './session-menu';
@@ -123,9 +124,43 @@ export function SessionChrome({
     (_, i) => weekStart + i
   );
   const showGoToCurrent = !isCurrentDay && currentDayIndex >= 0;
+  const isDesktop = useIsDesktop();
   const changeDayLabel = navExpanded
     ? t('tracker.day_status.close')
     : t('tracker.day_status.change_day');
+
+  // One button, mounted by whichever layout owns the day controls: the phone row
+  // next to the week rail, or the lg+ single selector.
+  const goToCurrentButton = showGoToCurrent ? (
+    <button
+      type="button"
+      onClick={onGoToCurrent}
+      data-testid="session-chrome-go-current"
+      className="type-button min-h-11 shrink-0 rounded-control px-2 text-accent cursor-pointer hover:text-accent-hover"
+    >
+      {t('tracker.day_navigator.go_to_current')}
+    </button>
+  ) : null;
+
+  const changeDayButton = (
+    <button
+      type="button"
+      onClick={onToggleNav}
+      aria-expanded={navExpanded}
+      aria-label={changeDayLabel}
+      data-testid="session-chrome-change-day"
+      className={cn(
+        'type-button inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-control px-2.5 cursor-pointer',
+        'transition-[background-color,color] duration-[var(--duration-press)]',
+        navExpanded ? 'bg-surface-2 text-main' : 'text-muted hover:bg-card hover:text-main'
+      )}
+    >
+      <CalendarIcon />
+      <span className="hidden md:inline" aria-hidden="true">
+        {changeDayLabel}
+      </span>
+    </button>
+  );
 
   // Keep the selected week chip on screen: a long plan has dozens of weeks.
   const weekRailRef = useRef<HTMLDivElement>(null);
@@ -211,7 +246,7 @@ export function SessionChrome({
           ref={weekRailRef}
           role="group"
           aria-label={t('tracker.session_chrome.weeks_aria')}
-          className="week-rail -ml-1 flex min-w-0 flex-1 gap-1 overflow-x-auto py-0.5 pr-9 pl-1"
+          className="week-rail -ml-1 flex min-w-0 flex-1 gap-1 overflow-x-auto py-0.5 pr-9 pl-1 lg:hidden"
         >
           {Array.from({ length: weekCount }, (_, week) => (
             <Chip
@@ -224,33 +259,8 @@ export function SessionChrome({
             </Chip>
           ))}
         </div>
-        {showGoToCurrent && (
-          <button
-            type="button"
-            onClick={onGoToCurrent}
-            data-testid="session-chrome-go-current"
-            className="type-button min-h-11 shrink-0 rounded-control px-2 text-accent cursor-pointer hover:text-accent-hover"
-          >
-            {t('tracker.day_navigator.go_to_current')}
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={onToggleNav}
-          aria-expanded={navExpanded}
-          aria-label={changeDayLabel}
-          data-testid="session-chrome-change-day"
-          className={cn(
-            'type-button inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-control px-2.5 cursor-pointer',
-            'transition-[background-color,color] duration-[var(--duration-press)]',
-            navExpanded ? 'bg-surface-2 text-main' : 'text-muted hover:bg-card hover:text-main'
-          )}
-        >
-          <CalendarIcon />
-          <span className="hidden md:inline" aria-hidden="true">
-            {changeDayLabel}
-          </span>
-        </button>
+        {!isDesktop && goToCurrentButton}
+        {!isDesktop && changeDayButton}
       </div>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
@@ -265,7 +275,7 @@ export function SessionChrome({
           <div
             role="group"
             aria-label={t('tracker.session_chrome.days_aria')}
-            className="flex min-w-0 flex-1 gap-1 overflow-x-auto"
+            className="flex min-w-0 flex-1 gap-1 overflow-x-auto lg:hidden"
           >
             {weekDays.map((index) => {
               const selected = index === dayIndex;
@@ -293,6 +303,15 @@ export function SessionChrome({
               );
             })}
           </div>
+          {/* lg+: one day selector, "Dia N . Semana W", between the arrows. */}
+          <p className="hidden min-w-0 flex-1 items-baseline justify-center gap-2 lg:flex">
+            <span className="font-mono text-sm text-main">
+              {t('tracker.day_status.day_name', { n: dayIndex + 1 })}
+            </span>
+            <span className="font-mono text-[11px] text-label">
+              · {t('tracker.session_chrome.week_label', { n: weekIndex + 1 })}
+            </span>
+          </p>
           <IconButton
             label={t('tracker.day_navigator.next_aria')}
             disabled={dayIndex >= totalDays - 1}
@@ -300,6 +319,8 @@ export function SessionChrome({
           >
             <ChevronRightIcon />
           </IconButton>
+          {isDesktop && goToCurrentButton}
+          {isDesktop && <span className="ml-1">{changeDayButton}</span>}
         </div>
 
         <div

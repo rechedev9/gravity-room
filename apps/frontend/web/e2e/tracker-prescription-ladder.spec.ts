@@ -2,6 +2,10 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
 import { createAndAuthUser, createProgramById } from './helpers/api';
 import { expectSelectedDay, seedProgram } from './helpers/seed';
 
+// Compact-flow spec: the compact slot-first view is the phone experience now;
+// lg+ always renders the set table (decision L3). Pin the phone viewport.
+test.use({ viewport: { width: 390, height: 844 } });
+
 type View = 'detailed' | 'compact';
 
 async function openTracker(page: Page, view: View, programId: string): Promise<void> {

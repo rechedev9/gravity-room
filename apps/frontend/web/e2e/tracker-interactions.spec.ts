@@ -75,6 +75,8 @@ test.describe('View toggle', () => {
   });
 
   test('can switch to compact view and back', async ({ page }) => {
+    // The compact/detailed toggle is phone-only; lg+ is always the table.
+    await page.setViewportSize({ width: 390, height: 844 });
     await expandDayControls(page);
     const compactBtn = page.getByRole('button', { name: 'Cambiar a vista compacta' });
     await expect(compactBtn).toBeVisible();

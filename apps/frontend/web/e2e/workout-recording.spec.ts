@@ -7,6 +7,10 @@ import {
   tierUndoButton,
 } from './helpers/seed';
 
+// Compact-flow spec: the compact slot-first view is the phone experience now;
+// lg+ always renders the set table (decision L3). Pin the phone viewport.
+test.use({ viewport: { width: 390, height: 844 } });
+
 test.describe('Workout recording', () => {
   test.beforeEach(async ({ page }) => {
     await seedProgram(page);

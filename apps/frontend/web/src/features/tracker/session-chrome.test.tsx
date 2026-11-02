@@ -76,8 +76,9 @@ describe('SessionChrome', () => {
     expect(chrome).toHaveTextContent('SEMANA 1');
     expect(chrome).toHaveTextContent('DÍA 1');
     expect(chrome).toHaveTextContent('/ 36');
-    // "Día 1" appears once, as the day selector button, never as a second name.
-    expect(within(chrome).getAllByText('Día 1')).toHaveLength(1);
+    // One selector per layout: the phone day chip and the lg+ label. CSS shows
+    // exactly one of them; a descriptive day name still never repeats.
+    expect(within(chrome).getAllByText('Día 1')).toHaveLength(2);
   });
 
   it('keeps a descriptive day name and the weight summary next to the position', () => {

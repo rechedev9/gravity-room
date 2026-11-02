@@ -1030,7 +1030,8 @@
       "set_failed_aria": "Set failed",
       "confirm_set_aria": "Confirm set {{label}}",
       "logged_reps": "{{reps}} reps",
-      "weight_input_aria": "Set {{label}} weight"
+      "weight_input_aria": "Set {{label}} weight",
+      "col_set": "Set"
     },
     "set_indicators": {
       "sets_aria_one": "{{count}} set",
@@ -1227,6 +1228,13 @@
       "success": "Logged success",
       "fail": "Logged fail",
       "awaiting": "Awaiting result"
+    },
+    "key_bar": {
+      "confirm": "confirm",
+      "reps": "reps",
+      "day": "day",
+      "undo": "undo",
+      "rest": "skip rest"
     }
   },
   "profile": {
@@ -1747,7 +1755,35 @@
       "Every workout is a debt your body will repay.",
       "Controlled weight beats ego on the floor."
     ],
-    "load_error": "Could not load your training dashboard."
+    "load_error": "Could not load your training dashboard.",
+    "desktop": {
+      "greeting": "{{weekday}}. {{lift}} day.",
+      "greeting_done": "{{weekday}}. Everything logged.",
+      "week_summary": "{{done}} of {{total}} sessions this week",
+      "today_title": "Today's session · Day {{day}}",
+      "all_done": "Program complete. Nice work.",
+      "rest": "Rest {{time}}",
+      "start": "Start session",
+      "week_title": "This week",
+      "week_meta": "{{done}} of {{total}} done",
+      "loads_title": "T1 loads",
+      "loads_meta": "Main lift weights",
+      "stage_warning": "{{lift}} · stage {{scheme}} after failing on Day {{day}}.",
+      "milestone_title": "Next milestone",
+      "milestone_goal": "{{lift}} · {{current}} / {{target}}",
+      "milestone_delta": "{{pct}}% · {{delta}} to go",
+      "no_milestone": "No milestone in sight: log a session to see the next one.",
+      "last_title": "Last session",
+      "last_meta": "Day {{day}} · {{date}}",
+      "no_last": "No sessions logged yet.",
+      "last_value": "{{weight}} · {{reps}}",
+      "last_reps_only": "{{reps}} reps",
+      "program_title": "Program",
+      "sessions": "Sessions",
+      "week": "Week",
+      "week_value": "{{week}} of {{total}}",
+      "volume": "Total volume"
+    }
   },
   "mentor_tour": {
     "prompt": {
@@ -2136,6 +2172,62 @@
       "row_stats": "Stats and charts",
       "row_export": "CSV export and backup",
       "row_sync": "Same history on mobile"
+    }
+  },
+  "desktop_shell": {
+    "nav_label": "Main navigation",
+    "brand_tagline": "Strength log",
+    "nav": {
+      "today": "Today",
+      "train": "Train",
+      "programs": "Programs",
+      "progress": "Progress",
+      "exercises": "Exercises"
+    },
+    "titles": {
+      "today": "Today",
+      "train": "Train",
+      "programs": "Programs",
+      "progress": "Progress",
+      "exercises": "Exercises",
+      "profile": "Profile",
+      "start": "Start"
+    },
+    "program_card": {
+      "label": "Active program",
+      "week": "Week {{week}}",
+      "day": "Day {{day}} of {{total}}"
+    },
+    "account": {
+      "role": "Account",
+      "trigger_label": "{{name}} account",
+      "menu_label": "Account",
+      "profile": "Profile",
+      "units": "Units",
+      "language": "Language",
+      "theme": "Theme",
+      "sign_out": "Sign out"
+    },
+    "palette": {
+      "label": "Search or go to",
+      "open_label": "Search or jump to sections, days and exercises",
+      "placeholder": "Search or go to…",
+      "empty": "No results for “{{query}}”",
+      "idle": "Type a day or an exercise",
+      "hint_move": "move",
+      "hint_open": "open",
+      "hint_close": "close",
+      "jump_day": "Go to day {{day}}",
+      "day_label": "Day {{day}} · Week {{week}}",
+      "sections": {
+        "go": "Go to",
+        "days": "Program days",
+        "exercises": "Exercise catalog"
+      },
+      "hints": {
+        "day": "Train",
+        "exercise": "Catalog"
+      }
     }
   }
 }

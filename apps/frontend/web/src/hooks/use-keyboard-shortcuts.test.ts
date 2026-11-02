@@ -42,6 +42,7 @@ describe('useKeyboardShortcuts', () => {
     { key: 'ArrowLeft', handler: 'onPrevDay' },
     { key: 'ArrowRight', handler: 'onNextDay' },
     { key: 'Escape', handler: 'onSkipRest' },
+    { key: ' ', handler: 'onSkipRest' },
   ] as const satisfies readonly {
     readonly key: string;
     readonly handler: keyof UseKeyboardShortcutsOptions;
@@ -65,6 +66,16 @@ describe('useKeyboardShortcuts', () => {
       renderHook(() => useKeyboardShortcuts(options));
 
       expect(() => fireKey('Escape')).not.toThrow();
+    });
+
+    it('does not skip rest when Space is activating a focused button', () => {
+      const options = buildOptions();
+      renderHook(() => useKeyboardShortcuts(options));
+
+      const button = document.createElement('button');
+      fireKey(' ', button);
+
+      expect(options.onSkipRest).not.toHaveBeenCalled();
     });
   });
 

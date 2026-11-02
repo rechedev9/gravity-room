@@ -120,6 +120,7 @@ describe('useDashboardData', () => {
     const { result } = renderHook(() => useDashboardData(null), { wrapper: createWrapper() });
     expect(result.current.isLoading).toBe(false);
     expect(result.current.hero).toEqual({});
+    expect(result.current.programProgress).toBeNull();
     expect(result.current.recentSessions).toHaveLength(0);
     expect(result.current.liftHistory).toHaveLength(0);
   });
@@ -136,6 +137,12 @@ describe('useDashboardData', () => {
 
     expect(result.current.hero.nextSet).toEqual({ weight: 105, reps: 5, label: 'Squat' });
     expect(result.current.hero.nextWorkout).toMatchObject({ dayIndex: 2, totalDays: 4 });
+    expect(result.current.programProgress).toEqual({
+      day: 3,
+      totalDays: 4,
+      week: 2,
+      fraction: 0.75,
+    });
     expect(result.current.recentSessions).toHaveLength(2);
     expect(result.current.liftHistory).toContainEqual({
       lift: 'Bench',

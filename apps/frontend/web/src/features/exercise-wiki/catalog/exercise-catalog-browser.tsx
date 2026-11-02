@@ -30,6 +30,8 @@ const STALE_TIME_MS = 5 * 60 * 1000;
 
 interface ExerciseCatalogBrowserProps {
   readonly lang: ArticleLang;
+  /** Search term carried in from the ⌘K palette (`?q=`). */
+  readonly initialQuery?: string;
 }
 
 interface FilterState {
@@ -47,13 +49,21 @@ const EMPTY_FILTERS: FilterState = { muscleGroupId: '', equipment: '', level: ''
  * token) receive the full preset catalog, so this works in guest mode without a
  * gate. Rendered only inside the app shell — the public wiki stays static.
  */
-export function ExerciseCatalogBrowser({ lang }: ExerciseCatalogBrowserProps): ReactNode {
+export function ExerciseCatalogBrowser({
+  lang,
+  initialQuery,
+}: ExerciseCatalogBrowserProps): ReactNode {
   const { t } = useTranslation();
 
-  const [searchInput, setSearchInput] = useState('');
+  const [searchInput, setSearchInput] = useState(initialQuery ?? '');
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [offset, setOffset] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // A second palette jump updates the URL without remounting this page.
+  useEffect(() => {
+    if (initialQuery !== undefined) setSearchInput(initialQuery);
+  }, [initialQuery]);
 
   const debouncedSearch = useDebouncedValue(searchInput.trim(), SEARCH_DEBOUNCE_MS);
 

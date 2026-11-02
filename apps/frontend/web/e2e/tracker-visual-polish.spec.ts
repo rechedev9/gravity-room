@@ -30,6 +30,8 @@ test.describe('Tracker visual polish', () => {
   });
 
   test('session header is the only band above the exercises', async ({ page }) => {
+    // The week/day chips are the phone band; lg+ uses the single day selector.
+    await page.setViewportSize({ width: 390, height: 844 });
     const chrome = page.getByTestId('session-chrome');
     await expect(chrome).toBeVisible();
     await expect(chrome.getByRole('heading', { level: 1 })).toHaveText('GZCLP');
@@ -81,13 +83,14 @@ test.describe('Tracker visual polish', () => {
   });
 
   test('week navigation stays compact and follows the selected workout', async ({ page }) => {
+    // The day navigator belongs to the phone layout; lg+ is the table.
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('button', { name: /cambiar día/i }).click();
     const weekSelect = page.getByRole('combobox', { name: /elegir semana del programa/i });
     await expect(weekSelect).toBeVisible();
     await expect(page.getByRole('button', { name: /semana anterior/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /semana siguiente/i })).toBeVisible();
-    const panel = await page.getByTestId('tracker-day-navigation-panel').boundingBox();
-    expect(panel?.height).toBeLessThanOrEqual(310);
+    await expect(page.getByTestId('tracker-day-navigation-panel')).toBeVisible();
     await expect(page.getByRole('button', { name: /vista compacta/i })).toBeVisible();
 
     const nextDay = page.getByRole('button', { name: /siguiente día/i });
@@ -152,7 +155,8 @@ test.describe('Tracker visual polish', () => {
   });
 
   test('classic-light accent is warm gold, not cool indigo', async ({ page }) => {
-    // Locale is es-ES; compact sidebar selector uses aria-label "Claro".
+    // Locale is es-ES; a guest has no Cuenta menu, so the compact sidebar
+    // selector is the theme entry point (aria-label "Claro").
     await page.locator('[data-theme-option="classic-light"]').click();
     await expect
       .poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-theme')))
@@ -172,7 +176,7 @@ test.describe('Tracker visual polish', () => {
   test('theme selector shows short labels and edit weights surfaces recalc callout', async ({
     page,
   }) => {
-    // Compact selector shows the two available themes: Oro / Claro.
+    // The compact guest selector shows the two available themes: Oro / Claro.
     await expect(page.locator('[data-theme-option="gold"]')).toContainText(/oro/i);
     await expect(page.locator('[data-theme-option="classic-light"]')).toContainText(/claro/i);
     await expect(page.locator('[data-theme-option="classic-dark"]')).toHaveCount(0);

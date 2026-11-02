@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { GenericSlotRow } from '@gzclp/domain/types';
 import { CheckIcon, CrossIcon } from '@/components/glyph-icons';
 import { useUnitPreference } from '@/hooks/use-unit-preference';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { localizedExerciseName } from '@/lib/catalog-display';
 import { cn } from '@/lib/cn';
 import type { DayViewProps } from './day-view';
@@ -127,6 +128,7 @@ function SlotSets({
   isSlotLogging,
 }: SlotSetsProps): ReactNode {
   const { t } = useTranslation();
+  const isDesktop = useIsDesktop();
   const { unit, toDisplay, fromDisplay, format } = useUnitPreference();
   const isDone = slot.result !== undefined;
   const noWeight = slot.isGpp === true || slot.isBodyweight === true;
@@ -177,8 +179,8 @@ function SlotSets({
   const doneWithoutLogs = isDone && confirmedCount === 0;
   const slotSucceeded = slot.result === 'success';
   const columns = noWeight
-    ? 'grid-cols-[1.75rem_minmax(0,1fr)_2.75rem]'
-    : 'grid-cols-[1.75rem_minmax(0,1fr)_minmax(0,1fr)_2.75rem]';
+    ? 'grid-cols-[2.5rem_minmax(0,1fr)_2.75rem]'
+    : 'grid-cols-[2.5rem_minmax(0,1fr)_minmax(0,1fr)_2.75rem]';
 
   return (
     <SlotCardShell slot={slot} focal={focal}>
@@ -188,14 +190,18 @@ function SlotSets({
         aria-label={t('tracker.detailed_day_view.table_aria', { exercise: exerciseLabel })}
         className="flex flex-col gap-2"
       >
+        {/* Artboard S8 column header: Serie | Objetivo (kg) | Reps | check. */}
         <div
           aria-hidden="true"
-          className={cn('grid gap-2 font-mono text-xs font-bold text-label', columns)}
+          className={cn(
+            'grid gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-label',
+            columns
+          )}
         >
-          <span />
+          <span>{t('tracker.detailed_day_view.col_set')}</span>
           {!noWeight && <span className="pl-1">{unit}</span>}
           <span className="pl-1">{t('tracker.detailed_day_view.col_reps')}</span>
-          <span />
+          <span className="text-center">✓</span>
         </div>
 
         {setRows.map((row, rowIndex) => {
@@ -263,7 +269,14 @@ function SlotSets({
             <div
               key={row.setIndex}
               data-set-state={isNext ? 'next' : 'queued'}
-              className={cn('grid items-center gap-2', columns, !isNext && 'opacity-45')}
+              className={cn(
+                'relative grid items-center gap-2',
+                columns,
+                !isNext && 'opacity-45',
+                // The active row carries the gold edge, like the artboard's table.
+                isNext &&
+                  'before:absolute before:inset-y-0 before:-left-2 before:w-[2px] before:rounded-[2px] before:bg-accent before:content-[""]'
+              )}
             >
               {label}
               {!noWeight && (
@@ -332,12 +345,14 @@ function SlotSets({
         })}
       </div>
 
-      {/* Set-first mode: the footer only carries undo, AMRAP and RPE. */}
+      {/* Phone stays set-first (one primary action per row). The desktop table
+          sits next to the whole-slot quick actions, which the tracker's e2e and
+          keyboard-free flow rely on. */}
       <SlotResultFooter
         slot={slot}
         workoutIndex={workoutIndex}
         isLogging={logging}
-        setFirstMode
+        setFirstMode={!isDesktop}
         onMark={onMark}
         onUndo={onUndo}
         onSetAmrapReps={onSetAmrapReps}

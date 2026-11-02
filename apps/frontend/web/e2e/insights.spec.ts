@@ -6,10 +6,10 @@ test.describe('Insights view', () => {
     await authenticateOnly(page);
   });
 
-  test('sidebar exposes the Insights nav item', async ({ page }) => {
+  test('sidebar exposes the Insights page as Progreso', async ({ page }) => {
     await page.goto('/app');
     const nav = page.getByRole('navigation').first();
-    await expect(nav.getByRole('link', { name: 'Análisis' })).toBeVisible({ timeout: 10_000 });
+    await expect(nav.getByRole('link', { name: 'Progreso' })).toBeVisible({ timeout: 10_000 });
   });
 
   test('navigating to /app/insights renders the page header', async ({ page }) => {

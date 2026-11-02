@@ -229,3 +229,30 @@ export function buildLiftHistory(rows: readonly GenericWorkoutRow[]): readonly L
   }
   return history;
 }
+
+/** Where the lifter stands in the active program: the sidebar program card. */
+export interface ProgramProgress {
+  /** 1-based day the lifter trains next (the last day once everything is logged). */
+  readonly day: number;
+  readonly totalDays: number;
+  /** 1-based program week of that day. */
+  readonly week: number;
+  /** day / totalDays, for the progress bar. */
+  readonly fraction: number;
+}
+
+export function buildProgramProgress(
+  rows: readonly GenericWorkoutRow[],
+  totalWorkouts: number,
+  workoutsPerWeek: number
+): ProgramProgress | null {
+  if (totalWorkouts <= 0 || workoutsPerWeek <= 0) return null;
+  const firstPendingIdx = findFirstPendingIndex(rows);
+  const day = firstPendingIdx < 0 ? totalWorkouts : Math.min(firstPendingIdx + 1, totalWorkouts);
+  return {
+    day,
+    totalDays: totalWorkouts,
+    week: Math.floor((day - 1) / workoutsPerWeek) + 1,
+    fraction: day / totalWorkouts,
+  };
+}

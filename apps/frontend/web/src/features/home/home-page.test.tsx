@@ -18,6 +18,9 @@ vi.mock('@/hooks/use-document-title', () => ({
   useDocumentTitle: () => undefined,
 }));
 
+// This suite covers the phone stack; the lg+ layout has its own e2e coverage.
+vi.mock('@/hooks/use-is-desktop', () => ({ useIsDesktop: () => false }));
+
 vi.mock('@/contexts/auth-context', () => ({
   useAuth: () => ({ user: { id: 'home-page-test-user' } }),
 }));
