@@ -16,6 +16,7 @@ import { useWebMcp } from '@/hooks/use-webmcp';
 import { useWakeLock } from '@/hooks/use-wake-lock';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { useDayNavigation } from '@/hooks/use-day-navigation';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useGraduation } from '@/hooks/use-graduation';
 import { useTestWeightModal } from '@/hooks/use-test-weight-modal';
 import { generateProgramCsv, downloadCsv } from '@/lib/csv-export';
@@ -28,6 +29,7 @@ import { GraduationPanel } from './graduation-panel';
 import { ProgramCompletionScreen } from './program-completion-screen';
 import { ProgramTabContent } from './program-tab-content';
 import { SessionChrome } from './session-chrome';
+import { DesktopKeyBar } from './desktop-key-bar';
 import { SetupForm } from './setup-form';
 import { TestWeightModal } from './test-weight-modal';
 import { RestTimer } from './rest-timer';
@@ -297,17 +299,20 @@ export function ProgramApp({
     return slot ?? null;
   }, [rows, firstPendingIdx]);
 
+  const desktopTable = useIsDesktop();
+
   useKeyboardShortcuts({
     isActive: isViewActive && config !== null,
     onSuccess: () => {
-      // Detailed / set-first mode: S/F would bypass per-set confirm — ignore.
-      if (dayNav.viewMode === 'detailed') return;
+      // Detailed / set-first mode (and the lg+ table): S/F would bypass per-set
+      // confirm, so they stay inert.
+      if (dayNav.viewMode === 'detailed' || desktopTable) return;
       if (firstPendingSlot !== null) {
         handleMarkResult(firstPendingIdx, firstPendingSlot.slotId, 'success');
       }
     },
     onFail: () => {
-      if (dayNav.viewMode === 'detailed') return;
+      if (dayNav.viewMode === 'detailed' || desktopTable) return;
       if (firstPendingSlot !== null) {
         handleMarkResult(firstPendingIdx, firstPendingSlot.slotId, 'fail');
       }
@@ -496,6 +501,8 @@ export function ProgramApp({
           />
         )}
       </div>
+
+      {config && rows.length > 0 && <DesktopKeyBar />}
 
       <TestWeightModal
         isOpen={testWeight.testWeightModal !== null}

@@ -1227,6 +1227,13 @@
       "success": "Éxito registrado",
       "fail": "Fallo registrado",
       "awaiting": "Resultado pendiente"
+    },
+    "key_bar": {
+      "confirm": "confirmar",
+      "reps": "reps",
+      "day": "día",
+      "undo": "deshacer",
+      "rest": "saltar descanso"
     }
   },
   "profile": {

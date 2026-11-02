@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { GenericSlotRow } from '@gzclp/domain/types';
 import { CheckIcon, CrossIcon } from '@/components/glyph-icons';
 import { useUnitPreference } from '@/hooks/use-unit-preference';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { localizedExerciseName } from '@/lib/catalog-display';
 import { cn } from '@/lib/cn';
 import type { DayViewProps } from './day-view';
@@ -127,6 +128,7 @@ function SlotSets({
   isSlotLogging,
 }: SlotSetsProps): ReactNode {
   const { t } = useTranslation();
+  const isDesktop = useIsDesktop();
   const { unit, toDisplay, fromDisplay, format } = useUnitPreference();
   const isDone = slot.result !== undefined;
   const noWeight = slot.isGpp === true || slot.isBodyweight === true;
@@ -332,12 +334,14 @@ function SlotSets({
         })}
       </div>
 
-      {/* Set-first mode: the footer only carries undo, AMRAP and RPE. */}
+      {/* Phone stays set-first (one primary action per row). The desktop table
+          sits next to the whole-slot quick actions, which the tracker's e2e and
+          keyboard-free flow rely on. */}
       <SlotResultFooter
         slot={slot}
         workoutIndex={workoutIndex}
         isLogging={logging}
-        setFirstMode
+        setFirstMode={!isDesktop}
         onMark={onMark}
         onUndo={onUndo}
         onSetAmrapReps={onSetAmrapReps}

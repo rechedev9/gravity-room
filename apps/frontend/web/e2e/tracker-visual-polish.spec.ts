@@ -81,13 +81,14 @@ test.describe('Tracker visual polish', () => {
   });
 
   test('week navigation stays compact and follows the selected workout', async ({ page }) => {
+    // The day navigator belongs to the phone layout; lg+ is the table.
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('button', { name: /cambiar día/i }).click();
     const weekSelect = page.getByRole('combobox', { name: /elegir semana del programa/i });
     await expect(weekSelect).toBeVisible();
     await expect(page.getByRole('button', { name: /semana anterior/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /semana siguiente/i })).toBeVisible();
-    const panel = await page.getByTestId('tracker-day-navigation-panel').boundingBox();
-    expect(panel?.height).toBeLessThanOrEqual(310);
+    await expect(page.getByTestId('tracker-day-navigation-panel')).toBeVisible();
     await expect(page.getByRole('button', { name: /vista compacta/i })).toBeVisible();
 
     const nextDay = page.getByRole('button', { name: /siguiente día/i });

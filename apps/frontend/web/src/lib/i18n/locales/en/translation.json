@@ -1227,6 +1227,13 @@
       "success": "Logged success",
       "fail": "Logged fail",
       "awaiting": "Awaiting result"
+    },
+    "key_bar": {
+      "confirm": "confirm",
+      "reps": "reps",
+      "day": "day",
+      "undo": "undo",
+      "rest": "skip rest"
     }
   },
   "profile": {
